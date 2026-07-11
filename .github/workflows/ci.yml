@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Repo validation (manifests, skills, agents, hooks, info gate)
+        run: python3 scripts/validate.py
+
+      - name: ShellCheck init.sh
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck scripts/init.sh
+
+      - name: Smoke test init.sh (greenfield + brownfield)
+        run: |
+          set -e
+          cd "$(mktemp -d)"
+          bash "$GITHUB_WORKSPACE/scripts/init.sh" demo --desc "ci smoke"
+          test -f demo/CLAUDE.md && ! grep -q '{{' demo/CLAUDE.md
+          cd demo && rm spec/07-design.md
+          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -q "1 created, 11 skipped"
+          echo "init.sh smoke ✓"

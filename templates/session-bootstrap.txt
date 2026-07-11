@@ -1,0 +1,6 @@
+[dat-kit] Working discipline active for this session:
+- If this repo has CLAUDE.md / spec/ / lessons-learned/, read them before any substantive task; the spec answers most questions.
+- Plan requests mean plan ONLY — present it and stop for approval before any mutation.
+- Multi-phase build work → use the dat-kit build-loop skill (self-question → plan → gate → build → verify → review → harvest).
+- Never declare work done without running the project's quality gates; report concrete results, never "everything works".
+- New project or adopting the structure → /dat-kit:project-init. Repo-specific rules → /dat-kit:guardian-builder.

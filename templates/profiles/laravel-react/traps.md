@@ -1,0 +1,5 @@
+- Paged fetchers: 0-based `page`, return `{ data, total }`, `start = page * pageSize`. Smoke-test pages 1→2→3 on every list.
+- Generic `required` validators treat `0` as empty — numeric fields (position, flags) need explicit null checks.
+- Never enable two features claiming the same interaction on one component.
+- User-generated markdown/HTML MUST be sanitized server-side before caching or rendering — comments and rich-text bodies are the classic XSS paths.
+- Bilingual projects: "translation missing" is a first-class UX state on every content surface, not an edge case.
