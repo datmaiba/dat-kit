@@ -2,7 +2,7 @@
 
 A spec-driven development toolkit for Claude Code, distilled from real production workflows. One install gives your agent a complete working discipline: think before coding, plan before building, verify before claiming, and harvest lessons after shipping.
 
-> Status: **v0.6.x — feature-complete, pre-1.0**. All skills, templates, agents, hooks, and CI have landed; v1.0 ships after dogfooding on a real project. See [Roadmap](#roadmap).
+> Status: **v1.0.0 — dogfooded on a real project**. All skills, templates, agents, hooks, and CI have landed. See [Roadmap](#roadmap).
 
 ## What's inside
 
@@ -59,7 +59,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v0.5.0 — SessionStart hook + reviewer agents
 - [x] v0.6.0 — CI (skill lint, shellcheck, info gate), docs, end-to-end smoke test
 - [x] v0.7.0 — `scorecard` benchmark: complexity rubric, hours estimate, real token usage from transcripts
-- [ ] v1.0.0 — dogfooded on a real project
+- [x] v1.0.0 — dogfooded on a real project
 
 ## License
 
