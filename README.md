@@ -13,6 +13,7 @@ A spec-driven development toolkit for Claude Code, distilled from real productio
 | `skills/fable-pro` | The same discipline, adapted for any profession — accounting, law, design, medicine. |
 | `skills/guardian-builder` | Generate a project-specific "guardian" skill: guardrails, naming rules, plan gate, lessons integration for any repo. |
 | `skills/project-init` | Scaffold a new project (or adopt an existing one) with CLAUDE.md, spec skeleton, rules, and a stack profile. |
+| `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled as estimates), real wall time and gates — appended to `benchmarks/scorecard.jsonl`. `scripts/scorecard.py` fills real token usage from Claude Code transcripts and prints the aggregate table. |
 | `agents/` | Independent reviewers: `plan-reviewer`, `qa-agent`, `code-reviewer` — the builder never grades its own work. |
 | `templates/` | `common/` (stack-agnostic CLAUDE.md, spec 00–08 skeleton, rules) + `profiles/laravel-react/` (battle-tested architecture rules). |
 | `hooks.json` | SessionStart bootstrap: injects the working discipline automatically — no manual skill invocation. |
@@ -57,6 +58,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v0.4.0 — templates + `project-init` (greenfield & `--here` brownfield)
 - [x] v0.5.0 — SessionStart hook + reviewer agents
 - [x] v0.6.0 — CI (skill lint, shellcheck, info gate), docs, end-to-end smoke test
+- [x] v0.7.0 — `scorecard` benchmark: complexity rubric, hours estimate, real token usage from transcripts
 - [ ] v1.0.0 — dogfooded on a real project
 
 ## License

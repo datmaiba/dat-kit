@@ -85,7 +85,7 @@ Follow the project's `CLAUDE.md` architecture rules exactly. Work dependencies-f
 **Delegate to `code-reviewer`**: independent diff audit against `CLAUDE.md` rules and the stack profile. Verdict `RETURN TO BUILDER` → fix findings → re-run **both** qa-agent (regression) and code-reviewer. Repeat until `APPROVE`. Its LESSON CANDIDATES feed step 7.
 
 ### 7. HARVEST
-Propose lessons-learned entries for anything the user corrected or you caught yourself — write to `lessons-learned/` only after the user approves. If the `lesson-miner` tool is installed, remind the user to run its scan after the session; if not, skip silently. State what the next phase needs from this one.
+Propose lessons-learned entries for anything the user corrected or you caught yourself — write to `lessons-learned/` only after the user approves. If the `lesson-miner` tool is installed, remind the user to run its scan after the session; if not, skip silently. Then run the **scorecard** skill for this phase (complexity rubric, estimated manual hours, wall time, gates — appended to `benchmarks/scorecard.jsonl`). State what the next phase needs from this one.
 
 ## AUTOPILOT MODE
 
@@ -96,7 +96,7 @@ Activated ONLY when the user's request contains the word **"autopilot"**. Change
 - Phase transition REQUIRES: all gates green + the phase's demo verified (describe how; browser-only steps the user must do are listed and deferred, never skipped silently).
 - Any check failure: fix up to 3 attempts, then STOP and report — never continue on red.
 - **Long-running commands**: verify any wakeup/scheduling call actually SUCCEEDED before yielding the turn; if it errored, retry or fall back to a foreground wait. A yielded turn with no wakeup set kills the run silently.
-- End of each phase: commit + print the **4-part wrap-up**: (1) done/fixed, numbered · (2) left intentionally, with reason · (3) remaining for the user — exact commands, dependency order · (4) concrete verification results per gate ("pest 24/24 ✓, tsc ✓") + auto-decisions logged this phase. Never "everything works".
+- End of each phase: commit + print the **4-part wrap-up**: (1) done/fixed, numbered · (2) left intentionally, with reason · (3) remaining for the user — exact commands, dependency order · (4) concrete verification results per gate ("pest 24/24 ✓, tsc ✓") + auto-decisions logged this phase. Never "everything works". Then append the phase's scorecard line (see the scorecard skill).
 - **Precedence**: during autopilot this skill wins over any plan-gate rule in the project's rules files; in normal mode the plan-gate applies unchanged.
 - Context hygiene: if the session grows long, finish the current phase, print the report, and tell the user to start a fresh session with "autopilot from phase N+1" — don't degrade quality to avoid a restart.
 
