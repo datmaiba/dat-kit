@@ -46,4 +46,17 @@ Dev/test local từ folder: `claude --plugin-dir /đường/dẫn/dat-kit`
 
 ## Bảo trì
 
-Sửa gì cũng phải: chạy `python3 scripts/validate.py` (đúng bộ check CI chạy trên GitHub) + **bump version** ở cả `plugin.json` và `marketplace.json` (không bump = user không nhận update). Thêm stack profile mới: tạo folder `templates/profiles/<tên>/` với 3 file `architecture.md`, `gates.md`, `traps.md` — chỉ thêm khi đã thực chiến stack đó, đừng viết chay.
+### Quy trình update plugin (làm đúng thứ tự, mỗi lần sửa bất kỳ thứ gì)
+
+1. Sửa file (skill/agent/template/script/hook)
+2. `python scripts/validate.py` — phải "all checks green" (đúng bộ check CI chạy)
+3. Bump version ở CẢ HAI file: `.claude-plugin/plugin.json` và `.claude-plugin/marketplace.json` — không bump = client không nhận update. Patch (`x.y.Z`) cho fix, minor (`x.Y.0`) cho tính năng mới
+4. `git add -A && git commit && git push` — check tab Actions trên GitHub phải xanh
+5. Trong Claude Code: `/plugin` → Marketplaces → update dat-kit → tab Installed hiện version mới (bước này bắt buộc làm tay — model không tự chạy được lệnh UI, và đây là chốt bảo mật có chủ đích)
+6. Mở session MỚI — session đang chạy vẫn dùng bản cũ đã nạp lúc khởi động (hoặc `/reload-plugins` nếu chỉ cần hook/agent)
+
+**Nguyên tắc thứ tự**: sửa tool trước, dùng tool sau — thay đổi dat-kit rẻ (1 file, 1 push), phase build thì đắt; đừng chạy phase dài trên tool có bug đã biết.
+
+### Thêm stack profile mới
+
+Tạo `templates/profiles/<tên>/` với 3 file `architecture.md`, `gates.md`, `traps.md` — chỉ thêm khi đã thực chiến stack đó, đừng viết chay.

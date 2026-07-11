@@ -61,6 +61,17 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v0.7.0 — `scorecard` benchmark: complexity rubric, hours estimate, real token usage from transcripts
 - [x] v1.0.0 — dogfooded on a real project
 
+## Maintenance
+
+Plugin update workflow (in order, every time anything changes):
+
+1. Edit the file (skill/agent/template/script/hook)
+2. `python scripts/validate.py` — must print "all checks green" (same checks CI runs)
+3. Bump version in BOTH `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` — skip this and clients never see the update. Patch (`x.y.Z`) for fixes, minor (`x.Y.0`) for new features
+4. `git add -A && git commit && git push` — check the GitHub Actions tab is green
+5. In Claude Code: `/plugin` → Marketplaces → update dat-kit → Installed tab shows the new version (manual step by design — the model can't drive this UI, and it's a deliberate security checkpoint)
+6. Open a NEW session — a running session still uses the version loaded at startup (or `/reload-plugins` if only a hook/agent changed)
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
