@@ -10,7 +10,7 @@
       "source": "./",
       "displayName": "dat-kit",
       "description": "Spec-driven development toolkit: Fable-style discipline, self-questioning build loop with subagent review, stack-profile scaffolding, lessons-learned system.",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "author": {
         "name": "Dat Mai Ba"
       }
