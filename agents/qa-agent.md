@@ -21,6 +21,8 @@ Attack using the spec's own edge cases — via the project's API/CLI and by read
 - **Injection**: user-supplied markdown/HTML with `<script>` — must arrive sanitized wherever it is rendered or cached.
 - **State/time**: scheduled/temporal state whose moment passes; deleting parents with children (must behave per spec, not 500).
 
+Data safety: never run destructive commands against the dev database (migrate:fresh, db:wipe, artisan migrate:rollback, DELETE without WHERE) without explicit user approval in this session. Prefer the project's dedicated test database for state-heavy attacks; if dev-database state must change, ask first and restore it afterwards.
+
 ## 3. Report
 
     GATES: green | red (which, with the exact command)
