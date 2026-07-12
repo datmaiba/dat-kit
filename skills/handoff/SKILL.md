@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Compact the current working session into a handoff document saved in the repo, so a fresh session (or a delegated builder subagent) can continue the work with zero re-discovery. Invoke when the user says "handoff", "bàn giao", "viết handoff", when a build-loop session approaches the context ceiling mid-phase, or before deliberately stopping work that another session must resume. The document is written to handoffs/ in the project and is what build-loop's interrupted-session recovery reads first. Unlike /compact, the handoff survives across sessions, machines, and agents because it lives in the repo.
+description: Compact the current working session into a handoff document saved in the repo, so a fresh session (or a delegated builder subagent) can continue the work with zero re-discovery. Invoke when the user says "handoff", "write a handoff", "hand this off", when a build-loop session approaches the context ceiling mid-phase, or before deliberately stopping work that another session must resume. The document is written to handoffs/ in the project and is what build-loop's interrupted-session recovery reads first. Unlike /compact, the handoff survives across sessions, machines, and agents because it lives in the repo.
 ---
 
 # handoff — compact a session into a resumable document

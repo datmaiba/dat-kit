@@ -2,8 +2,8 @@
 name: scorecard
 description: >-
   Benchmark scoring for AI-assisted work sessions. Invoke at the END of any
-  substantive task — or whenever the user says "chấm điểm", "scorecard", "score
-  this task", "benchmark this session", "log this work". Scores the task on a
+  substantive task — or whenever the user says "scorecard", "score this
+  task", "benchmark this session", "log this work". Scores the task on a
   fixed 1-5 complexity rubric, estimates manual hours saved (clearly labeled as
   an estimate), records actual wall time and gate results, and appends one JSONL
   line to the project's benchmarks/scorecard.jsonl. Token usage is filled in
