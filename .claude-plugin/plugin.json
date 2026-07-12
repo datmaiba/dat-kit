@@ -1,7 +1,7 @@
 {
   "name": "dat-kit",
   "displayName": "dat-kit",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "A spec-driven development toolkit for Claude Code: Fable-style working discipline, a self-questioning build loop with subagent review, project scaffolding with stack profiles, and a lessons-learned system.",
   "author": {
     "name": "Dat Mai Ba",

@@ -59,6 +59,16 @@ for f in sorted(glob.glob(str(ROOT / "agents/*.md"))):
     for key in ("name", "description", "tools"):
         check(key in fm, f"{f}: frontmatter missing '{key}'")
 
+# 3b. Agent-existence gate — the review team table in build-loop is the single source of truth
+build_loop = ROOT / "skills/build-loop/SKILL.md"
+for line in build_loop.read_text(encoding="utf-8").splitlines():
+    if line.startswith("| `"):
+        m = re.search(r"`([^`]+)`", line)
+        if m:
+            name = m.group(1)
+            check((ROOT / f"agents/{name}.md").exists(),
+                  f"build-loop references agent '{name}' but agents/{name}.md does not exist")
+
 # 4. Hooks
 hooks = json.load(open(ROOT / "hooks.json"))
 check("SessionStart" in hooks.get("hooks", {}), "hooks.json: SessionStart missing")

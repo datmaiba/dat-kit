@@ -20,8 +20,9 @@ You are the **builder**. Independent reviewers keep you honest — never grade y
 | `plan-reviewer` | audits plans against spec (read-only) | step 3, before the approval gate |
 | `qa-agent` | runs gates + attacks with edge cases | step 5, loops until PHASE DONE |
 | `code-reviewer` | audits the diff against the rules | step 6, loops until APPROVE |
+| `security-reviewer` | attacker's-eye audit of the diff (read-only) | step 6b — only when the phase touches security-relevant surfaces |
 
-Inner loop per phase: **build → qa-agent → fix → qa-agent → code-reviewer → fix → (regression qa) → done**. Applies in BOTH normal and autopilot modes.
+Inner loop per phase: **build → qa-agent → fix → qa-agent → code-reviewer → fix → (regression qa) → done**. Applies in BOTH normal and autopilot modes. Phases touching security-relevant surfaces (see step 6b) add security-reviewer after code-reviewer.
 
 ## PREFLIGHT — one-time whole-project questionnaire (before phase 0)
 
@@ -84,8 +85,16 @@ Follow the project's `CLAUDE.md` architecture rules exactly. Work dependencies-f
 ### 6. REVIEW → code-reviewer
 **Delegate to `code-reviewer`**: independent diff audit against `CLAUDE.md` rules and the stack profile. Verdict `RETURN TO BUILDER` → fix findings → re-run **both** qa-agent (regression) and code-reviewer. Repeat until `APPROVE`. Its LESSON CANDIDATES feed step 7.
 
+### 6b. SECURITY → security-reviewer (conditional)
+Trigger when the phase's diff touches ANY of: auth/session logic · user-supplied content (forms, markdown, comments) · file uploads or path handling · new public endpoints · permission changes · payment/money. Delegate to `security-reviewer` after code-reviewer approves. Verdict `RETURN TO BUILDER` (any CRITICAL/HIGH finding) → fix → re-run qa-agent (regression) + security-reviewer. Its LESSON CANDIDATES feed step 7. Phases touching none of those surfaces skip 6b — state the skip and the reason explicitly in the report, never silently.
+
 ### 7. HARVEST
-Propose lessons-learned entries for anything the user corrected or you caught yourself — write to `lessons-learned/` only after the user approves. If the `lesson-miner` tool is installed, remind the user to run its scan after the session; if not, skip silently. Then run the **scorecard** skill for this phase and INCLUDE the appended JSON line in your wrap-up — a phase report without its scorecard line is incomplete. State what the next phase needs from this one.
+Run in this exact order — the mechanical step comes FIRST so no approval pause can cut it off:
+
+1. **Scorecard**: run the **scorecard** skill for this phase and capture the appended JSON line. This requires no approval and must never be placed after a step that can pause.
+2. **Lessons**: propose lessons-learned entries for anything the user corrected or you caught yourself. Normal mode: write to `lessons-learned/` only after the user approves. Autopilot mode: appending is auto-approved (append-only, trivially reversible — low severity per the rubric); list the appended entries in the report instead of stopping.
+3. If the `lesson-miner` tool is installed, remind the user to run its scan after the session; if not, skip silently.
+4. **Print the 5-part wrap-up** — BOTH modes; the phase is not reported until all five parts are present: (1) done/fixed, numbered · (2) left intentionally, with reason · (3) remaining for the user — exact commands, dependency order · (4) concrete verification results per gate ("pest 24/24 ✓, tsc ✓") + auto-decisions logged this phase — never "everything works" · (5) the scorecard JSON line from item 1. End by stating what the next phase needs from this one.
 
 ## AUTOPILOT MODE
 
@@ -93,10 +102,10 @@ Activated ONLY when the user's request contains the word **"autopilot"**. Change
 
 - **Preflight first**: if `spec/08-decisions.md` doesn't exist, run PREFLIGHT (the single approval stop), then proceed through all phases without stopping.
 - Step 3 relaxes: present the plan, then **proceed without waiting** — UNLESS there's a HIGH-severity open question not covered by `spec/08-decisions.md`, or the plan deviates from spec (still stop).
-- Phase transition REQUIRES: all gates green + the phase's demo verified (describe how; browser-only steps the user must do are listed and deferred, never skipped silently).
+- Phase transition REQUIRES: all gates green + the phase's demo verified (describe how; browser-only steps the user must do are listed and deferred, never skipped silently) + security-reviewer APPROVE when step 6b was triggered (an open CRITICAL/HIGH finding blocks the transition).
 - Any check failure: fix up to 3 attempts, then STOP and report — never continue on red.
 - **Long-running commands**: verify any wakeup/scheduling call actually SUCCEEDED before yielding the turn; if it errored, retry or fall back to a foreground wait. A yielded turn with no wakeup set kills the run silently.
-- End of each phase: commit + print the **4-part wrap-up**: (1) done/fixed, numbered · (2) left intentionally, with reason · (3) remaining for the user — exact commands, dependency order · (4) concrete verification results per gate ("pest 24/24 ✓, tsc ✓") + auto-decisions logged this phase. Never "everything works". The wrap-up is NOT complete without part (5): the phase's scorecard line — run the scorecard skill and show the appended JSON line in the report.
+- End of each phase: commit + run step 7 (HARVEST) in full — the **5-part wrap-up** including the scorecard line. Lessons are auto-appended per step 7.
 - **Precedence**: during autopilot this skill wins over any plan-gate rule in the project's rules files; in normal mode the plan-gate applies unchanged.
 - Context hygiene: if the session grows long, finish the current phase, print the report, and tell the user to start a fresh session with "autopilot from phase N+1" — don't degrade quality to avoid a restart.
 

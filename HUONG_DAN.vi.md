@@ -21,7 +21,7 @@ Dev/test local từ folder: `claude --plugin-dir /đường/dẫn/dat-kit`
 | `/dat-kit:fable-pro` | Bản cho mọi ngành nghề ngoài code (kế toán, luật, design, y...) |
 | `/dat-kit:guardian-builder` | Sinh "guardian" riêng cho 1 repo: checklist bắt buộc trước khi code, chưng cất từ convention thật + lessons-learned của repo đó |
 | `/dat-kit:scorecard` | Chấm điểm task: rubric độ phức tạp 1-5 cố định, ước lượng giờ-tay tiết kiệm (dán nhãn estimate), thời gian thật, gates — ghi vào `benchmarks/scorecard.jsonl`. Chạy `python3 scripts/scorecard.py` để điền token THẬT từ transcript Claude Code + in bảng tổng hợp. Build-loop tự gọi cuối mỗi phase |
-| 3 agents | `plan-reviewer`, `qa-agent`, `code-reviewer` — builder không bao giờ tự chấm bài mình |
+| 4 agents | `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — builder không bao giờ tự chấm bài mình |
 | SessionStart hook | Tự inject kỷ luật làm việc vào đầu mọi session — không cần gọi skill tay |
 
 ## Dùng hằng ngày
