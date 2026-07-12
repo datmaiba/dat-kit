@@ -1,6 +1,6 @@
 ---
 name: build-loop
-description: The self-questioning build loop for spec-driven projects. Invoke on any request like "build phase N", "run the build loop", "continue the project", "preflight", "autopilot", or any feature work in a repo that has a spec/ directory. Enforces context load → self-questioning against the spec → plan → approval gate → build → verified checks → independent review → lessons harvest. Autopilot mode runs one up-front PREFLIGHT questionnaire (recorded in spec/08-decisions.md), then executes all phases without stopping except for high-severity questions. Use this skill whenever the user wants to build features from a written spec, resume an interrupted build, or run a multi-phase project hands-off.
+description: The self-questioning build loop for spec-driven projects. Invoke on any request like "build phase N", "run the build loop", "continue the project", "preflight", "autopilot", or any feature work in a repo that has a spec/ directory. Enforces context load → self-questioning against the spec → plan → approval gate → build → verified checks → independent review → lessons harvest. Autopilot mode runs one up-front PREFLIGHT questionnaire (recorded in spec/08-decisions.md), then executes all phases without stopping except for high-severity questions. Delegated-build mode ("delegated build") makes the main session an orchestrator dispatching fresh builder subagents per task with two-stage review. Use this skill whenever the user wants to build features from a written spec, resume an interrupted build (reads the newest handoffs/ file first), or run a multi-phase project hands-off.
 ---
 
 # build-loop — the self-questioning build loop
@@ -50,7 +50,7 @@ Score every question that surfaces after preflight before anything stops:
 ## The loop (run in full for every phase or feature)
 
 ### 1. LOAD
-Read: `CLAUDE.md`, the relevant `spec/` files for this phase, `lessons-learned/lessons-learned.md` (if present), and the previous phase's code. Surface lessons-learned hits relevant to this phase explicitly.
+Read: `CLAUDE.md`, the relevant `spec/` files for this phase, `lessons-learned/lessons-learned.md` (if present), `CONTEXT.md` (if present — the project glossary; use its terms verbatim in code, commits, and reports), and the previous phase's code. Surface lessons-learned hits relevant to this phase explicitly.
 
 ### 2. SELF-QUESTION (the core of this skill)
 Generate questions across ALL these lenses, then answer each one **from the spec** with a citation (file + section). Only questions the spec cannot answer go to the user.
@@ -93,8 +93,9 @@ Run in this exact order — the mechanical step comes FIRST so no approval pause
 
 1. **Scorecard**: run the **scorecard** skill for this phase and capture the appended JSON line. This requires no approval and must never be placed after a step that can pause.
 2. **Lessons**: propose lessons-learned entries for anything the user corrected or you caught yourself. Normal mode: write to `lessons-learned/` only after the user approves. Autopilot mode: appending is auto-approved (append-only, trivially reversible — low severity per the rubric); list the appended entries in the report instead of stopping. When a new lesson strengthens or supersedes an earlier entry, also add a one-line forward reference to that earlier entry (e.g. '→ superseded by <date> entry above') — a reader landing on the old entry must not trust a stale rule.
-3. If the `lesson-miner` tool is installed, remind the user to run its scan after the session; if not, skip silently.
-4. **Print the 5-part wrap-up** — BOTH modes; the phase is not reported until all five parts are present: (1) done/fixed, numbered · (2) left intentionally, with reason · (3) remaining for the user — exact commands, dependency order · (4) concrete verification results per gate ("pest 24/24 ✓, tsc ✓") + auto-decisions logged this phase — never "everything works" · (5) the scorecard JSON line from item 1. End by stating what the next phase needs from this one.
+3. **Glossary**: if `CONTEXT.md` exists, propose one-line entries for any domain concept this phase forced you to describe in a sentence more than once (normal mode: after approval; autopilot: auto-append like lessons and list in the report). No candidates → skip silently.
+4. If the `lesson-miner` tool is installed, remind the user to run its scan after the session; if not, skip silently.
+5. **Print the 5-part wrap-up** — BOTH modes; the phase is not reported until all five parts are present: (1) done/fixed, numbered · (2) left intentionally, with reason · (3) remaining for the user — exact commands, dependency order · (4) concrete verification results per gate ("pest 24/24 ✓, tsc ✓") + auto-decisions logged this phase — never "everything works" · (5) the scorecard JSON line from item 1. End by stating what the next phase needs from this one.
 
 ## AUTOPILOT MODE
 
@@ -107,12 +108,25 @@ Activated ONLY when the user's request contains the word **"autopilot"**. Change
 - **Long-running commands**: verify any wakeup/scheduling call actually SUCCEEDED before yielding the turn; if it errored, retry or fall back to a foreground wait. A yielded turn with no wakeup set kills the run silently.
 - End of each phase: commit + run step 7 (HARVEST) in full — the **5-part wrap-up** including the scorecard line. Lessons are auto-appended per step 7.
 - **Precedence**: during autopilot this skill wins over any plan-gate rule in the project's rules files; in normal mode the plan-gate applies unchanged.
-- Context hygiene: if the session grows long, finish the current phase, print the report, and tell the user to start a fresh session with "autopilot from phase N+1" — don't degrade quality to avoid a restart.
+- Context hygiene: if the session grows long, finish the current phase, print the report, and tell the user to start a fresh session with "autopilot from phase N+1" — don't degrade quality to avoid a restart. If the ceiling arrives MID-phase: finish the current commit-sized chunk, run the **handoff** skill, and tell the user to resume from the handoff file.
+
+## DELEGATED-BUILD MODE (orchestrator + fresh builder per task)
+
+Activated when the user asks for it ("delegated build", "delegate the build"), or during **autopilot** when a phase's plan exceeds ~5 tasks or the session is past roughly half its context — delegation is what keeps long runs from hitting the ceiling.
+
+Changes to the loop — steps 1–3 and 7 are unchanged; steps 4–6 become:
+
+- **The main session is the orchestrator and writes NO code.** After plan approval it splits the phase into commit-sized tasks (≤ ~30 min each, exact file paths, dependency order) and dispatches a **fresh builder subagent per task**.
+- **Each task gets a builder brief** in the handoff-skill format (Goal / State / Decisions in effect / Files / Gates / Next steps / Traps / Glossary). The brief is the builder's ONLY context — write it so a cold reader succeeds; a vague brief is the orchestrator's failure, not the builder's.
+- **Two-stage review per task, in this order**: (1) **spec compliance** — the orchestrator checks the diff against the brief: everything asked, nothing beyond scope; (2) **code quality** — `code-reviewer` on the diff. Compliance first: quality-polishing the wrong thing wastes a round. Either stage fails → return to a FRESH builder with the brief plus the findings (max 2 retries per task, then STOP and report).
+- **Gates still run per task** (builder runs them, orchestrator spot-checks the claim) and **qa-agent still runs once at phase level** after all tasks land — per-task green does not prove the tasks compose.
+- Builders inherit the severity rubric: a HIGH-severity question inside a task bubbles up to the orchestrator, which applies the normal rules (ask/stop or auto-decide + log).
 
 ## Interrupted-session recovery (on every phase start)
 
 Before step 2, determine whether this phase was already started:
 
+0. If `handoffs/` exists, read the **newest** handoff file first — it is the previous session's compacted state and answers most of the questions below. Verify its claims against git rather than trusting blindly.
 1. `git log --oneline -10` and `git status` — look for this phase's commits and uncommitted work.
 2. Compare what exists on disk against the phase's scope in the build-phases spec.
 3. Report a RESUME STATE: `fresh | partially built (list what exists) | built but unverified`.

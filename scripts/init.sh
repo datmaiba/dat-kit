@@ -55,6 +55,8 @@ echo "Scaffolding '$NAME' (profile: $PROFILE) into $TARGET"
 # spec skeleton + lessons + rules
 for f in "$TPL"/common/spec/*.md; do copy_if_missing "$f" "$TARGET/spec/$(basename "$f")"; done
 copy_if_missing "$TPL/common/lessons-learned/lessons-learned.md" "$TARGET/lessons-learned/lessons-learned.md"
+copy_if_missing "$TPL/common/CONTEXT.md" "$TARGET/CONTEXT.md"
+[ -e "$TARGET/CONTEXT.md" ] && fill_name "$TARGET/CONTEXT.md"
 copy_if_missing "$TPL/common/rules/working.rules.md" "$TARGET/.claude/rules/working.rules.md"
 [ -e "$TARGET/lessons-learned/lessons-learned.md" ] && fill_name "$TARGET/lessons-learned/lessons-learned.md"
 

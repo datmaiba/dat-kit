@@ -15,14 +15,16 @@ Dev/test local từ folder: `claude --plugin-dir /đường/dẫn/dat-kit`
 
 | Thành phần | Công dụng |
 |---|---|
-| `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): CLAUDE.md ghép từ stack profile + skeleton `spec/00→08` + rules + lessons-learned |
-| `/dat-kit:build-loop` | Vòng lặp build: load context → tự chất vấn theo spec → plan → **chờ duyệt** → build → chạy gates → review độc lập → đúc kết bài học. Autopilot: PREFLIGHT gom mọi câu hỏi thành 1 lần duyệt duy nhất |
+| `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): CLAUDE.md ghép từ stack profile + skeleton `spec/00→08` + rules + lessons-learned + `CONTEXT.md` (glossary thuật ngữ domain — agent dùng đúng từ của team, đỡ tốn token) |
+| `/dat-kit:build-loop` | Vòng lặp build: load context → tự chất vấn theo spec → plan → **chờ duyệt** → build → chạy gates → review độc lập → đúc kết bài học. Autopilot: PREFLIGHT gom mọi câu hỏi thành 1 lần duyệt duy nhất. Delegated-build ("delegated build"): session chính làm orchestrator, mỗi task 1 builder subagent mới + review 2 bước (đúng spec → chất lượng code) |
+| `/dat-kit:handoff` | Nén session đang dở thành file bàn giao trong `handoffs/` — session mới (hoặc máy khác) đọc là tiếp tục được ngay; build-loop recovery tự đọc file mới nhất |
 | `/dat-kit:fable-mode` | Kỷ luật làm việc kiểu Fable với 3 mức effort (low/medium/high) |
 | `/dat-kit:fable-pro` | Bản cho mọi ngành nghề ngoài code (kế toán, luật, design, y...) |
 | `/dat-kit:guardian-builder` | Sinh "guardian" riêng cho 1 repo: checklist bắt buộc trước khi code, chưng cất từ convention thật + lessons-learned của repo đó |
 | `/dat-kit:scorecard` | Chấm điểm task: rubric độ phức tạp 1-5 cố định, ước lượng giờ-tay tiết kiệm (dán nhãn estimate), thời gian thật, gates — ghi vào `benchmarks/scorecard.jsonl`. Chạy `python3 scripts/scorecard.py` để điền token THẬT từ transcript Claude Code + in bảng tổng hợp. Build-loop tự gọi cuối mỗi phase |
 | 4 agents | `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — builder không bao giờ tự chấm bài mình |
 | SessionStart hook | Tự inject kỷ luật làm việc vào đầu mọi session — không cần gọi skill tay |
+| `scripts/statusline.py` | Hiện token sau MỖI câu lệnh trên statusline Claude Code: `turn in/out · session total · ~cost · ctx %`. Setup 1 lần mỗi máy: `python3 scripts/statusline.py --install` rồi restart Claude Code (chỉ có trong Claude Code, Cursor không có statusline) |
 
 ## Dùng hằng ngày
 

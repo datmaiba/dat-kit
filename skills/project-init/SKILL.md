@@ -30,7 +30,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/init.sh" --here --profile <profile>
 
 Brownfield guarantees: existing files are never overwritten — the script prints `skip (exists)` per conflict. If `CLAUDE.md` already exists, the profile sections are NOT merged automatically; read the profile files and propose a manual merge as a diff for approval.
 
-If the script cannot run (no bash, permissions), do the same work manually from `${CLAUDE_PLUGIN_ROOT}/templates/`: copy `common/spec/`, `common/lessons-learned/`, `common/rules/`, then assemble `CLAUDE.md` from `CLAUDE.md.tpl` by replacing `{{PROJECT_NAME}}`, `{{PROJECT_DESC}}`, `{{PROFILE_NAME}}` and splicing the profile's `architecture.md`, `gates.md`, `traps.md` into the three `{{PROFILE_*}}` markers.
+If the script cannot run (no bash, permissions), do the same work manually from `${CLAUDE_PLUGIN_ROOT}/templates/`: copy `common/spec/`, `common/lessons-learned/`, `common/rules/`, `common/CONTEXT.md`, then assemble `CLAUDE.md` from `CLAUDE.md.tpl` by replacing `{{PROJECT_NAME}}`, `{{PROJECT_DESC}}`, `{{PROFILE_NAME}}` and splicing the profile's `architecture.md`, `gates.md`, `traps.md` into the three `{{PROFILE_*}}` markers.
 
 ## 3. After scaffolding — the part that actually matters
 
@@ -41,9 +41,11 @@ An empty spec skeleton has zero value until filled. Walk the user through it in 
 3. `spec/02-architecture.md` + `03-db-schema.md` — topology and data. Probe real constraints; don't let placeholders survive.
 4. `spec/04-build-phases.md` — slice P0 features into phases with Scope + Demo each.
 5. Skim `05`–`07` — fill what's known, leave honest TODOs for what isn't.
+6. `CONTEXT.md` — seed the glossary with 3–5 domain terms that came up while filling the spec (one line each). It grows during build phases; it must not start empty of the terms you already used.
 
 Adjust the gate commands in `CLAUDE.md` to the project's real service names before the first build phase.
 
 ## 4. Hand off
 
 Tell the user: run the **build-loop** skill for phase 0 (or "autopilot from phase 0" — PREFLIGHT will batch every open decision into one questionnaire, recorded in `spec/08-decisions.md`). The scaffold is done when `claude` opened in the project reads CLAUDE.md and can recite the rules on "verify rules".
+

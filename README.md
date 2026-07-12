@@ -12,11 +12,13 @@ A spec-driven development toolkit for Claude Code, distilled from real productio
 | `skills/fable-mode` | Careful-working discipline with three effort levels (low/medium/high) scaling reasoning, verification, and reporting. For repos *without* the dat-kit scaffold — scaffolded projects already get this via the rules file and session hook. |
 | `skills/fable-pro` | The same discipline, adapted for any profession — accounting, law, design, medicine. |
 | `skills/guardian-builder` | Generate a project-specific "guardian" skill: guardrails, naming rules, plan gate, lessons integration for any repo. |
-| `skills/project-init` | Scaffold a new project (or adopt an existing one) with CLAUDE.md, spec skeleton, rules, and a stack profile. |
+| `skills/project-init` | Scaffold a new project (or adopt an existing one) with CLAUDE.md, spec skeleton, rules, CONTEXT.md glossary, and a stack profile. |
+| `skills/handoff` | Compact a session into a resumable handoff document in `handoffs/` — survives across sessions and machines; build-loop recovery reads it first; its format doubles as the builder brief for delegated builds. |
 | `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled as estimates), real wall time and gates — appended to `benchmarks/scorecard.jsonl`. `scripts/scorecard.py` fills real token usage from Claude Code transcripts and prints the aggregate table. |
 | `agents/` | Independent reviewers: `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — the builder never grades its own work. |
 | `templates/` | `common/` (stack-agnostic CLAUDE.md, spec 00–08 skeleton, rules) + `profiles/laravel-react/` (battle-tested architecture rules). |
 | `hooks.json` | SessionStart bootstrap: injects the working discipline automatically — no manual skill invocation. |
+| `scripts/statusline.py` | Per-turn + per-session token statusline for Claude Code (incremental transcript parse, ~cost, ctx %). One-time setup: `python3 scripts/statusline.py --install`. |
 
 ## Install
 
@@ -61,7 +63,9 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v0.7.0 — `scorecard` benchmark: complexity rubric, hours estimate, real token usage from transcripts
 - [x] v1.0.0 — dogfooded on a real project
 - [x] v1.1.0 — `security-reviewer` agent + hardened harvest flow (scorecard-first, 5-part wrap-up, autopilot lesson auto-append)
-- [ ] v1.2.0 — delegated-build mode for autopilot: fresh builder subagent per task, main session as orchestrator (activation evidence recorded: phase 3a hit the context ceiling)
+- [x] v1.2.0 — `scripts/statusline.py`: per-turn/per-session token usage in the Claude Code statusline
+- [x] v1.3.0 — `CONTEXT.md` shared-language glossary (template + project-init + build-loop wiring) + `handoff` skill for cross-session resumption
+- [x] v1.4.0 — delegated-build mode: fresh builder subagent per task, two-stage review (spec compliance → code quality), main session as orchestrator; briefs reuse the handoff format (v1.2.0–v1.4.0 shipped as one release train; ideas adapted from obra/superpowers and mattpocock/skills)
 
 ## Maintenance
 
