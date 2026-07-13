@@ -36,5 +36,5 @@ jobs:
           bash "$GITHUB_WORKSPACE/scripts/init.sh" demo --desc "ci smoke"
           test -f demo/CLAUDE.md && ! grep -q '{{' demo/CLAUDE.md
           cd demo && rm spec/07-design.md
-          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -q "1 created, 11 skipped"
+          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -q "1 created, 12 skipped"
           echo "init.sh smoke ✓"
