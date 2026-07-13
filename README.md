@@ -76,6 +76,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.6.0 — skill-eval harness: `benchmarks/skill-evals.jsonl` + a static trigger-regression / collision check in `validate.py` (CI-enforced), guarding skill triggering when descriptions change
 - [x] v1.7.0 — `project-init` suggests optional local-first companion tools (CodeGraph, Headroom) on a fresh repo — detect + suggest the exact command only, never auto-install (no coupling, no privileged commands)
 - [x] v1.8.0 — general work-loop pivot (additive): Domain × Loop model (`docs/loops.md`), Domain Pack contract, `domain-builder` skill with gate-validity gating, `knowledge-work` as the first non-dev pack, domain registry (`docs/domains.md`). No structural moves; the dev experience is unchanged. Structural consolidation and Time/Proactive runners deferred behind a go/no-go once the pivot proves value on a real non-dev task.
+- [x] v1.9.0 — model-selection guidance (`docs/model-selection.md`): tier table (`haiku`/`sonnet`/`opus`/`fable`/inherit) for routing subagent dispatches by cost-of-being-wrong, reviewer agents pinned to `opus`, and the consult-dispatch escalation — on objective failure (gates still red, hypotheses exhausted) a cheap builder gets ONE higher-tier read-only consult returning `PLAN` or `TAKE_OVER`, logged to `benchmarks/escalations.jsonl`.
 
 ## Maintenance
 
