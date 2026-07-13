@@ -10,3 +10,5 @@
 {"id":"trg-fablepro-01","prompt":"review this contract and double-check everything","expect_skill":"fable-pro","match":"double-check everything"}
 {"id":"neg-fact-01","prompt":"what's the capital of France?","expect_skill":null,"match":null}
 {"id":"neg-chat-01","prompt":"thanks, that looks great","expect_skill":null,"match":null}
+{"id":"trg-dombuilder-01","prompt":"create a domain pack for my accounting workflow","expect_skill":"domain-builder","match":"create a domain pack"}
+{"id":"trg-knowwork-01","prompt":"write a researched report on EV battery supply chains","expect_skill":"knowledge-work","match":"write a researched report"}
