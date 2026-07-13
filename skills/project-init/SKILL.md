@@ -45,7 +45,19 @@ An empty spec skeleton has zero value until filled. Walk the user through it in 
 
 Adjust the gate commands in `CLAUDE.md` to the project's real service names before the first build phase.
 
-## 4. Hand off
+## 4. Suggest companion tools (detect, don't install)
+
+dat-kit is a methodology, not a package manager — it never installs anything for the user. But two optional, independent, local-first tools pair well with the build loop, and a fresh repo is the natural moment to point them out. **Detect, then suggest the exact command — never run a privileged install yourself.**
+
+- **CodeGraph** (semantic code index → far fewer tool calls when exploring a repo). Two checks:
+  - `command -v codegraph` missing → suggest it once with the one-time, per-machine install command (`npm install -g @colbymchenry/codegraph`; note a user npm prefix or `sudo` may be needed if the global dir isn't writable), then stop.
+  - CLI present but the repo has no `.codegraph/` → suggest `codegraph init -i` to index this project.
+  - Always remind: add `.codegraph/` to the user's global gitignore (`~/.gitignore_global`), never the repo's tracked `.gitignore`.
+- **Headroom** (local context compression → fewer tokens). Optional. If `command -v headroom` is missing, mention it once with `pip install "headroom-ai[all]"` and stop. Its failure-mining (`headroom learn`) only pays off once the repo has real session history, so don't push it on a fresh repo.
+
+Rules: suggest each tool at most once per repo; if the user declines, or the tool is already set up, say nothing further. Never run `npm` / `pip` / `sudo` on the user's behalf — print the command and let them decide. These are independent projects with their own release cycles; dat-kit only points at them, it does not wrap or version them.
+
+## 5. Hand off
 
 Tell the user: run the **build-loop** skill for phase 0 (or "autopilot from phase 0" — PREFLIGHT will batch every open decision into one questionnaire, recorded in `spec/08-decisions.md`). The scaffold is done when `claude` opened in the project reads CLAUDE.md and can recite the rules on "verify rules".
 

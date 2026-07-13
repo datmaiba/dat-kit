@@ -71,6 +71,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.4.0 — delegated-build mode: fresh builder subagent per task, two-stage review (spec compliance → code quality), main session as orchestrator; briefs reuse the handoff format (v1.2.0–v1.4.0 shipped as one release train; ideas adapted from obra/superpowers and mattpocock/skills)
 - [x] v1.5.0 — `diagnosing-bugs`, `improve-codebase-architecture`, `git-worktrees` skills (adapted from mattpocock/skills and obra/superpowers; folded into dat-kit's single-file, self-contained style)
 - [x] v1.6.0 — skill-eval harness: `benchmarks/skill-evals.jsonl` + a static trigger-regression / collision check in `validate.py` (CI-enforced), guarding skill triggering when descriptions change
+- [x] v1.7.0 — `project-init` suggests optional local-first companion tools (CodeGraph, Headroom) on a fresh repo — detect + suggest the exact command only, never auto-install (no coupling, no privileged commands)
 
 ## Maintenance
 
