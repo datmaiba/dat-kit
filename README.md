@@ -18,6 +18,9 @@ A spec-driven development toolkit for Claude Code, distilled from real productio
 | `skills/diagnosing-bugs` | Disciplined diagnosis loop for hard bugs and perf regressions: feedback-loop-first → reproduce+minimise → ranked falsifiable hypotheses → instrument one variable → fix behind a regression test → post-mortem into lessons-learned. The backward counterpart to build-loop. |
 | `skills/improve-codebase-architecture` | Find "deepening" refactors (shallow → deep modules) for testability and AI-navigability: Explore subagent walk → ranked candidates in a fixed depth/seam vocabulary → grill the chosen one → hand the design to build-loop. |
 | `skills/git-worktrees` | Set up an isolated workspace before a feature or a build-loop plan: detect existing isolation → prefer native worktree tools → git fallback (verified gitignored) → project setup → clean-baseline check. |
+| `skills/domain-builder` | Interview a real practitioner and encode *their* discipline as a Domain Pack (ground-truth · gates · reviewers · deliverables · loop-profile). Enforces gate-validity (real worked cases + a "gamed by X" line + sign-off) and caps interview-authored domains at Turn/Goal. Only encodes domains someone in the room actually practices. |
+| `skills/knowledge-work` | First non-dev Domain Pack — research, writing, analysis. Ground yourself in primary sources, verify every claim against its cited source, pass the citation/fidelity/reliability/currency/coverage/consistency gates with an independent fact-check. Capped at the Goal loop (its load-bearing gate needs a human to close). |
+| `docs/` | `loops.md` — the two-axis model (Domain × Loop) and the capability ladder (Turn/Goal/Time/Proactive, unlocked by gate quality). `domains.md` — the domain registry. |
 | `agents/` | Independent reviewers: `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — the builder never grades its own work. |
 | `templates/` | `common/` (stack-agnostic CLAUDE.md, spec 00–08 skeleton, rules) + `profiles/laravel-react/` (battle-tested architecture rules). |
 | `hooks.json` | SessionStart bootstrap: injects the working discipline automatically — no manual skill invocation. |
@@ -72,6 +75,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.5.0 — `diagnosing-bugs`, `improve-codebase-architecture`, `git-worktrees` skills (adapted from mattpocock/skills and obra/superpowers; folded into dat-kit's single-file, self-contained style)
 - [x] v1.6.0 — skill-eval harness: `benchmarks/skill-evals.jsonl` + a static trigger-regression / collision check in `validate.py` (CI-enforced), guarding skill triggering when descriptions change
 - [x] v1.7.0 — `project-init` suggests optional local-first companion tools (CodeGraph, Headroom) on a fresh repo — detect + suggest the exact command only, never auto-install (no coupling, no privileged commands)
+- [x] v1.8.0 — general work-loop pivot (additive): Domain × Loop model (`docs/loops.md`), Domain Pack contract, `domain-builder` skill with gate-validity gating, `knowledge-work` as the first non-dev pack, domain registry (`docs/domains.md`). No structural moves; the dev experience is unchanged. Structural consolidation and Time/Proactive runners deferred behind a go/no-go once the pivot proves value on a real non-dev task.
 
 ## Maintenance
 
