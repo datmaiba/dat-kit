@@ -88,6 +88,45 @@ for f in glob.glob(str(ROOT / "**/*"), recursive=True):
         if BANNED.search(line):
             findings.append(f"PERSONAL INFO LEAK {f}:{i}: {line.strip()[:80]}")
 
+# 6. Skill-eval cases — static guard against trigger regressions (Tier 1).
+# Each positive case names a `match` trigger phrase that MUST (a) still appear in
+# its expect_skill's description and (b) appear in no other skill's description.
+# Catches the common failure of editing a description and silently breaking a
+# skill's triggering, or two skills fighting over the same trigger.
+skill_desc = {}
+for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
+    fm, _ = frontmatter(f)
+    if fm and fm.get("name"):
+        skill_desc[fm["name"]] = fm.get("description", "") or ""
+
+evals_path = ROOT / "benchmarks/skill-evals.jsonl"
+check(evals_path.exists(), "benchmarks/skill-evals.jsonl missing")
+if evals_path.exists():
+    for i, raw in enumerate(evals_path.read_text(encoding="utf-8").splitlines(), 1):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            case = json.loads(raw)
+        except Exception as e:
+            findings.append(f"skill-evals.jsonl:{i}: invalid JSON: {e}")
+            continue
+        exp = case.get("expect_skill")
+        if exp is None:
+            continue  # negative case — verifiable only behaviourally (Tier 2), skip here
+        cid = case.get("id", f"line {i}")
+        if exp not in skill_desc:
+            findings.append(f"skill-evals [{cid}]: expect_skill '{exp}' has no skills/{exp}/SKILL.md")
+            continue
+        m = (case.get("match") or "").lower()
+        check(bool(m), f"skill-evals [{cid}]: positive case needs a 'match' trigger phrase")
+        if m:
+            check(m in skill_desc[exp].lower(),
+                  f"skill-evals [{cid}]: trigger '{case.get('match')}' no longer in {exp} description (trigger regressed?)")
+            clash = [n for n, d in skill_desc.items() if n != exp and m in d.lower()]
+            check(not clash,
+                  f"skill-evals [{cid}]: trigger '{case.get('match')}' also in {clash} — trigger collision")
+
 if findings:
     print(f"❌ {len(findings)} finding(s):")
     for x in findings:
