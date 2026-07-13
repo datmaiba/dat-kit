@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,9 +27,7 @@ jobs:
         run: python3 scripts/validate.py
 
       - name: ShellCheck init.sh
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck scripts/init.sh
+        run: shellcheck scripts/init.sh
 
       - name: Smoke test init.sh (greenfield + brownfield)
         run: |
