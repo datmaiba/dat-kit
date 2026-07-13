@@ -22,7 +22,7 @@ A spec-driven development toolkit for Claude Code, distilled from real productio
 | `skills/knowledge-work` | First non-dev Domain Pack — research, writing, analysis. Ground yourself in primary sources, verify every claim against its cited source, pass the citation/fidelity/reliability/currency/coverage/consistency gates with an independent fact-check. Capped at the Goal loop (its load-bearing gate needs a human to close). |
 | `docs/` | `loops.md` — the two-axis model (Domain × Loop) and the capability ladder (Turn/Goal/Time/Proactive, unlocked by gate quality). `domains.md` — the domain registry. `model-selection.md` — which model tier (`haiku`/`sonnet`/`opus`/`fable`/inherit) a subagent should run at, and the consult-dispatch escalation for surprise difficulty. |
 | `agents/` | Independent reviewers: `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — the builder never grades its own work. |
-| `templates/` | `common/` (stack-agnostic CLAUDE.md, spec 00–08 skeleton, rules) + `profiles/laravel-react/` (battle-tested architecture rules). |
+| `templates/` | `common/` (stack-agnostic CLAUDE.md, spec 00–08 skeleton, rules) + `profiles/` (battle-tested architecture rules per stack: `laravel-react`, `react`). |
 | `hooks.json` | SessionStart bootstrap: injects the working discipline automatically — no manual skill invocation. |
 | `scripts/statusline.py` | Per-turn + per-session token statusline for Claude Code (incremental transcript parse, ~cost, ctx %). One-time setup: `python3 scripts/statusline.py --install`. |
 
@@ -56,7 +56,7 @@ claude --plugin-dir /path/to/dat-kit
 
 ## Stack profiles
 
-Templates split into `common/` (discipline, applies everywhere) and `profiles/<stack>/` (architecture rules per stack). `laravel-react` ships first — extracted from a production migration project. New profiles are added when battle-tested, not speculatively.
+Templates split into `common/` (discipline, applies everywhere) and `profiles/<stack>/` (architecture rules per stack). `laravel-react` shipped first — extracted from a production migration project; `react` (standalone SPA, no in-repo backend) followed. New profiles are added when battle-tested, not speculatively.
 
 ## Roadmap
 
@@ -77,6 +77,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.7.0 — `project-init` suggests optional local-first companion tools (CodeGraph, Headroom) on a fresh repo — detect + suggest the exact command only, never auto-install (no coupling, no privileged commands)
 - [x] v1.8.0 — general work-loop pivot (additive): Domain × Loop model (`docs/loops.md`), Domain Pack contract, `domain-builder` skill with gate-validity gating, `knowledge-work` as the first non-dev pack, domain registry (`docs/domains.md`). No structural moves; the dev experience is unchanged. Structural consolidation and Time/Proactive runners deferred behind a go/no-go once the pivot proves value on a real non-dev task.
 - [x] v1.9.0 — model-selection guidance (`docs/model-selection.md`): tier table (`haiku`/`sonnet`/`opus`/`fable`/inherit) for routing subagent dispatches by cost-of-being-wrong, reviewer agents pinned to `opus`, and the consult-dispatch escalation — on objective failure (gates still red, hypotheses exhausted) a cheap builder gets ONE higher-tier read-only consult returning `PLAN` or `TAKE_OVER`, logged to `benchmarks/escalations.jsonl`.
+- [x] v1.10.0 — `react` stack profile (`templates/profiles/react/`): architecture, gates (dev-container or host execution shapes), and traps for a standalone React + TypeScript SPA with no in-repo backend — extracted from production project lessons.
 
 ## Maintenance
 
