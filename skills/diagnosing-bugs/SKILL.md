@@ -71,6 +71,15 @@ Can't state the prediction? It's a vibe — sharpen or discard. Show the ranked 
 to the user before testing: they often re-rank instantly ("we just deployed #3").
 Cheap checkpoint; don't block on it if they're away.
 
+**Hypotheses exhausted?** Every ranked hypothesis falsified and the evidence
+suggests no new ones: before giving up, dispatch ONE read-only consult at a higher
+tier (per-invocation `model: opus` — see `docs/model-selection.md` → Escalation),
+feeding it the repro command + output, the minimised case, and every probe result
+so far. It must return new **falsifiable hypotheses with predictions** — a theory
+it can't state a prediction for is discarded like any other vibe; this skill's
+Phase 1 rule binds the consult too. Test them with your loop as usual, and log the
+consult to `benchmarks/escalations.jsonl`.
+
 ## Phase 4 — Instrument
 
 Each probe maps to a specific prediction. **Change one variable at a time.**
