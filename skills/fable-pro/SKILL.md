@@ -72,6 +72,7 @@ Verify arithmetic by actually recomputing, not by eyeballing. If something canno
 - State verification concretely ("totals recomputed ✓, cross-checked against the March statement ✓, 2 discrepancies found") — never "everything looks good".
 - Use calibrated words: *verified*, *likely*, *assumed* are three different claims.
 - Disclose your own limits: in legal, medical, and financial matters, remind the user you are not their lawyer/doctor/financial advisor and that professional judgment and responsibility stay with them. Flag anything that needs a licensed professional's sign-off.
+- The same limit applies to encoding work itself: dat-kit safely supports only domains that the user, or a supplying practitioner, actually practices — never help author a Domain Pack for a field no one in the room can personally judge (`docs/loops.md` scope boundary).
 
 ## 3. Effort dial reference
 

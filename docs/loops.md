@@ -1,10 +1,10 @@
 # Loops in dat-kit
 
-dat-kit organizes work along **two orthogonal axes**. This doc explains the model; it is documentation, not an executable spec. (Full rationale and rollout: `PLAN-general-work-loop-v2.md`.)
+dat-kit organizes work along **two orthogonal axes**. This doc explains the model; it is documentation, not an executable spec. (The original rollout plan, `PLAN-general-work-loop-v2.md`, was cancelled 2026-07-14 — the layout described here is final; see git history for the plan.)
 
 ## The two axes
 
-**Domain axis — *what kind of work.*** Declared by a Domain Pack: `ground-truth.md`, `gates.md`, `reviewers.md`, `deliverables/`, `loop-profile.md`. Today: `software-dev` (the `build-loop` skill). Planned: `knowledge-work`.
+**Domain axis — *what kind of work.*** Declared by a Domain Pack: `ground-truth.md`, `gates.md`, `reviewers.md`, `deliverables/`, `loop-profile.md`. Today: `software-dev` (the `build-loop` skill) and `knowledge-work`.
 
 **Loop axis — *how a run is triggered and ended.*** These are Anthropic's four loop types:
 
