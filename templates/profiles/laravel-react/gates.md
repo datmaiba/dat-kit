@@ -4,7 +4,8 @@ All commands via docker compose — never host binaries:
 docker compose exec api php artisan test          # Pest
 docker compose exec api ./vendor/bin/pint         # PHP lint/format
 docker compose exec web npx vitest run            # frontend tests
-docker compose exec web npx tsc --noEmit          # type check
+docker compose exec web npx tsc -b                # type check (build mode — `tsc --noEmit` on a Vite solution tsconfig checks ZERO files and stays green forever)
+docker compose exec web npm run build             # tsc -b + vite build — the only gate that exercises the real browser module graph (vitest is blind to missing ESM exports)
 docker compose exec api php artisan migrate
 ```
 

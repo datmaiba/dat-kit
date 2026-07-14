@@ -61,8 +61,9 @@ Generate questions across ALL these lenses, then answer each one **from the spec
 | Contracts | Which endpoints/interfaces? Request/response shapes? Pagination contract? Versioning? |
 | UX states | For every screen/surface: loading, empty, error, success? What happens on double-submit? |
 | Domain invariants | Project-specific rules that must always hold (i18n fallbacks, currency rounding, tenancy isolation…) |
-| Security | Auth? Rate limits? Sanitization of user content? Mass-assignment? Injection surfaces? |
+| Security | Auth? Rate limits? Sanitization of user content? Mass-assignment? Injection surfaces? For every new public endpoint that WRITES data, ask two SEPARATE questions: does it have its own rate limit, AND does the data it accumulates need a retention policy? (A rate limiter caps request speed, not unbounded storage growth.) |
 | Edge cases | Collisions? Time-based state whose moment passes? Deleting a parent with children? |
+| Reuse | Before writing a new data access/helper, does an existing method with the same purpose already exist (grep by domain)? When reusing one written for another feature, read its actual contract — never trust the name (it may carry looser assumptions, e.g. no status filtering). |
 | Traps | Which known silent-failure traps apply (from `lessons-learned/` and the stack profile's traps file)? |
 | Scope | What is explicitly OUT of this phase? |
 
@@ -80,7 +81,7 @@ Draft the plan: files to create/modify (grouped by area), endpoints with shapes,
 Follow the project's `CLAUDE.md` architecture rules exactly. Work dependencies-first (data layer → domain → interfaces → tests, or the order the stack profile prescribes). Commit-sized chunks with conventional-commit messages.
 
 ### 5. VERIFY → qa-agent (the inner loop)
-**Delegate to `qa-agent`**: it runs ALL quality gates defined in the project's `CLAUDE.md` — using exactly the commands written there (if the project says docker-only, never fall back to host binaries) — AND attacks the feature with spec edge cases. Verdict `RETURN TO BUILDER` → fix the failing list → send back. **Repeat until `PHASE DONE`** (max 3 rounds; still failing → stop and report). Then walk the phase's demo step from the build-phases spec yourself.
+**Delegate to `qa-agent`**: it runs ALL quality gates defined in the project's `CLAUDE.md` — using exactly the commands written there (if the project says docker-only, never fall back to host binaries) — AND attacks the feature with spec edge cases. **A green gate proves nothing until you've seen it fail**: whenever a phase ADDS or CHANGES a gate command itself, deliberately introduce one error, confirm the gate goes red, revert — only then trust its green (a no-op type-check once stayed green for six phases while dozens of real errors accumulated). Verdict `RETURN TO BUILDER` → fix the failing list → send back. **Repeat until `PHASE DONE`** (max 3 rounds; still failing → stop and report). Then walk the phase's demo step from the build-phases spec yourself.
 
 ### 6. REVIEW → code-reviewer
 **Delegate to `code-reviewer`**: independent diff audit against `CLAUDE.md` rules and the stack profile. Verdict `RETURN TO BUILDER` → fix findings → re-run **both** qa-agent (regression) and code-reviewer. Repeat until `APPROVE`. Its LESSON CANDIDATES feed step 7.

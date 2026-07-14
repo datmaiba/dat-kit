@@ -3,3 +3,10 @@
 - Never enable two features claiming the same interaction on one component.
 - User-generated markdown/HTML MUST be sanitized server-side before caching or rendering — comments and rich-text bodies are the classic XSS paths.
 - Bilingual projects: "translation missing" is a first-class UX state on every content surface, not an edge case.
+- A green gate proves nothing until you've seen it fail — after adding/changing a gate command, deliberately break something once and confirm it goes red. Classic instance: `tsc --noEmit` on a Vite solution tsconfig (`"files": []` + `references`) checks zero files; the real gate is `tsc -b`.
+- vitest's Vite SSR transform turns named imports into property access — a missing export becomes a silent `undefined` in tests but a hard `SyntaxError` in the real browser. Only `npm run build` (or a real browser) exercises true ESM semantics; under `verbatimModuleSyntax` a missing `import type` is exactly this class.
+- `vite preview` (production-build server) does NOT use `server.proxy` from `vite.config.ts` — declare a separate `preview.proxy` block if you test the built app against a real API.
+- Vite does not hot-reload `vite.config.ts` changes (proxy rules etc.) — restart the dev container/process after editing it, and check proxy rules cover EVERY static path the browser must reach (`/storage`-style asset paths, not just `/api`).
+- New public endpoint that writes data (comments, subscribe, analytics beacons): needs its own `RateLimiter::for()` from day one, AND a separate answer for data retention — a rate limiter caps request speed, not unbounded row growth from a well-behaved client.
+- Reusing a repository/service method written for another feature: read its contract, don't trust its name — a slug lookup written without a published-only scope silently leaks drafts when borrowed by a public surface.
+- Framework exception handlers: many exceptions are CONVERTED before custom render hooks run (model-not-found → 404 HTTP exception, authorization → access-denied) — register handlers on the post-conversion type, and assert response BODY shape in tests, not just status codes, or dead handlers slip through.
