@@ -4,6 +4,14 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-14 — validate.py green on CI, false-red on the maintainer's own Windows console
+
+- **What happened**: `python scripts/validate.py` ran every check successfully on Windows but crashed with `UnicodeEncodeError` on the final `print("✓ all checks green")` — non-zero exit despite all checks passing. The fail path's `❌` print had the same latent crash. CI (ubuntu, UTF-8) was green the whole time, so the bug lived only on the exact machine the README maintenance workflow tells the maintainer to run the script on.
+- **Root cause**: Windows consoles default to a legacy codepage (cp1252) that cannot encode the status symbols; the script assumed a UTF-8 stdout.
+- **Rule**: any script that prints non-ASCII must reconfigure stdout to UTF-8 (`sys.stdout.reconfigure(encoding="utf-8", errors="replace")`) or stick to ASCII. A green CI run does not cover the maintainer's local console — verify both the pass AND fail print paths on the actual target console (the fail path needs a deliberately injected finding, mirroring "a green gate proves nothing until you've seen it fail").
+
+---
+
 ### 2026-07-14 — Drafted five "missing" contract files that already existed in the repo
 
 - **What happened**: an upgrade session saw only `SKILL.md` in an installed copy of the knowledge-work skill, concluded the five-slot contract files were missing, authored all five from scratch, ran a subagent review on the drafts, and shipped a git patch — which failed to apply because four of the files already exist in the repo, richer than the drafts. The repo was mounted in the session the whole time; the actual defect was an install flow that saved a lone SKILL.md without its sibling files.

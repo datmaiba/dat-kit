@@ -7,6 +7,12 @@ Exit 0 = all green; exit 1 = findings printed.
 """
 import json, re, sys, glob, pathlib
 
+# Windows consoles default to a legacy codepage (cp1252) that cannot encode the
+# ✓/❌ status symbols — the script would crash on its final print with a false-red
+# exit code even when every check passed. CI (Linux, UTF-8) never sees this.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 findings = []
 
