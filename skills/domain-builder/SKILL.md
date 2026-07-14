@@ -34,6 +34,8 @@ Every Domain Pack declares:
 | Deliverables | `deliverables/` | Templates for the outputs of this work |
 | Loop profile | `loop-profile.md` | Advisory: per canonical task, which loop fits and why (see `docs/loops.md`) |
 
+A pack's own SKILL.md must state **"Contract files live beside this one."** — `validate.py` keys on that sentence to enforce that every declared slot file actually exists beside it.
+
 ## Process
 
 ### 1. Learn the practitioner and the work (short interview)
@@ -42,9 +44,11 @@ Ask only what changes the pack. Two or three natural rounds, not an interrogatio
 
 - **What is the work, and what does a finished deliverable look like?** (report, ledger, brief, mockup, lesson plan, dataset)
 - **What do you check *before* you start — and what happens if you skip it?** → this is ground-truth. Push for the actual source ("the signed contract," "the general ledger"), not "my notes."
+- **What must be in hand before you start — and when a piece is missing, do you ask, assume, or stop?** → required inputs and the missing-info policy; record both in the pack.
 - **How do you know a piece of work is done and correct?** → candidate gates. Chase concreteness: "looks right" is not a gate; "every figure ties back to the source statement" is.
 - **What error costs the most here, and who pays?** (money, legal exposure, safety, reputation) → sets default effort and risk caps.
 - **Who reviews it in real life, and what do they look for?** → reviewer charter.
+- **Show me one real input→output pair — including one that went wrong.** → seeds the gates' worked cases and the deliverable template with reality, not theory.
 
 ### 2. Draft the gates — then run the validity check on EACH
 
