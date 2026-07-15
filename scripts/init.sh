@@ -44,6 +44,8 @@ if $HERE; then
   fi
   # Read-only and fail-closed: this MUST run before mkdir/cp/sed/mv/git init.
   "$PYTHON" "$DIR/scripts/contract_check.py" --target "$TARGET" || {
+    echo "✗ Generate the read-only migration plan before changing files:"
+    echo '  python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan'
     echo "✗ BROWNFIELD_CONTRACT_CONFLICT: migrate manually; see $DIR/docs/codex.md"
     exit 1
   }

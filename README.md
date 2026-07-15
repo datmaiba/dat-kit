@@ -2,7 +2,7 @@
 
 A spec-driven development toolkit for Claude Code and Codex, distilled from real production workflows. One install gives your agent a complete working discipline: think before coding, plan before building, verify before claiming, and harvest lessons after shipping.
 
-> Status: **v1.16.0 — shared-agent migration complete**. All skills, templates, agents, hooks, and CI have landed. See [Roadmap](#roadmap).
+> Status: **v1.17.0 — contract migration recovery implemented locally; release pending approval**. See [Roadmap](#roadmap).
 
 ## What's inside
 
@@ -62,7 +62,14 @@ See [Codex support](docs/codex.md) for the host-specific setup and current limit
 For an existing repository, `bash scripts/init.sh --here` first runs a
 read-only Python contract preflight. Competing policy, legacy files, unsafe
 links, and incompatible partial installs fail before mutation with a named
-diagnostic. Migration is manual; see [Codex support and migration](docs/codex.md).
+diagnostic. Generate a deterministic plan without changing the target:
+
+```bash
+python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan
+```
+
+Migration remains manual and separately approved; see
+[Codex support and migration](docs/codex.md).
 
 ## Philosophy
 
@@ -103,6 +110,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 
 - [x] v1.15.0 — Codex adapter: native plugin manifest + marketplace, shared skills, AGENTS.md scaffold bridge, provider-safe scorecard behavior, and dual-host validation/documentation. Claude Code hooks and plugin behavior remain unchanged.
 - [x] v1.16.0 — Shared-agent migration: AGENTS.md is the sole canonical contract; Claude/Cursor files are pointers, runtime settings are adapters, scorecards record runtime/workflow, and handoffs carry contract and Git state.
+- [x] v1.17.0 — Contract migration recovery: package versions are decoupled from the v1.16 project-contract revision; typed diagnostics and a deterministic read-only migration planner turn brownfield drift into a preservation-first file plan without weakening fail-closed scaffolding.
 
 The no-drift guarantee applies to installations that pass
 `python scripts/contract_check.py --target .`; unmigrated brownfield repos may

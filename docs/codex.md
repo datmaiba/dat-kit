@@ -1,6 +1,6 @@
 # Codex support
 
-dat-kit v1.16.0 supports Codex without changing its Claude Code adapter. The same `skills/` directory is the workflow source of truth; Codex receives it through `.codex-plugin/plugin.json`.
+dat-kit v1.17.0 supports Codex without changing its Claude Code adapter. The same `skills/` directory is the workflow source of truth; Codex receives it through `.codex-plugin/plugin.json`.
 
 ## Install
 
@@ -24,9 +24,32 @@ Brownfield scaffolding is two-pass and fail-closed. `init.sh --here` requires
 Python and runs `scripts/contract_check.py --target .` before any mutation. A
 competing `AGENTS.md`, substantive runtime pointer, legacy contract, unsafe
 symlink, or incompatible partial install produces a named diagnostic and leaves
-the complete destination unchanged. Migration is manual in v1.16.0: reconcile
-existing policy into the canonical files, replace runtime entrypoints with the
-shipped pointers, then rerun the checker.
+the complete destination unchanged. Starting in v1.17.0, generate a deterministic
+read-only migration plan:
+
+```bash
+python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan
+python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan --format json
+```
+
+The plan exits non-zero while drift remains and never changes the target. Review
+and approve it separately, then reconcile policy, replace static files, inspect
+runtime adapters, and rerun the checker.
+
+### Contract file ownership
+
+| Class | Files | Migration rule |
+|---|---|---|
+| Static dat-kit assets | `CLAUDE.md`, `.claude/CLAUDE.md`, `.cursorrules`, `docs/agent-workflow.md` | Inventory any project additions, move them to project-owned policy, then replace from the exact shipped template. |
+| Project-owned policy | `AGENTS.md`, `docs/agent-working-rules.md` | Semantic merge; never byte-replace or discard local rules. |
+| Runtime adapters | `.codex/config.toml`, `.codex/hooks.json` | Inspect tracking, routing, commands, and workflow dependencies manually before removal. |
+
+For a typical v1.15 project, inventory policy from the old canonical file and
+runtime pointers, merge it into the v1.16 `AGENTS.md` plus working rules, replace
+the three pointers and static workflow from templates, inspect local adapters,
+then require `contract_check.py --target .` to exit 0. The package version and
+project-contract revision are independent: v1.17.0 continues to accept the
+unchanged `dat-kit 1.16.0` contract layout.
 
 ## Host-specific behavior
 

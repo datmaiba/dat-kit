@@ -48,7 +48,11 @@ bash "$DAT_KIT_ROOT/scripts/init.sh" --here --profile <profile>
 Brownfield requires Python and runs `scripts/contract_check.py --target .` before
 any filesystem mutation. It fails closed on competing policy, bad pointers,
 unsafe symlinks, or incompatible partial installs. Legacy migration is manual;
-follow the named diagnostic and `docs/codex.md` instead of transforming files.
+follow the named diagnostic and generate a read-only, file-by-file plan with
+`python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan`.
+Present that plan for approval and stop. Plan generation is not migration: do
+not transform, replace, or delete target files until the separate plan is
+approved. See `docs/codex.md` for the static/project-owned file boundary.
 
 If bash is unavailable, run the same read-only preflight first:
 `python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target .`. Only after it

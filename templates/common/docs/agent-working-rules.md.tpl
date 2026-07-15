@@ -1,5 +1,7 @@
 # Agent working rules — {{PROJECT_NAME}}
 
+<!-- dat-kit:working-rules -->
+
 This document is part of the canonical `AGENTS.md` contract.
 
 ## What this repo is

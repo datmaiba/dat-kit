@@ -49,7 +49,10 @@ Goal: the user answers ALL decisions ONCE, up front — no mid-build interruptio
    `python "$DAT_KIT_ROOT/scripts/contract_check.py" --target .` to inventory
    every registered instruction entrypoint and runtime adapter. Stop PREFLIGHT
    on any named diagnostic (duplicate policy, missing/wrong-cased pointer,
-   legacy contract, unsafe link, or dependency on a runtime adapter).
+   legacy contract, unsafe link, or dependency on a runtime adapter). Generate
+   `python "$DAT_KIT_ROOT/scripts/contract_check.py" --target . --migration-plan`,
+   present its read-only file-by-file output for approval, and stop. A generated
+   plan is evidence of unresolved drift, not proof that migration happened.
 2. **Run the step-2 question lenses across EVERY phase** in the build-phases spec — not just the next one. Answer everything answerable from spec (with citations); keep only the genuinely unanswerable.
 3. **Present ALL open questions in ONE batch**, grouped by phase. Each question gets: a numbered ID (`D-001`…), 2–3 concrete options, a recommended default, and one line on the consequence of each option. Wait for answers — this is the ONLY approval stop of the whole run.
 4. **Write `spec/08-decisions.md`**: one row per decision — `ID | question | decision | rationale | source (user/auto) | date` — and set the status line to `PREFLIGHT DONE <date>, covers phases <range>`. This file is spec: later steps consult it before ever asking the user.

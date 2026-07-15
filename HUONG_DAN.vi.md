@@ -79,7 +79,17 @@ Tạo `templates/profiles/<tên>/` với 3 file `architecture.md`, `gates.md`, `
 contract legacy, symlink không an toàn, hoặc partial install không tương thích,
 script trả diagnostic có tên và dừng mà không đổi cây thư mục. v1.16.0 chỉ hỗ
 trợ migration thủ công; xem `docs/codex.md`, hợp nhất policy vào contract
-canonical rồi chạy lại `python scripts/contract_check.py --target .`.
+canonical rồi chạy lại `python scripts/contract_check.py --target .`. Từ
+v1.17.0, tạo plan migration deterministic và read-only trước khi sửa:
+
+```bash
+python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan
+```
+
+Plan vẫn exit khác 0 khi còn drift và không tự sửa file. Review, duyệt plan,
+rồi mới inventory policy → extract/merge → thay static pointer/template → inspect
+runtime adapter → chạy checker đến exit 0. Package patch/minor không bắt project
+đổi contract nếu schema/layout contract vẫn là `dat-kit 1.16.0`.
 
 Cam kết không drift chỉ áp dụng cho installation đã pass checker. Plugin đã cài
 và session đang mở vẫn giữ metadata cũ cho đến khi update/reinstall và mở session
