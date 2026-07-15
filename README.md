@@ -59,6 +59,11 @@ See [Codex support](docs/codex.md) for the host-specific setup and current limit
 /dat-kit:build-loop phase 0         # run the loop: self-question → plan → (approve) → build → verify
 ```
 
+For an existing repository, `bash scripts/init.sh --here` first runs a
+read-only Python contract preflight. Competing policy, legacy files, unsafe
+links, and incompatible partial installs fail before mutation with a named
+diagnostic. Migration is manual; see [Codex support and migration](docs/codex.md).
+
 ## Philosophy
 
 - **Spec is law** — the agent answers its own questions from the spec and escalates only what the spec cannot answer.
@@ -98,6 +103,11 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 
 - [x] v1.15.0 — Codex adapter: native plugin manifest + marketplace, shared skills, AGENTS.md scaffold bridge, provider-safe scorecard behavior, and dual-host validation/documentation. Claude Code hooks and plugin behavior remain unchanged.
 - [x] v1.16.0 — Shared-agent migration: AGENTS.md is the sole canonical contract; Claude/Cursor files are pointers, runtime settings are adapters, scorecards record runtime/workflow, and handoffs carry contract and Git state.
+
+The no-drift guarantee applies to installations that pass
+`python scripts/contract_check.py --target .`; unmigrated brownfield repos may
+still contain competing guidance. Installed plugins and active sessions keep
+old metadata until update/reinstall and a fresh session.
 
 ## Maintenance
 

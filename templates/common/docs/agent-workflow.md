@@ -35,3 +35,13 @@ architecture rules, quality gates, plan gate, and decisions rule from
 Use the dat-kit `handoff` skill for a paused substantive task. Its document
 must record runtime, canonical-contract revision, Git state, decisions, and
 verified gates so a cold reader can continue safely.
+
+## When dat-kit skills are unavailable
+
+Execute the loop inline from this contract: load context → self-question against
+the spec and decisions → plan and obtain approval → build dependency-first → run
+all declared gates → perform a fresh QA/code review (plus security review for
+paths, permissions, public input, or writes) → harvest lessons. For a pause,
+manually create `handoffs/HANDOFF-<date>-<slug>.md` with Goal, Runtime, Workflow,
+Canonical contract, Git state, State, Decisions, Files, Verified gates,
+Third-party risks, Next steps, Traps, and Glossary.

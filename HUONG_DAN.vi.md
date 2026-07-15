@@ -71,3 +71,16 @@ Xem [docs/codex.md](docs/codex.md) để biết giới hạn theo host: mọi ru
 ### Thêm stack profile mới
 
 Tạo `templates/profiles/<tên>/` với 3 file `architecture.md`, `gates.md`, `traps.md` — chỉ thêm khi đã thực chiến stack đó, đừng viết chay.
+
+## Adopt repo brownfield an toàn
+
+`bash scripts/init.sh --here` cần Python và chạy preflight read-only trước mọi
+`mkdir`, copy hay sửa file. Nếu có `AGENTS.md` cạnh tranh, pointer chứa policy,
+contract legacy, symlink không an toàn, hoặc partial install không tương thích,
+script trả diagnostic có tên và dừng mà không đổi cây thư mục. v1.16.0 chỉ hỗ
+trợ migration thủ công; xem `docs/codex.md`, hợp nhất policy vào contract
+canonical rồi chạy lại `python scripts/contract_check.py --target .`.
+
+Cam kết không drift chỉ áp dụng cho installation đã pass checker. Plugin đã cài
+và session đang mở vẫn giữ metadata cũ cho đến khi update/reinstall và mở session
+mới.

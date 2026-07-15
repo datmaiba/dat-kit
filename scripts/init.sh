@@ -25,8 +25,28 @@ if [ ! -d "$PROF" ]; then
   echo "✗ Unknown profile '$PROFILE'. Available:"; ls "$TPL/profiles/"; exit 1
 fi
 
+case "$NAME" in
+  /*|*".."*)
+    if ! $HERE; then echo "✗ Unsafe project name: path traversal and absolute paths are not allowed"; exit 1; fi
+    ;;
+esac
+
 if $HERE; then
-  TARGET="$(pwd)"; NAME="${NAME:-$(basename "$TARGET")}"
+  TARGET="$(pwd)"
+  NAME="${NAME:-$(basename "$TARGET")}"
+  PYTHON=""
+  for candidate in python3 python py; do
+    if command -v "$candidate" >/dev/null 2>&1; then PYTHON="$candidate"; break; fi
+  done
+  if [ -z "$PYTHON" ]; then
+    echo "✗ BROWNFIELD_PYTHON_REQUIRED: install Python 3, then rerun; no files were changed"
+    exit 1
+  fi
+  # Read-only and fail-closed: this MUST run before mkdir/cp/sed/mv/git init.
+  "$PYTHON" "$DIR/scripts/contract_check.py" --target "$TARGET" || {
+    echo "✗ BROWNFIELD_CONTRACT_CONFLICT: migrate manually; see $DIR/docs/codex.md"
+    exit 1
+  }
 else
   if [ -z "$NAME" ]; then echo "✗ Usage: init.sh <project-name> | init.sh --here"; exit 1; fi
   TARGET="$(pwd)/$NAME"
@@ -38,7 +58,8 @@ fi
 
 CREATED=0; SKIPPED=0
 copy_if_missing() { # $1 src, $2 dst
-  if [ -e "$2" ]; then echo "  skip (exists): ${2#"$TARGET"/}"; SKIPPED=$((SKIPPED+1))
+  if [ -L "$2" ]; then echo "✗ UNSAFE_SYMLINK: ${2#"$TARGET"/}"; exit 1
+  elif [ -e "$2" ]; then echo "  skip (exists): ${2#"$TARGET"/}"; SKIPPED=$((SKIPPED+1))
   else mkdir -p "$(dirname "$2")"; cp "$1" "$2"; echo "  + ${2#"$TARGET"/}"; CREATED=$((CREATED+1)); fi
 }
 
@@ -60,6 +81,7 @@ copy_if_missing "$TPL/common/CONTEXT.md" "$TARGET/CONTEXT.md"
 AGENTS_EXISTED=false
 [ -e "$TARGET/AGENTS.md" ] && AGENTS_EXISTED=true
 copy_if_missing "$TPL/common/AGENTS.md" "$TARGET/AGENTS.md"
+# Keep this list synchronized with contract_check.py:POINTERS; pytest enforces it.
 copy_if_missing "$TPL/common/CLAUDE.md" "$TARGET/CLAUDE.md"
 copy_if_missing "$TPL/common/.claude/CLAUDE.md" "$TARGET/.claude/CLAUDE.md"
 copy_if_missing "$TPL/common/.cursorrules" "$TARGET/.cursorrules"

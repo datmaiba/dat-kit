@@ -45,9 +45,18 @@ bash "$DAT_KIT_ROOT/scripts/init.sh" <name> --profile <profile> --desc "<one-lin
 bash "$DAT_KIT_ROOT/scripts/init.sh" --here --profile <profile>
 ```
 
-Brownfield guarantees: existing files are never overwritten — the script prints `skip (exists)` per conflict. If `AGENTS.md` or `docs/agent-working-rules.md` already exists, the profile sections are NOT merged automatically; read the profile files and propose a manual merge as a diff for approval.
+Brownfield requires Python and runs `scripts/contract_check.py --target .` before
+any filesystem mutation. It fails closed on competing policy, bad pointers,
+unsafe symlinks, or incompatible partial installs. Legacy migration is manual;
+follow the named diagnostic and `docs/codex.md` instead of transforming files.
 
-If the script cannot run (no bash, permissions), do the same work manually from `${CLAUDE_PLUGIN_ROOT}/templates/`: copy `common/spec/`, `common/lessons-learned/`, `common/AGENTS.md`, `common/CLAUDE.md`, `common/.claude/CLAUDE.md`, `common/.cursorrules`, `common/docs/agent-workflow.md`, and `common/CONTEXT.md`; then assemble `docs/agent-working-rules.md` from `docs/agent-working-rules.md.tpl` by replacing `{{PROJECT_NAME}}`, `{{PROJECT_DESC}}`, `{{PROFILE_NAME}}` and splicing the profile's `architecture.md`, `gates.md`, `traps.md` into the three `{{PROFILE_*}}` markers.
+If bash is unavailable, run the same read-only preflight first:
+`python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target .`. Only after it
+returns zero may you copy files manually from the package templates. If Python
+is also unavailable, manually inventory `AGENTS.md`, every pointer listed by
+`contract_check.py --registry-json`, `docs/agent-*.md`, `.codex/` runtime config,
+legacy `CLAUDE.md.tpl`/`rules/working.rules.md`, and symlinks; stop on any
+existing conflict. Never copy first and inspect afterward.
 
 ## 3. After scaffolding — the part that actually matters
 

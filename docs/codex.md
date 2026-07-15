@@ -20,7 +20,13 @@ pointer-only compatibility files (`CLAUDE.md`, `.claude/CLAUDE.md`, and
 `.cursorrules`). All hosts read `AGENTS.md` first; no adapter may duplicate its
 policy.
 
-Brownfield scaffolding remains additive: existing `AGENTS.md` and `CLAUDE.md` are never overwritten.
+Brownfield scaffolding is two-pass and fail-closed. `init.sh --here` requires
+Python and runs `scripts/contract_check.py --target .` before any mutation. A
+competing `AGENTS.md`, substantive runtime pointer, legacy contract, unsafe
+symlink, or incompatible partial install produces a named diagnostic and leaves
+the complete destination unchanged. Migration is manual in v1.16.0: reconcile
+existing policy into the canonical files, replace runtime entrypoints with the
+shipped pointers, then rerun the checker.
 
 ## Host-specific behavior
 
@@ -35,9 +41,10 @@ Brownfield scaffolding remains additive: existing `AGENTS.md` and `CLAUDE.md` ar
 
 Use `scripts/scorecard.py --provider claude` only when parsing Claude Code transcripts. `--provider codex` intentionally leaves token fields unchanged and reports that parser support has not been verified yet. It never estimates token usage.
 
-New scorecard lines record `agent_runtime` (`claude-code`, `codex`, or `other`)
-and `workflow` (`build-loop`, `standalone`, or a Domain Pack). Historical JSONL
-lines remain append-only and valid without those fields.
+New scorecard lines use schema v2 and record `agent_runtime` (`claude-code`,
+`codex`, `cursor`, or `other`), workflow, canonical-contract revision, and Git
+state. Historical v1 lines remain append-only and valid only before the first
+v2 record.
 
 ## Development checks
 
@@ -57,3 +64,22 @@ entry. A configured Headroom MCP server exposes tools but does not activate prox
 routing; `headroom wrap codex` is the explicit opt-in route. Do not run
 `specify init --here --force` in an existing dat-kit repository without an
 approved file-by-file migration plan.
+
+## Local adapter cleanup
+
+`.codex/config.toml` and `.codex/hooks.json` are intentionally untracked. Keep
+proxy URLs, absolute paths, MCP servers, and statuslines machine-local and
+opt-in. This repository also ignores `.claude/settings.local.json`; if it still
+contains a Headroom SessionStart hook, remove that hook manually and verify with
+`git check-ignore .claude/settings.local.json` plus a fresh session. Do not edit
+the ignored file as part of a repository migration.
+
+The Claude SessionStart adapter calls `node` only to print a neutral pointer to
+root `AGENTS.md`. If the hook or `node` is unavailable, startup remains safe:
+supported runtimes read `AGENTS.md` directly, and no unique policy lives in the
+adapter.
+
+Installed plugins and already-open sessions retain prior metadata until the
+plugin is updated/reinstalled and a fresh session starts. The no-drift claim
+applies only after `contract_check.py` validates the canonical installation;
+unmigrated brownfield repositories may still contain competing policy.

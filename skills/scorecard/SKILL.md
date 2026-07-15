@@ -38,12 +38,15 @@ Half-points are allowed (e.g. 3.5) when genuinely between levels.
 - `gates` — concrete results string ("pest 24/24 ✓, tsc ✓") or "none run" — never invent.
 - `tokens` — always `null` at write time; `scripts/scorecard.py` fills real numbers from transcripts.
 - `model` — which model did the work, if known.
-- `agent_runtime` — `claude-code`, `codex`, or `other`; identifies the host that ran the work.
+- `schema_version` — always `2` for new records.
+- `agent_runtime` — `claude-code`, `codex`, `cursor`, or `other`; use the enum from `scripts/contract_check.py`.
 - `workflow` — `build-loop`, `standalone`, or a named Domain Pack; identifies the working discipline used.
+- `canonical_contract_revision` — exact root `AGENTS.md` revision; use `none` only when no dat-kit contract exists.
+- `git_state` — `branch`, `head`, and `dirty`; Git values may be `null` only outside a Git repository.
 
-Existing JSONL lines are historical records and remain valid without these two
-fields. Every new line must include both; never rewrite earlier lines merely to
-normalize attribution.
+Existing schema-v1 lines are historical records and remain valid before the v2
+boundary. Every new line is strict schema v2; never append v1 after the first v2
+record or rewrite history merely to normalize attribution.
 
 ## Process
 
@@ -63,7 +66,7 @@ script leaves `tokens` as `null` rather than estimating.
 Example line:
 
 ```json
-{"ts":"2026-07-12T15:04:00+07:00","date":"2026-07-12","task":"blog phase 1 — data layer","complexity":4,"notes":"migrations + repos + DTOs across api/, seeders","est_manual_hours":6,"actual_wall_minutes":42,"gates":"pest 18/18 ✓, pint ✓","tokens":null,"model":"sonnet-5","agent_runtime":"codex","workflow":"build-loop"}
+{"schema_version":2,"ts":"2026-07-12T15:04:00+07:00","date":"2026-07-12","task":"blog phase 1 — data layer","complexity":4,"notes":"migrations + repos + DTOs across api/, seeders","est_manual_hours":6,"actual_wall_minutes":42,"gates":"pest 18/18 ✓, pint ✓","tokens":null,"model":"sonnet-5","agent_runtime":"codex","workflow":"build-loop","canonical_contract_revision":"dat-kit 1.16.0","git_state":{"branch":"main","head":"abc123","dirty":false}}
 ```
 
 ## What NOT to do

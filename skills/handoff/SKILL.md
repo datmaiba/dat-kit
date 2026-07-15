@@ -39,8 +39,11 @@ What this work item is, and the phase/spec section it belongs to.
 ## Runtime
 Agent runtime and model, if known (for example: `codex / GPT-5`).
 
+## Workflow
+Working discipline used (for example: `build-loop`, `standalone`, or the Domain Pack name).
+
 ## Canonical contract
-Exact revision from root `AGENTS.md` (or `none — project is not dat-kit scaffolded`).
+Exact revision from root `AGENTS.md` (or `none` when the project has no dat-kit contract).
 
 ## Git state
 Current branch, HEAD commit, and whether the worktree is clean or has uncommitted files.

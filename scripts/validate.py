@@ -6,6 +6,7 @@ templates, skill/agent frontmatter, JSONL, hooks.json shape, personal-info gate.
 Exit 0 = all green; exit 1 = findings printed.
 """
 import json, re, sys, glob, pathlib
+from contract_check import check_repo, validate_scorecard
 
 try:
     import yaml
@@ -147,44 +148,14 @@ if agents_template.exists():
     check("`docs/agent-workflow.md`" in agent_text and "`docs/agent-working-rules.md`" in agent_text,
           "AGENTS.md template must link the shared workflow and working-rules docs")
 
-# 4b. Canonical contract and runtime pointers. The compatibility entrypoints
-# must stay short and point to AGENTS.md; substantive policy belongs only in
-# AGENTS.md and its two linked docs.
-for rel in (
-    "templates/common/AGENTS.md",
-    "templates/common/CLAUDE.md",
-    "templates/common/.claude/CLAUDE.md",
-    "templates/common/.cursorrules",
-    "templates/common/docs/agent-workflow.md",
-    "templates/common/docs/agent-working-rules.md.tpl",
-):
-    check(exact_path(rel).is_file(), f"{rel}: canonical-contract file missing")
-
-for rel in (
-    "templates/common/CLAUDE.md",
-    "templates/common/.claude/CLAUDE.md",
-    "templates/common/.cursorrules",
-):
-    path = ROOT / rel
-    if path.is_file():
-        pointer = path.read_text(encoding="utf-8")
-        check("AGENTS.md" in pointer, f"{rel}: must point to AGENTS.md")
-        check("Do not add policy" in pointer, f"{rel}: must prohibit duplicate policy")
-        check(len(pointer.splitlines()) <= 8, f"{rel}: compatibility pointer must stay short")
-        check(not re.search(r"^##|\bMUST\b|quality gates|build-loop|architecture rules", pointer, re.M | re.I),
-              f"{rel}: compatibility pointer contains substantive policy")
-
-check(not (ROOT / "templates/common/CLAUDE.md.tpl").exists(),
-      "legacy CLAUDE.md.tpl must not duplicate the canonical contract")
-check(not (ROOT / "templates/common/rules/working.rules.md").exists(),
-      "legacy working.rules.md must not duplicate the canonical contract")
-check(not (ROOT / ".codex/hooks.json").exists(),
-      ".codex/hooks.json is an unverified runtime adapter and must not ship")
+# 4b. Shared contract checker — also used by brownfield preflight and CI.
+for code, message in check_repo().items:
+    findings.append(f"{code}: {message}")
 
 handoff_skill = ROOT / "skills/handoff/SKILL.md"
 if handoff_skill.is_file():
     handoff_text = handoff_skill.read_text(encoding="utf-8")
-    for heading in ("## Runtime", "## Canonical contract", "## Git state", "## Decisions in effect", "## Verified gates", "## Third-party tool risks"):
+    for heading in ("## Runtime", "## Workflow", "## Canonical contract", "## Git state", "## Decisions in effect", "## Verified gates", "## Third-party tool risks"):
         check(heading in handoff_text,
               f"skills/handoff/SKILL.md: missing required handoff section '{heading}'")
 
@@ -239,10 +210,10 @@ if evals_path.exists():
             check(not clash,
                   f"skill-evals [{cid}]: trigger '{case.get('match')}' also in {clash} — trigger collision")
 
-# 7. JSONL is append-only evidence: every file must parse. Scorecard records
-# predating v1.16.0 are valid without runtime/workflow; records that use either
-# new field must use both and select a documented runtime.
+# 7. JSONL is append-only evidence. Scorecard v1 remains valid before the v2
+# boundary; v2 records are strict and v1 may never follow the first v2 line.
 for jsonl in sorted((ROOT / "benchmarks").glob("*.jsonl")):
+    parsed_entries = []
     for i, raw in enumerate(jsonl.read_text(encoding="utf-8").splitlines(), 1):
         if not raw.strip():
             continue
@@ -251,13 +222,10 @@ for jsonl in sorted((ROOT / "benchmarks").glob("*.jsonl")):
         except Exception as e:
             findings.append(f"{jsonl.name}:{i}: invalid JSON: {e}")
             continue
-        if jsonl.name == "scorecard.jsonl" and ("agent_runtime" in entry or "workflow" in entry):
-            check("agent_runtime" in entry and "workflow" in entry,
-                  f"scorecard.jsonl:{i}: runtime and workflow must be recorded together")
-            check(entry.get("agent_runtime") in {"claude-code", "codex", "other"},
-                  f"scorecard.jsonl:{i}: unsupported agent_runtime")
-            check(isinstance(entry.get("workflow"), str) and bool(entry.get("workflow").strip()),
-                  f"scorecard.jsonl:{i}: workflow must be a non-empty string")
+        parsed_entries.append(entry)
+    if jsonl.name == "scorecard.jsonl":
+        for code, detail in validate_scorecard(parsed_entries):
+            findings.append(f"scorecard.jsonl: {code}: {detail}")
 
 if findings:
     print(f"❌ {len(findings)} finding(s):")

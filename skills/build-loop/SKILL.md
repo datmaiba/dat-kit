@@ -44,11 +44,12 @@ Goal: the user answers ALL decisions ONCE, up front — no mid-build interruptio
 **Incremental preflight**: if `spec/08-decisions.md` exists but its `covers phases` range doesn't include the phases about to run, run preflight ONLY for the uncovered phases — one batch of new questions, append answers, update the range. Never re-ask what's already logged.
 
 1. **Scan everything**: `AGENTS.md`, its linked `docs/agent-*.md`, ALL `spec/`
-   files, `lessons-learned/`, and existing code state (`git log`, tree). Inventory
-   every instruction entrypoint (`CLAUDE.md`, `.claude/CLAUDE.md`,
-   `.cursorrules`, and host config when present). Stop PREFLIGHT with a finding
-   if more than one contains substantive policy, a pointer target is missing or
-   wrong-cased, or live workflow policy depends on an unverified hook schema.
+   files, `lessons-learned/`, and existing code state (`git log`, tree). Resolve
+   `DAT_KIT_ROOT` from this skill and run
+   `python "$DAT_KIT_ROOT/scripts/contract_check.py" --target .` to inventory
+   every registered instruction entrypoint and runtime adapter. Stop PREFLIGHT
+   on any named diagnostic (duplicate policy, missing/wrong-cased pointer,
+   legacy contract, unsafe link, or dependency on a runtime adapter).
 2. **Run the step-2 question lenses across EVERY phase** in the build-phases spec — not just the next one. Answer everything answerable from spec (with citations); keep only the genuinely unanswerable.
 3. **Present ALL open questions in ONE batch**, grouped by phase. Each question gets: a numbered ID (`D-001`…), 2–3 concrete options, a recommended default, and one line on the consequence of each option. Wait for answers — this is the ONLY approval stop of the whole run.
 4. **Write `spec/08-decisions.md`**: one row per decision — `ID | question | decision | rationale | source (user/auto) | date` — and set the status line to `PREFLIGHT DONE <date>, covers phases <range>`. This file is spec: later steps consult it before ever asking the user.

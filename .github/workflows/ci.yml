@@ -26,6 +26,9 @@ jobs:
       - name: Repo validation (manifests, skills, agents, hooks, info gate)
         run: python3 scripts/validate.py
 
+      - name: Contract and evidence tests
+        run: pytest scripts/tests
+
       - name: ShellCheck init.sh
         run: shellcheck scripts/init.sh
 
