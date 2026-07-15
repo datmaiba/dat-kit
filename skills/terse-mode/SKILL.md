@@ -64,7 +64,7 @@ If terseness and evidence conflict, evidence wins. Drop the adjective, keep the 
 - **Reviewer subagents** (`qa-agent`, `code-reviewer`, `security-reviewer`, `plan-reviewer`).
   Their output is an audit trail read by a human; brevity there erodes the value.
   Run them full even while the main session is terse.
-- **The spec and CLAUDE.md** as written artifacts — see caveman-compress (optional companion)
+- **The spec and AGENTS.md contract** as written artifacts — see caveman-compress (optional companion)
   if you want to shrink *memory* files, and even then never the spec.
 - **Handoff documents** — a handoff must survive a cold read by another session; keep it complete.
 

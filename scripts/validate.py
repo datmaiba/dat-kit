@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """dat-kit repo validation — run locally (python3 scripts/validate.py) and in CI.
 
-Checks: manifest JSON validity + version sync, skill/agent frontmatter,
-description limits, body-length budgets, hooks.json shape, personal-info gate.
+Checks: manifest JSON validity + version sync, canonical agent-contract
+templates, skill/agent frontmatter, JSONL, hooks.json shape, personal-info gate.
 Exit 0 = all green; exit 1 = findings printed.
 """
 import json, re, sys, glob, pathlib
@@ -39,6 +39,21 @@ def frontmatter(path):
     except Exception as e:
         findings.append(f"{path}: frontmatter YAML error: {e}")
         return None, text
+
+
+def exact_path(relative):
+    """Return a repo path only when every segment has the expected casing."""
+    current = ROOT
+    for part in pathlib.PurePosixPath(relative).parts:
+        if not current.is_dir():
+            findings.append(f"{relative}: parent directory is missing")
+            return current / part
+        names = {child.name for child in current.iterdir()}
+        if part not in names:
+            findings.append(f"{relative}: missing or wrong-cased path segment '{part}'")
+            return current / part
+        current = current / part
+    return current
 
 
 # 1. Manifests
@@ -126,8 +141,52 @@ check(len(boot.read_text().split()) < 150, "session-bootstrap.txt too long (inje
 agents_template = ROOT / "templates/common/AGENTS.md"
 check(agents_template.exists(), "templates/common/AGENTS.md missing")
 if agents_template.exists():
-    check("`CLAUDE.md`" in agents_template.read_text(encoding="utf-8"),
-          "AGENTS.md template must route Codex to the canonical CLAUDE.md contract")
+    agent_text = agents_template.read_text(encoding="utf-8")
+    check("single canonical instruction entrypoint" in agent_text,
+          "AGENTS.md template must declare itself the canonical contract")
+    check("`docs/agent-workflow.md`" in agent_text and "`docs/agent-working-rules.md`" in agent_text,
+          "AGENTS.md template must link the shared workflow and working-rules docs")
+
+# 4b. Canonical contract and runtime pointers. The compatibility entrypoints
+# must stay short and point to AGENTS.md; substantive policy belongs only in
+# AGENTS.md and its two linked docs.
+for rel in (
+    "templates/common/AGENTS.md",
+    "templates/common/CLAUDE.md",
+    "templates/common/.claude/CLAUDE.md",
+    "templates/common/.cursorrules",
+    "templates/common/docs/agent-workflow.md",
+    "templates/common/docs/agent-working-rules.md.tpl",
+):
+    check(exact_path(rel).is_file(), f"{rel}: canonical-contract file missing")
+
+for rel in (
+    "templates/common/CLAUDE.md",
+    "templates/common/.claude/CLAUDE.md",
+    "templates/common/.cursorrules",
+):
+    path = ROOT / rel
+    if path.is_file():
+        pointer = path.read_text(encoding="utf-8")
+        check("AGENTS.md" in pointer, f"{rel}: must point to AGENTS.md")
+        check("Do not add policy" in pointer, f"{rel}: must prohibit duplicate policy")
+        check(len(pointer.splitlines()) <= 8, f"{rel}: compatibility pointer must stay short")
+        check(not re.search(r"^##|\bMUST\b|quality gates|build-loop|architecture rules", pointer, re.M | re.I),
+              f"{rel}: compatibility pointer contains substantive policy")
+
+check(not (ROOT / "templates/common/CLAUDE.md.tpl").exists(),
+      "legacy CLAUDE.md.tpl must not duplicate the canonical contract")
+check(not (ROOT / "templates/common/rules/working.rules.md").exists(),
+      "legacy working.rules.md must not duplicate the canonical contract")
+check(not (ROOT / ".codex/hooks.json").exists(),
+      ".codex/hooks.json is an unverified runtime adapter and must not ship")
+
+handoff_skill = ROOT / "skills/handoff/SKILL.md"
+if handoff_skill.is_file():
+    handoff_text = handoff_skill.read_text(encoding="utf-8")
+    for heading in ("## Runtime", "## Canonical contract", "## Git state", "## Decisions in effect", "## Verified gates", "## Third-party tool risks"):
+        check(heading in handoff_text,
+              f"skills/handoff/SKILL.md: missing required handoff section '{heading}'")
 
 # 5. Personal-info gate (this repo is public and portfolio-linked)
 BANNED = re.compile(r"datmba3|freighttracker|meoanca|30kft|yuranga|job.hunt", re.I)
@@ -179,6 +238,26 @@ if evals_path.exists():
             clash = [n for n, d in skill_desc.items() if n != exp and m in d.lower()]
             check(not clash,
                   f"skill-evals [{cid}]: trigger '{case.get('match')}' also in {clash} — trigger collision")
+
+# 7. JSONL is append-only evidence: every file must parse. Scorecard records
+# predating v1.16.0 are valid without runtime/workflow; records that use either
+# new field must use both and select a documented runtime.
+for jsonl in sorted((ROOT / "benchmarks").glob("*.jsonl")):
+    for i, raw in enumerate(jsonl.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        try:
+            entry = json.loads(raw)
+        except Exception as e:
+            findings.append(f"{jsonl.name}:{i}: invalid JSON: {e}")
+            continue
+        if jsonl.name == "scorecard.jsonl" and ("agent_runtime" in entry or "workflow" in entry):
+            check("agent_runtime" in entry and "workflow" in entry,
+                  f"scorecard.jsonl:{i}: runtime and workflow must be recorded together")
+            check(entry.get("agent_runtime") in {"claude-code", "codex", "other"},
+                  f"scorecard.jsonl:{i}: unsupported agent_runtime")
+            check(isinstance(entry.get("workflow"), str) and bool(entry.get("workflow").strip()),
+                  f"scorecard.jsonl:{i}: workflow must be a non-empty string")
 
 if findings:
     print(f"❌ {len(findings)} finding(s):")

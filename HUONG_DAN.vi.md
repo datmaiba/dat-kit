@@ -18,13 +18,13 @@ codex plugin marketplace add datmaiba/dat-kit
 codex plugin add dat-kit@dat-kit
 ```
 
-Xem [docs/codex.md](docs/codex.md) để biết giới hạn theo host: Codex dùng `AGENTS.md` bridge, chưa parse token transcript và không dùng Claude SessionStart hook.
+Xem [docs/codex.md](docs/codex.md) để biết giới hạn theo host: mọi runtime dùng `AGENTS.md` canonical, Codex chưa parse token transcript và không dùng Claude SessionStart hook.
 
 ## Có gì bên trong
 
 | Thành phần | Công dụng |
 |---|---|
-| `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): CLAUDE.md canonical + AGENTS.md bridge cho Codex, skeleton `spec/00→08`, rules, lessons-learned + `CONTEXT.md` |
+| `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): `AGENTS.md` canonical + pointer adapters, skeleton `spec/00→08`, shared agent docs, lessons-learned + `CONTEXT.md` |
 | `/dat-kit:build-loop` | Vòng lặp build: load context → tự chất vấn theo spec → plan → **chờ duyệt** → build → chạy gates → review độc lập → đúc kết bài học. Autopilot: PREFLIGHT gom mọi câu hỏi thành 1 lần duyệt duy nhất. Delegated-build ("delegated build"): session chính làm orchestrator, mỗi task 1 builder subagent mới + review 2 bước (đúng spec → chất lượng code) |
 | `/dat-kit:handoff` | Nén session đang dở thành file bàn giao trong `handoffs/` — session mới (hoặc máy khác) đọc là tiếp tục được ngay; build-loop recovery tự đọc file mới nhất |
 | `/dat-kit:fable-mode` | Kỷ luật làm việc kiểu Fable với 3 mức effort (low/medium/high) |

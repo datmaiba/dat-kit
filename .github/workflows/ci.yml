@@ -34,12 +34,18 @@ jobs:
           set -e
           cd "$(mktemp -d)"
           bash "$GITHUB_WORKSPACE/scripts/init.sh" demo --desc "ci smoke"
-          test -f demo/CLAUDE.md && ! grep -q '{{' demo/CLAUDE.md
-          test -f demo/AGENTS.md
+          test -f demo/AGENTS.md && ! grep -q '{{' demo/AGENTS.md
+          test -f demo/docs/agent-workflow.md
+          test -f demo/docs/agent-working-rules.md && ! grep -q '{{' demo/docs/agent-working-rules.md
+          test -f demo/CLAUDE.md && grep -q 'AGENTS.md' demo/CLAUDE.md
+          test -f demo/.claude/CLAUDE.md && grep -q 'AGENTS.md' demo/.claude/CLAUDE.md
+          test -f demo/.cursorrules && grep -q 'AGENTS.md' demo/.cursorrules
           cd demo && rm spec/07-design.md
-          claude_hash="$(sha256sum CLAUDE.md)"
           agents_hash="$(sha256sum AGENTS.md)"
-          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -q "1 created, 13 skipped"
-          test "$claude_hash" = "$(sha256sum CLAUDE.md)"
+          workflow_hash="$(sha256sum docs/agent-workflow.md)"
+          rules_hash="$(sha256sum docs/agent-working-rules.md)"
+          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -Eq "Done: 1 created, [0-9]+ skipped"
           test "$agents_hash" = "$(sha256sum AGENTS.md)"
+          test "$workflow_hash" = "$(sha256sum docs/agent-workflow.md)"
+          test "$rules_hash" = "$(sha256sum docs/agent-working-rules.md)"
           echo "init.sh smoke ✓"

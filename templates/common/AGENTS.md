@@ -1,11 +1,19 @@
-# dat-kit guidance
+# Agent contract — {{PROJECT_NAME}}
 
-This project uses dat-kit. Before substantive work, read these files in order:
+**Canonical contract revision:** dat-kit 1.16.0
 
-1. `CLAUDE.md` — the canonical project contract: architecture, quality gates, scope, and the build loop.
-2. `spec/` — product decisions and phase scope.
-3. `.claude/rules/working.rules.md` — plan gate, effort, ground-truth, and reporting rules.
+This is the single canonical instruction entrypoint for every agent runtime in
+this repository. Compatibility files such as `CLAUDE.md`,
+`.claude/CLAUDE.md`, and `.cursorrules` are pointers only; they must never
+duplicate or override this contract.
+
+Before substantive work, read in this order:
+
+1. `docs/agent-workflow.md` — execution, planning, handoff, and runtime-adapter rules.
+2. `docs/agent-working-rules.md` — project scope, architecture, quality gates, and traps.
+3. `spec/` — product decisions and phase scope.
 4. `lessons-learned/lessons-learned.md` — mistakes that must not recur.
 5. `CONTEXT.md` when it exists — use its domain terms verbatim.
 
-Follow the plan gate in the working rules. Run the declared quality gates before claiming work is complete. For a build phase, use the dat-kit `build-loop` skill and its independent-review flow.
+For a build phase, use the dat-kit `build-loop` skill and its independent-review
+flow. Run every declared quality gate before claiming work is complete.

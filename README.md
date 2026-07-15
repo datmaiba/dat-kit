@@ -2,7 +2,7 @@
 
 A spec-driven development toolkit for Claude Code and Codex, distilled from real production workflows. One install gives your agent a complete working discipline: think before coding, plan before building, verify before claiming, and harvest lessons after shipping.
 
-> Status: **v1.0.0 — dogfooded on a real project**. All skills, templates, agents, hooks, and CI have landed. See [Roadmap](#roadmap).
+> Status: **v1.16.0 — shared-agent migration complete**. All skills, templates, agents, hooks, and CI have landed. See [Roadmap](#roadmap).
 
 ## What's inside
 
@@ -12,7 +12,7 @@ A spec-driven development toolkit for Claude Code and Codex, distilled from real
 | `skills/fable-mode` | Careful-working discipline with three effort levels (low/medium/high) scaling reasoning, verification, and reporting. For repos *without* the dat-kit scaffold — scaffolded projects already get this via the rules file and session hook. |
 | `skills/fable-pro` | The same discipline, adapted for any profession — accounting, law, design, medicine. |
 | `skills/guardian-builder` | Generate a project-specific "guardian" skill: guardrails, naming rules, plan gate, lessons integration for any repo. |
-| `skills/project-init` | Scaffold a new project (or adopt an existing one) with a shared CLAUDE.md/AGENTS.md contract, spec skeleton, rules, CONTEXT.md glossary, and a stack profile. |
+| `skills/project-init` | Scaffold a new project (or adopt an existing one) with canonical AGENTS.md guidance, pointer-only runtime adapters, a spec skeleton, shared agent docs, CONTEXT.md glossary, and a stack profile. |
 | `skills/handoff` | Compact a session into a resumable handoff document in `handoffs/` — survives across sessions and machines; build-loop recovery reads it first; its format doubles as the builder brief for delegated builds. |
 | `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled as estimates), real wall time and gates — appended to `benchmarks/scorecard.jsonl`. Claude Code transcripts can enrich token usage; Codex leaves tokens null until a parser is verified. |
 | `skills/diagnosing-bugs` | Disciplined diagnosis loop for hard bugs and perf regressions: feedback-loop-first → reproduce+minimise → ranked falsifiable hypotheses → instrument one variable → fix behind a regression test → post-mortem into lessons-learned. The backward counterpart to build-loop. |
@@ -24,8 +24,8 @@ A spec-driven development toolkit for Claude Code and Codex, distilled from real
 | `skills/knowledge-work` | First non-dev Domain Pack — research, writing, analysis. Ground yourself in primary sources, verify every claim against its cited source, pass the citation/fidelity/reliability/currency/coverage/consistency gates with an independent fact-check. Capped at the Goal loop (its load-bearing gate needs a human to close). |
 | `docs/` | `loops.md` — the two-axis model (Domain × Loop) and the capability ladder (Turn/Goal/Time/Proactive, unlocked by gate quality). `domains.md` — the domain registry. `model-selection.md` — which model tier (`haiku`/`sonnet`/`opus`/`fable`/inherit) a subagent should run at, and the consult-dispatch escalation for surprise difficulty. |
 | `agents/` | Independent reviewers: `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — the builder never grades its own work. |
-| `templates/` | `common/` (stack-agnostic CLAUDE.md, Codex AGENTS.md bridge, spec 00–08 skeleton, rules) + `profiles/` (battle-tested architecture rules per stack: `laravel-react`, `react`). |
-| `hooks.json` | Claude Code SessionStart bootstrap: injects the working discipline automatically. Codex uses skills plus AGENTS.md in v1. |
+| `templates/` | `common/` (canonical AGENTS.md, pointer-only runtime adapters, shared agent docs, spec 00–08 skeleton) + `profiles/` (battle-tested architecture rules per stack: `laravel-react`, `react`). |
+| `hooks.json` | Claude Code-only SessionStart bootstrap. Codex uses skills plus the canonical AGENTS.md contract; runtime configs never define separate policy. |
 | `scripts/statusline.py` | Per-turn + per-session token statusline for Claude Code (incremental transcript parse, ~cost, ctx %). One-time setup: `python3 scripts/statusline.py --install`. |
 
 ## Install
@@ -55,7 +55,7 @@ See [Codex support](docs/codex.md) for the host-specific setup and current limit
 ## Quick start
 
 ```
-/dat-kit:project-init my-app        # scaffold: CLAUDE.md + AGENTS.md + spec/ + rules + stack profile
+/dat-kit:project-init my-app        # scaffold: AGENTS.md + pointer adapters + docs/agent-* + spec/ + stack profile
 /dat-kit:build-loop phase 0         # run the loop: self-question → plan → (approve) → build → verify
 ```
 
@@ -97,6 +97,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.14.0 — dogfood lessons upstreamed from a real full-stack build: build-loop gains the "a green gate proves nothing until you've seen it fail" verification rule plus Reuse and rate-limit/retention self-question lenses; `laravel-react`/`react` profiles fix the no-op `tsc --noEmit` gate (→ `tsc -b`) and add traps for vitest's ESM-export blindness, `vite preview` proxy, vite-config reloads, public-endpoint retention, borrowed-method contracts, and framework exception conversion (v1.13.1 rode ahead as a patch: `validate.py` false-red on Windows cp1252 consoles)
 
 - [x] v1.15.0 — Codex adapter: native plugin manifest + marketplace, shared skills, AGENTS.md scaffold bridge, provider-safe scorecard behavior, and dual-host validation/documentation. Claude Code hooks and plugin behavior remain unchanged.
+- [x] v1.16.0 — Shared-agent migration: AGENTS.md is the sole canonical contract; Claude/Cursor files are pointers, runtime settings are adapters, scorecards record runtime/workflow, and handoffs carry contract and Git state.
 
 ## Maintenance
 

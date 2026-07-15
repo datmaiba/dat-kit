@@ -36,6 +36,15 @@ Every section is mandatory; write "none" rather than omitting one.
 ## Goal
 What this work item is, and the phase/spec section it belongs to.
 
+## Runtime
+Agent runtime and model, if known (for example: `codex / GPT-5`).
+
+## Canonical contract
+Exact revision from root `AGENTS.md` (or `none — project is not dat-kit scaffolded`).
+
+## Git state
+Current branch, HEAD commit, and whether the worktree is clean or has uncommitted files.
+
 ## State
 - DONE: numbered, with commit hashes where committed.
 - IN PROGRESS: what is half-built, which files, what state it's in.
@@ -49,9 +58,14 @@ then reference).
 ## Files touched
 Path → one line on what changed / what remains. Uncommitted work flagged.
 
-## Gates
+## Verified gates
 Last known result per gate, verbatim ("pest 24/24 ✓, tsc ✗ 3 errors in X").
-Never "mostly passing".
+State `unverified` when no result exists; never write "mostly passing".
+
+## Third-party tool risks
+Installer-reported security risk levels, affected tool/skill, and the user's
+decision. Write `none reported` when no external installer ran; never omit a
+reported risk because it is inconvenient.
 
 ## Next steps
 Numbered, dependency order, each starting with the exact file or command.
@@ -67,7 +81,8 @@ CONTEXT.md terms the reader must know for this work (term names only).
 ## Rules
 
 - Facts only — no narration of the session's back-and-forth. State, not story.
-- Everything verifiable: commit hashes, exact gate output, exact paths.
+- Everything verifiable: runtime, canonical-contract revision, commit hashes,
+  exact gate output, third-party installer risk reports, and exact paths.
 - Session-local decisions MUST be flushed to `spec/08-decisions.md` before the
   handoff is written — a handoff that hoards decisions defeats the decisions file.
 - After writing: print the file path and the single command/instruction the

@@ -52,25 +52,31 @@ fill_name() { # $1 file — replace placeholders in place (portable, no sed -i)
 
 echo "Scaffolding '$NAME' (profile: $PROFILE) into $TARGET"
 
-# spec skeleton + lessons + rules
+# spec skeleton + lessons + canonical contract
 for f in "$TPL"/common/spec/*.md; do copy_if_missing "$f" "$TARGET/spec/$(basename "$f")"; done
 copy_if_missing "$TPL/common/lessons-learned/lessons-learned.md" "$TARGET/lessons-learned/lessons-learned.md"
 copy_if_missing "$TPL/common/CONTEXT.md" "$TARGET/CONTEXT.md"
 [ -e "$TARGET/CONTEXT.md" ] && fill_name "$TARGET/CONTEXT.md"
-copy_if_missing "$TPL/common/rules/working.rules.md" "$TARGET/.claude/rules/working.rules.md"
+AGENTS_EXISTED=false
+[ -e "$TARGET/AGENTS.md" ] && AGENTS_EXISTED=true
 copy_if_missing "$TPL/common/AGENTS.md" "$TARGET/AGENTS.md"
+copy_if_missing "$TPL/common/CLAUDE.md" "$TARGET/CLAUDE.md"
+copy_if_missing "$TPL/common/.claude/CLAUDE.md" "$TARGET/.claude/CLAUDE.md"
+copy_if_missing "$TPL/common/.cursorrules" "$TARGET/.cursorrules"
+copy_if_missing "$TPL/common/docs/agent-workflow.md" "$TARGET/docs/agent-workflow.md"
 [ -e "$TARGET/lessons-learned/lessons-learned.md" ] && fill_name "$TARGET/lessons-learned/lessons-learned.md"
+if ! $AGENTS_EXISTED; then fill_name "$TARGET/AGENTS.md"; fi
 
-# CLAUDE.md — assemble template + profile sections
-if [ -e "$TARGET/CLAUDE.md" ]; then
-  echo "  skip (exists): CLAUDE.md  → review $PROF/*.md and merge manually"; SKIPPED=$((SKIPPED+1))
+# Agent working rules — assemble profile sections beneath the canonical contract
+if [ -e "$TARGET/docs/agent-working-rules.md" ]; then
+  echo "  skip (exists): docs/agent-working-rules.md  → review $PROF/*.md and merge manually"; SKIPPED=$((SKIPPED+1))
 else
   sed -e "/{{PROFILE_ARCHITECTURE}}/r $PROF/architecture.md" -e "/{{PROFILE_ARCHITECTURE}}/d" \
       -e "/{{PROFILE_GATES}}/r $PROF/gates.md"               -e "/{{PROFILE_GATES}}/d" \
       -e "/{{PROFILE_TRAPS}}/r $PROF/traps.md"               -e "/{{PROFILE_TRAPS}}/d" \
-      "$TPL/common/CLAUDE.md.tpl" > "$TARGET/CLAUDE.md"
-  fill_name "$TARGET/CLAUDE.md"
-  echo "  + CLAUDE.md"; CREATED=$((CREATED+1))
+      "$TPL/common/docs/agent-working-rules.md.tpl" > "$TARGET/docs/agent-working-rules.md"
+  fill_name "$TARGET/docs/agent-working-rules.md"
+  echo "  + docs/agent-working-rules.md"; CREATED=$((CREATED+1))
 fi
 
 # git init (greenfield only, best-effort)
@@ -82,5 +88,5 @@ echo ""
 echo "Done: $CREATED created, $SKIPPED skipped (existing files are never overwritten)."
 echo "Next steps:"
 echo "  1. Fill spec/ in order: 00-vision → 01-features → 02-architecture → 03-db-schema → 04-build-phases"
-echo "  2. Review CLAUDE.md and AGENTS.md (profile: $PROFILE) — adjust gate commands to your compose services"
+echo "  2. Review AGENTS.md and docs/agent-working-rules.md (profile: $PROFILE) — adjust gate commands to your compose services"
 echo "  3. Start building: open Claude Code or Codex and run the dat-kit build-loop (preflight first for autopilot)"

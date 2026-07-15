@@ -1,9 +1,9 @@
 ---
 name: project-init
 description: >-
-  Scaffold a spec-driven project the dat-kit way — CLAUDE.md assembled from a stack
-  profile, a spec/ skeleton (00-vision through 08-decisions), working rules, and a
-  lessons-learned file. Invoke when the user wants to start a new project ("init a
+  Scaffold a spec-driven project the dat-kit way — a canonical AGENTS.md contract,
+  pointer-only runtime adapters, a spec/ skeleton (00-vision through 08-decisions),
+  working rules, and a lessons-learned file. Invoke when the user wants to start a new project ("init a
   project", "scaffold my-app", "set up a new repo the dat-kit way") or adopt the
   structure in an existing repo ("adopt dat-kit here", "add a spec structure to this
   project"). Greenfield creates a fresh directory; brownfield (--here) only adds
@@ -17,10 +17,20 @@ description: >-
 
 - **Project name** (directory-safe).
 - **One-line description** — what it is, for whom.
-- **Stack profile** — list what exists in `${CLAUDE_PLUGIN_ROOT}/templates/profiles/` and let the user pick; default `laravel-react`. If their stack has no profile yet, say so plainly: scaffold with `common/` only and tell them the architecture section of CLAUDE.md must be written by hand (offer to draft it from their description — but mark it unproven, unlike a battle-tested profile).
+- **Stack profile** — list what exists in `${CLAUDE_PLUGIN_ROOT}/templates/profiles/` and let the user pick; default `laravel-react`. If their stack has no profile yet, say so plainly: scaffold with `common/` only and tell them the architecture section of `docs/agent-working-rules.md` must be written by hand (offer to draft it from their description — but mark it unproven, unlike a battle-tested profile).
 - **Greenfield or brownfield** — new directory, or `--here` into the current repo.
 
 ## 2. Run the scaffold
+
+### Brownfield agent-tools checklist (before suggesting a command)
+
+For an existing repository, inspect and report the presence of `AGENTS.md`,
+`spec/`, `.codex/`, `.agents/`, `.codegraph/`, and `skills-lock.json` before
+suggesting any scaffold or companion-tool command. These files can represent an
+existing contract, runtime adapter, local index, or third-party skill install.
+`project-init --here` remains additive, but another tool's initializer may not
+be. Do not run an initializer that can merge or overwrite these files without a
+file-by-file plan approved by the user.
 
 ### Package root (Claude Code and Codex)
 
@@ -35,9 +45,9 @@ bash "$DAT_KIT_ROOT/scripts/init.sh" <name> --profile <profile> --desc "<one-lin
 bash "$DAT_KIT_ROOT/scripts/init.sh" --here --profile <profile>
 ```
 
-Brownfield guarantees: existing files are never overwritten — the script prints `skip (exists)` per conflict. If `CLAUDE.md` already exists, the profile sections are NOT merged automatically; read the profile files and propose a manual merge as a diff for approval.
+Brownfield guarantees: existing files are never overwritten — the script prints `skip (exists)` per conflict. If `AGENTS.md` or `docs/agent-working-rules.md` already exists, the profile sections are NOT merged automatically; read the profile files and propose a manual merge as a diff for approval.
 
-If the script cannot run (no bash, permissions), do the same work manually from `${CLAUDE_PLUGIN_ROOT}/templates/`: copy `common/spec/`, `common/lessons-learned/`, `common/rules/`, `common/CONTEXT.md`, then assemble `CLAUDE.md` from `CLAUDE.md.tpl` by replacing `{{PROJECT_NAME}}`, `{{PROJECT_DESC}}`, `{{PROFILE_NAME}}` and splicing the profile's `architecture.md`, `gates.md`, `traps.md` into the three `{{PROFILE_*}}` markers.
+If the script cannot run (no bash, permissions), do the same work manually from `${CLAUDE_PLUGIN_ROOT}/templates/`: copy `common/spec/`, `common/lessons-learned/`, `common/AGENTS.md`, `common/CLAUDE.md`, `common/.claude/CLAUDE.md`, `common/.cursorrules`, `common/docs/agent-workflow.md`, and `common/CONTEXT.md`; then assemble `docs/agent-working-rules.md` from `docs/agent-working-rules.md.tpl` by replacing `{{PROJECT_NAME}}`, `{{PROJECT_DESC}}`, `{{PROFILE_NAME}}` and splicing the profile's `architecture.md`, `gates.md`, `traps.md` into the three `{{PROFILE_*}}` markers.
 
 ## 3. After scaffolding — the part that actually matters
 
@@ -50,24 +60,45 @@ An empty spec skeleton has zero value until filled. Walk the user through it in 
 5. Skim `05`–`07` — fill what's known, leave honest TODOs for what isn't.
 6. `CONTEXT.md` — seed the glossary with 3–5 domain terms that came up while filling the spec (one line each). It grows during build phases; it must not start empty of the terms you already used.
 
-Adjust the gate commands in `CLAUDE.md` to the project's real service names before the first build phase.
+Adjust the gate commands in `docs/agent-working-rules.md` to the project's real service names before the first build phase.
 
 ## 4. Suggest companion tools (detect, don't install)
 
-### Codex manual fallback
+### Runtime adapters
 
 When the scaffold script cannot run in Codex, use `$DAT_KIT_ROOT/templates/`
-instead of the Claude-only environment-variable path mentioned above. Copy
-`common/AGENTS.md` alongside the listed templates so Codex has its project
-entrypoint.
+instead of the Claude-only environment-variable path mentioned above. The root
+`AGENTS.md` is the project entrypoint for every host; `CLAUDE.md`,
+`.claude/CLAUDE.md`, and `.cursorrules` remain pointer-only compatibility files.
 
 dat-kit is a methodology, not a package manager — it never installs anything for the user. But two optional, independent, local-first tools pair well with the build loop, and a fresh repo is the natural moment to point them out. **Detect, then suggest the exact command — never run a privileged install yourself.**
 
 - **CodeGraph** (semantic code index → far fewer tool calls when exploring a repo). Two checks:
   - `command -v codegraph` missing → suggest it once with the one-time, per-machine install command (`npm install -g @colbymchenry/codegraph`; note a user npm prefix or `sudo` may be needed if the global dir isn't writable), then stop.
   - CLI present but the repo has no `.codegraph/` → suggest `codegraph init -i` to index this project.
-  - Always remind: add `.codegraph/` to the user's global gitignore (`~/.gitignore_global`), never the repo's tracked `.gitignore`.
-- **Headroom** (local context compression → fewer tokens). Optional. If `command -v headroom` is missing, mention it once with `pip install "headroom-ai[all]"` and stop. Its failure-mining (`headroom learn`) only pays off once the repo has real session history, so don't push it on a fresh repo.
+  - Keep the database machine-local: commit only `.codegraph/.gitignore` when it
+    is generated; never commit `.codegraph/codegraph.db`. After adding or
+    changing a global Codex MCP entry, restart Codex before testing the tool.
+- **Headroom** (local context compression → fewer tokens). Optional. In a
+  Unix-like shell, if `command -v headroom` is missing, mention it once with
+  `pip install "headroom-ai[all]"` and stop. On other hosts, tell the user to
+  consult that runtime's installation method. Its failure-mining (`headroom
+  learn`) only pays off once the repo has real session history, so don't push it
+  on a fresh repo. Never generate or depend on a Headroom hook until that host's
+  hook schema is verified. A configured Headroom MCP server only makes its tools
+  available; it does **not** route Codex traffic through the proxy. Use
+  `headroom mcp status` for MCP availability and `headroom doctor` for proxy
+  state. Routing is opt-in: the user may explicitly run `headroom proxy` or
+  `headroom wrap codex` after reviewing the effect.
+
+- **Spec Kit** (optional spec workflow experiments). A user may install
+  `specify-cli` globally, but never suggest or run `specify init --here --force`
+  inside an existing dat-kit project without an explicit, file-by-file migration
+  plan: it can merge or overwrite scaffold files.
+
+- **Third-party skills**. Never auto-enable an installed skill. If its installer
+  reports a security risk level, surface the exact level to the user and record
+  it in the handoff or upgrade log rather than burying it in terminal output.
 - **caveman** (output compression → ~65% fewer *output* tokens, MIT). Optional. Orthogonal to dat-kit: dat-kit governs how the agent *works*, caveman governs how it *talks*. If the user wants the full ecosystem (multi-level incl. `wenyan`, `/caveman-commit`, `/caveman-review`, lifetime-savings badge), mention the installer once (`curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash`) and stop. **First point them at dat-kit's own `terse-mode` skill** — zero dependency, no second SessionStart hook, no statusline contention, and it already carves out evidence/gates/approval stops. Only suggest caveman if they want more than terse-mode gives. Whichever they pick, run one, not both.
 - **cavemem** (cross-agent memory, sibling of caveman). Optional and also orthogonal; mention only if the user raises cross-session memory. **Do NOT suggest `cavekit`** — it is a competing spec-driven build loop that overlaps dat-kit's own build-loop; pulling it in creates two rival disciplines in one repo.
 
@@ -75,8 +106,9 @@ Rules: suggest each tool at most once per repo; if the user declines, or the too
 
 ## 5. Hand off
 
-In Codex, `AGENTS.md` is the entrypoint: it routes the agent to the canonical
-`CLAUDE.md` contract and the rest of the generated project context.
+In every supported runtime, `AGENTS.md` is the entrypoint: it routes the agent
+to the canonical shared project contract and the rest of the generated project
+context.
 
-Tell the user: run the **build-loop** skill for phase 0 (or "autopilot from phase 0" — PREFLIGHT will batch every open decision into one questionnaire, recorded in `spec/08-decisions.md`). The scaffold is done when `claude` opened in the project reads CLAUDE.md and can recite the rules on "verify rules".
+Tell the user: run the **build-loop** skill for phase 0 (or "autopilot from phase 0" — PREFLIGHT will batch every open decision into one questionnaire, recorded in `spec/08-decisions.md`). The scaffold is done when an agent opened in the project reads `AGENTS.md` and can recite the rules on "verify rules".
 

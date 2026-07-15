@@ -9,11 +9,18 @@ You are building a production project from a spec. Think like the senior enginee
 
 ## Prerequisites
 
-On Codex, read `AGENTS.md` first. dat-kit's generated `AGENTS.md` routes to
-the same `CLAUDE.md` contract used by Claude Code, so the build loop stays one
-workflow instead of two drifting copies.
+On every runtime, read root `AGENTS.md` first. It is the generated project's
+canonical contract and routes to `docs/agent-workflow.md` and
+`docs/agent-working-rules.md`. `CLAUDE.md`, `.claude/CLAUDE.md`, and
+`.cursorrules` are compatibility pointers only; never treat runtime settings or
+hooks as a second policy source.
 
-The project must have: a `CLAUDE.md` (architecture rules + quality-gate commands) and a `spec/` directory (vision, features, architecture, build phases — the numbering convention from dat-kit's `project-init`: `00-vision` … `08-decisions`). Missing both? Suggest running `/dat-kit:project-init` first. A partial spec is workable — say what's missing and proceed with what exists.
+The project must have: an `AGENTS.md` canonical contract (including architecture
+rules + quality-gate commands through its linked docs) and a `spec/` directory
+(vision, features, architecture, build phases — the numbering convention from
+dat-kit's `project-init`: `00-vision` … `08-decisions`). Missing both? Suggest
+running `/dat-kit:project-init` first. A partial spec is workable — say what's
+missing and proceed with what exists.
 
 ## The review team
 
@@ -36,7 +43,12 @@ Goal: the user answers ALL decisions ONCE, up front — no mid-build interruptio
 
 **Incremental preflight**: if `spec/08-decisions.md` exists but its `covers phases` range doesn't include the phases about to run, run preflight ONLY for the uncovered phases — one batch of new questions, append answers, update the range. Never re-ask what's already logged.
 
-1. **Scan everything**: `CLAUDE.md`, ALL `spec/` files, `lessons-learned/`, existing code state (`git log`, tree).
+1. **Scan everything**: `AGENTS.md`, its linked `docs/agent-*.md`, ALL `spec/`
+   files, `lessons-learned/`, and existing code state (`git log`, tree). Inventory
+   every instruction entrypoint (`CLAUDE.md`, `.claude/CLAUDE.md`,
+   `.cursorrules`, and host config when present). Stop PREFLIGHT with a finding
+   if more than one contains substantive policy, a pointer target is missing or
+   wrong-cased, or live workflow policy depends on an unverified hook schema.
 2. **Run the step-2 question lenses across EVERY phase** in the build-phases spec — not just the next one. Answer everything answerable from spec (with citations); keep only the genuinely unanswerable.
 3. **Present ALL open questions in ONE batch**, grouped by phase. Each question gets: a numbered ID (`D-001`…), 2–3 concrete options, a recommended default, and one line on the consequence of each option. Wait for answers — this is the ONLY approval stop of the whole run.
 4. **Write `spec/08-decisions.md`**: one row per decision — `ID | question | decision | rationale | source (user/auto) | date` — and set the status line to `PREFLIGHT DONE <date>, covers phases <range>`. This file is spec: later steps consult it before ever asking the user.
@@ -54,7 +66,11 @@ Score every question that surfaces after preflight before anything stops:
 ## The loop (run in full for every phase or feature)
 
 ### 1. LOAD
-Read: `CLAUDE.md`, the relevant `spec/` files for this phase, `lessons-learned/lessons-learned.md` (if present), `CONTEXT.md` (if present — the project glossary; use its terms verbatim in code, commits, and reports), and the previous phase's code. Surface lessons-learned hits relevant to this phase explicitly.
+Read: `AGENTS.md`, its linked `docs/agent-*.md`, the relevant `spec/` files for
+this phase, `lessons-learned/lessons-learned.md` (if present), `CONTEXT.md` (if
+present — the project glossary; use its terms verbatim in code, commits, and
+reports), and the previous phase's code. Surface lessons-learned hits relevant
+to this phase explicitly.
 
 ### 2. SELF-QUESTION (the core of this skill)
 Generate questions across ALL these lenses, then answer each one **from the spec** with a citation (file + section). Only questions the spec cannot answer go to the user.
@@ -82,13 +98,28 @@ Before listing an open question, check `spec/08-decisions.md` — if decided the
 Draft the plan: files to create/modify (grouped by area), endpoints with shapes, components with paths, test list, risks, demo steps. **Delegate to `plan-reviewer`** for an independent audit against the spec. Fix BLOCKERs, then present the plan **including the reviewer's verdict** and **stop for explicit approval**. Never bundle plan + code.
 
 ### 4. BUILD
-Follow the project's `CLAUDE.md` architecture rules exactly. Work dependencies-first (data layer → domain → interfaces → tests, or the order the stack profile prescribes). Commit-sized chunks with conventional-commit messages.
+Follow the architecture rules linked by the project's `AGENTS.md` exactly. Work
+dependencies-first (data layer → domain → interfaces → tests, or the order the
+stack profile prescribes). Commit-sized chunks with conventional-commit messages.
 
 ### 5. VERIFY → qa-agent (the inner loop)
-**Delegate to `qa-agent`**: it runs ALL quality gates defined in the project's `CLAUDE.md` — using exactly the commands written there (if the project says docker-only, never fall back to host binaries) — AND attacks the feature with spec edge cases. **A green gate proves nothing until you've seen it fail**: whenever a phase ADDS or CHANGES a gate command itself, deliberately introduce one error, confirm the gate goes red, revert — only then trust its green (a no-op type-check once stayed green for six phases while dozens of real errors accumulated). Verdict `RETURN TO BUILDER` → fix the failing list → send back. **Repeat until `PHASE DONE`** (max 3 rounds; still failing → stop and report). Then walk the phase's demo step from the build-phases spec yourself.
+**Delegate to `qa-agent`**: it runs ALL quality gates defined by the project's
+canonical `AGENTS.md` contract — using exactly the commands written there (if
+the project says docker-only, never fall back to host binaries) — AND attacks
+the feature with spec edge cases. **A green gate proves nothing until you've
+seen it fail**: whenever a phase ADDS or CHANGES a gate command itself,
+deliberately introduce one error, confirm the gate goes red, revert — only then
+trust its green (a no-op type-check once stayed green for six phases while
+dozens of real errors accumulated). Verdict `RETURN TO BUILDER` → fix the
+failing list → send back. **Repeat until `PHASE DONE`** (max 3 rounds; still
+failing → stop and report). Then walk the phase's demo step from the
+build-phases spec yourself.
 
 ### 6. REVIEW → code-reviewer
-**Delegate to `code-reviewer`**: independent diff audit against `CLAUDE.md` rules and the stack profile. Verdict `RETURN TO BUILDER` → fix findings → re-run **both** qa-agent (regression) and code-reviewer. Repeat until `APPROVE`. Its LESSON CANDIDATES feed step 7.
+**Delegate to `code-reviewer`**: independent diff audit against the canonical
+`AGENTS.md` contract and the stack profile. Verdict `RETURN TO BUILDER` → fix
+findings → re-run **both** qa-agent (regression) and code-reviewer. Repeat
+until `APPROVE`. Its LESSON CANDIDATES feed step 7.
 
 ### 6b. SECURITY → security-reviewer (conditional)
 Trigger when the phase's diff touches ANY of: auth/session logic · user-supplied content (forms, markdown, comments) · file uploads or path handling · new public endpoints · permission changes · payment/money. Delegate to `security-reviewer` after code-reviewer approves. Verdict `RETURN TO BUILDER` (any CRITICAL/HIGH finding) → fix → re-run qa-agent (regression) + security-reviewer. Its LESSON CANDIDATES feed step 7. Phases touching none of those surfaces skip 6b — state the skip and the reason explicitly in the report, never silently.

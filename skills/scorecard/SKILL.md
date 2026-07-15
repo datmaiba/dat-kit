@@ -38,6 +38,12 @@ Half-points are allowed (e.g. 3.5) when genuinely between levels.
 - `gates` — concrete results string ("pest 24/24 ✓, tsc ✓") or "none run" — never invent.
 - `tokens` — always `null` at write time; `scripts/scorecard.py` fills real numbers from transcripts.
 - `model` — which model did the work, if known.
+- `agent_runtime` — `claude-code`, `codex`, or `other`; identifies the host that ran the work.
+- `workflow` — `build-loop`, `standalone`, or a named Domain Pack; identifies the working discipline used.
+
+Existing JSONL lines are historical records and remain valid without these two
+fields. Every new line must include both; never rewrite earlier lines merely to
+normalize attribution.
 
 ## Process
 
@@ -57,7 +63,7 @@ script leaves `tokens` as `null` rather than estimating.
 Example line:
 
 ```json
-{"ts":"2026-07-12T15:04:00+07:00","date":"2026-07-12","task":"blog phase 1 — data layer","complexity":4,"notes":"migrations + repos + DTOs across api/, seeders","est_manual_hours":6,"actual_wall_minutes":42,"gates":"pest 18/18 ✓, pint ✓","tokens":null,"model":"sonnet-5"}
+{"ts":"2026-07-12T15:04:00+07:00","date":"2026-07-12","task":"blog phase 1 — data layer","complexity":4,"notes":"migrations + repos + DTOs across api/, seeders","est_manual_hours":6,"actual_wall_minutes":42,"gates":"pest 18/18 ✓, pint ✓","tokens":null,"model":"sonnet-5","agent_runtime":"codex","workflow":"build-loop"}
 ```
 
 ## What NOT to do

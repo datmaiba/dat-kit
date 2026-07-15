@@ -66,4 +66,4 @@ Tell the user: how to verify it triggers (open a session in the repo, ask for a 
 
 - Every rule must be checkable — "write clean code" is not a guardrail; "SCSS uses `var(--token)`, never raw hex — tokens live in `src/styles/tokens.scss`" is.
 - Prefer explaining *why* a rule exists (one clause) over bare commands — future models follow understood rules better than arbitrary ones.
-- The guardian never duplicates what the repo's CLAUDE.md already enforces — it references and extends, or the two will drift apart.
+- The guardian never duplicates what the repo's canonical `AGENTS.md` contract already enforces — it references and extends, or the two will drift apart.
