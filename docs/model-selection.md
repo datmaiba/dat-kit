@@ -2,6 +2,10 @@
 
 Choose a model by **the cost of being wrong**, not by how tedious the work looks. Reserve the strongest model for the step where a mistake is expensive; route mechanical steps to a cheap model. A single task legitimately mixes tiers — the orchestrator does not need to match the worker.
 
+## Host compatibility
+
+The routing policy is shared, but `agents/*.md` frontmatter and the model aliases below are Claude Code configuration. In Codex, use the same role charters with fresh subagents and let the active Codex model/configuration choose the tier; dat-kit does not claim an unverified Codex model-routing schema. The build-loop's reviewer fallback remains mandatory in both hosts.
+
 ## What dat-kit can actually set
 
 An agent's `model:` frontmatter field (see `agents/*.md`) accepts the tier aliases `haiku`, `sonnet`, `opus`, `fable`, a full model ID (e.g. `claude-opus-4-8`), or `inherit`; omitted, it defaults to `inherit`. Prefer aliases over model IDs — an alias always resolves to whatever Anthropic currently ships at that tier, an ID goes stale. Claude Code resolves a dispatch's model in this order: `CLAUDE_CODE_SUBAGENT_MODEL` env var → the per-invocation `model` parameter → the agent file's frontmatter → the main conversation's model. The per-invocation parameter beating frontmatter matters: an orchestrator can raise (or lower) one specific dispatch without touching the agent file.

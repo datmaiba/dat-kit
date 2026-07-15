@@ -1,0 +1,21 @@
+{
+  "name": "dat-kit",
+  "interface": {
+    "displayName": "dat-kit"
+  },
+  "plugins": [
+    {
+      "name": "dat-kit",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/datmaiba/dat-kit",
+        "ref": "master"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

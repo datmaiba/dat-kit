@@ -41,9 +41,18 @@ Half-points are allowed (e.g. 3.5) when genuinely between levels.
 
 ## Process
 
+### Host support
+
+Resolve `DAT_KIT_ROOT` from the selected skill directory (two parent directories
+up to the package root) before invoking the helper.
+Use `python3 "$DAT_KIT_ROOT/scripts/scorecard.py" --provider claude` to parse
+Claude Code transcripts. Use `--provider codex` in Codex: token enrichment is
+not implemented until its transcript schema has a verified fixture, so the
+script leaves `tokens` as `null` rather than estimating.
+
 1. Compute/propose all fields. Show the line to the user in one compact block.
 2. Append to `benchmarks/scorecard.jsonl` in the project root (create the directory on first use). Append-only — never edit or delete existing lines; corrections are new lines with a `supersedes` field.
-3. Remind (once per session, not nagging): run `python3 scripts/scorecard.py` from the dat-kit checkout — or `${CLAUDE_PLUGIN_ROOT}/scripts/scorecard.py` — to fill real token numbers and print the aggregate benchmark table.
+3. Remind (once per session, not nagging): run the host-appropriate command from **Host support**. Never invoke the Claude transcript parser from Codex.
 
 Example line:
 

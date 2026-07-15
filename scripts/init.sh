@@ -58,6 +58,7 @@ copy_if_missing "$TPL/common/lessons-learned/lessons-learned.md" "$TARGET/lesson
 copy_if_missing "$TPL/common/CONTEXT.md" "$TARGET/CONTEXT.md"
 [ -e "$TARGET/CONTEXT.md" ] && fill_name "$TARGET/CONTEXT.md"
 copy_if_missing "$TPL/common/rules/working.rules.md" "$TARGET/.claude/rules/working.rules.md"
+copy_if_missing "$TPL/common/AGENTS.md" "$TARGET/AGENTS.md"
 [ -e "$TARGET/lessons-learned/lessons-learned.md" ] && fill_name "$TARGET/lessons-learned/lessons-learned.md"
 
 # CLAUDE.md — assemble template + profile sections
@@ -81,5 +82,5 @@ echo ""
 echo "Done: $CREATED created, $SKIPPED skipped (existing files are never overwritten)."
 echo "Next steps:"
 echo "  1. Fill spec/ in order: 00-vision → 01-features → 02-architecture → 03-db-schema → 04-build-phases"
-echo "  2. Review CLAUDE.md (profile: $PROFILE) — adjust gate commands to your compose services"
-echo "  3. Start building: open Claude Code and run the dat-kit build-loop (preflight first for autopilot)"
+echo "  2. Review CLAUDE.md and AGENTS.md (profile: $PROFILE) — adjust gate commands to your compose services"
+echo "  3. Start building: open Claude Code or Codex and run the dat-kit build-loop (preflight first for autopilot)"

@@ -1,6 +1,6 @@
 # dat-kit
 
-A spec-driven development toolkit for Claude Code, distilled from real production workflows. One install gives your agent a complete working discipline: think before coding, plan before building, verify before claiming, and harvest lessons after shipping.
+A spec-driven development toolkit for Claude Code and Codex, distilled from real production workflows. One install gives your agent a complete working discipline: think before coding, plan before building, verify before claiming, and harvest lessons after shipping.
 
 > Status: **v1.0.0 — dogfooded on a real project**. All skills, templates, agents, hooks, and CI have landed. See [Roadmap](#roadmap).
 
@@ -12,9 +12,9 @@ A spec-driven development toolkit for Claude Code, distilled from real productio
 | `skills/fable-mode` | Careful-working discipline with three effort levels (low/medium/high) scaling reasoning, verification, and reporting. For repos *without* the dat-kit scaffold — scaffolded projects already get this via the rules file and session hook. |
 | `skills/fable-pro` | The same discipline, adapted for any profession — accounting, law, design, medicine. |
 | `skills/guardian-builder` | Generate a project-specific "guardian" skill: guardrails, naming rules, plan gate, lessons integration for any repo. |
-| `skills/project-init` | Scaffold a new project (or adopt an existing one) with CLAUDE.md, spec skeleton, rules, CONTEXT.md glossary, and a stack profile. |
+| `skills/project-init` | Scaffold a new project (or adopt an existing one) with a shared CLAUDE.md/AGENTS.md contract, spec skeleton, rules, CONTEXT.md glossary, and a stack profile. |
 | `skills/handoff` | Compact a session into a resumable handoff document in `handoffs/` — survives across sessions and machines; build-loop recovery reads it first; its format doubles as the builder brief for delegated builds. |
-| `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled as estimates), real wall time and gates — appended to `benchmarks/scorecard.jsonl`. `scripts/scorecard.py` fills real token usage from Claude Code transcripts and prints the aggregate table. |
+| `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled as estimates), real wall time and gates — appended to `benchmarks/scorecard.jsonl`. Claude Code transcripts can enrich token usage; Codex leaves tokens null until a parser is verified. |
 | `skills/diagnosing-bugs` | Disciplined diagnosis loop for hard bugs and perf regressions: feedback-loop-first → reproduce+minimise → ranked falsifiable hypotheses → instrument one variable → fix behind a regression test → post-mortem into lessons-learned. The backward counterpart to build-loop. |
 | `skills/improve-codebase-architecture` | Find "deepening" refactors (shallow → deep modules) for testability and AI-navigability: Explore subagent walk → ranked candidates in a fixed depth/seam vocabulary → grill the chosen one → hand the design to build-loop. |
 | `skills/git-worktrees` | Set up an isolated workspace before a feature or a build-loop plan: detect existing isolation → prefer native worktree tools → git fallback (verified gitignored) → project setup → clean-baseline check. |
@@ -24,11 +24,13 @@ A spec-driven development toolkit for Claude Code, distilled from real productio
 | `skills/knowledge-work` | First non-dev Domain Pack — research, writing, analysis. Ground yourself in primary sources, verify every claim against its cited source, pass the citation/fidelity/reliability/currency/coverage/consistency gates with an independent fact-check. Capped at the Goal loop (its load-bearing gate needs a human to close). |
 | `docs/` | `loops.md` — the two-axis model (Domain × Loop) and the capability ladder (Turn/Goal/Time/Proactive, unlocked by gate quality). `domains.md` — the domain registry. `model-selection.md` — which model tier (`haiku`/`sonnet`/`opus`/`fable`/inherit) a subagent should run at, and the consult-dispatch escalation for surprise difficulty. |
 | `agents/` | Independent reviewers: `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — the builder never grades its own work. |
-| `templates/` | `common/` (stack-agnostic CLAUDE.md, spec 00–08 skeleton, rules) + `profiles/` (battle-tested architecture rules per stack: `laravel-react`, `react`). |
-| `hooks.json` | SessionStart bootstrap: injects the working discipline automatically — no manual skill invocation. |
+| `templates/` | `common/` (stack-agnostic CLAUDE.md, Codex AGENTS.md bridge, spec 00–08 skeleton, rules) + `profiles/` (battle-tested architecture rules per stack: `laravel-react`, `react`). |
+| `hooks.json` | Claude Code SessionStart bootstrap: injects the working discipline automatically. Codex uses skills plus AGENTS.md in v1. |
 | `scripts/statusline.py` | Per-turn + per-session token statusline for Claude Code (incremental transcript parse, ~cost, ctx %). One-time setup: `python3 scripts/statusline.py --install`. |
 
 ## Install
+
+### Claude Code
 
 ```
 /plugin marketplace add datmaiba/dat-kit
@@ -41,10 +43,19 @@ Local development / testing from a checkout:
 claude --plugin-dir /path/to/dat-kit
 ```
 
+### Codex
+
+```bash
+codex plugin marketplace add datmaiba/dat-kit
+codex plugin add dat-kit@dat-kit
+```
+
+See [Codex support](docs/codex.md) for the host-specific setup and current limitations.
+
 ## Quick start
 
 ```
-/dat-kit:project-init my-app        # scaffold: CLAUDE.md + spec/ + rules + stack profile
+/dat-kit:project-init my-app        # scaffold: CLAUDE.md + AGENTS.md + spec/ + rules + stack profile
 /dat-kit:build-loop phase 0         # run the loop: self-question → plan → (approve) → build → verify
 ```
 
@@ -85,16 +96,18 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.13.0 — knowledge-work `fact-check.template.md` deliverable; pack-contract completeness guard in `validate.py` (declared slot files must exist beside the pack's SKILL.md); domain-builder interview now asks required-inputs/missing-info policy and for a real input→output pair; lessons-learned: an install copy is not the source of record
 - [x] v1.14.0 — dogfood lessons upstreamed from a real full-stack build: build-loop gains the "a green gate proves nothing until you've seen it fail" verification rule plus Reuse and rate-limit/retention self-question lenses; `laravel-react`/`react` profiles fix the no-op `tsc --noEmit` gate (→ `tsc -b`) and add traps for vitest's ESM-export blindness, `vite preview` proxy, vite-config reloads, public-endpoint retention, borrowed-method contracts, and framework exception conversion (v1.13.1 rode ahead as a patch: `validate.py` false-red on Windows cp1252 consoles)
 
+- [x] v1.15.0 — Codex adapter: native plugin manifest + marketplace, shared skills, AGENTS.md scaffold bridge, provider-safe scorecard behavior, and dual-host validation/documentation. Claude Code hooks and plugin behavior remain unchanged.
+
 ## Maintenance
 
 Plugin update workflow (in order, every time anything changes):
 
 1. Edit the file (skill/agent/template/script/hook)
 2. `python scripts/validate.py` — must print "all checks green" (same checks CI runs)
-3. Bump version in BOTH `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` — skip this and clients never see the update. Patch (`x.y.Z`) for fixes, minor (`x.Y.0`) for new features
+3. Bump version in `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.codex-plugin/plugin.json`; update `.agents/plugins/marketplace.json` if its source metadata changes. Patch (`x.y.Z`) for fixes, minor (`x.Y.0`) for new features
 4. `git add -A && git commit && git push` — check the GitHub Actions tab is green
-5. In Claude Code: `/plugin` → Marketplaces → update dat-kit → Installed tab shows the new version (manual step by design — the model can't drive this UI, and it's a deliberate security checkpoint)
-6. Open a NEW session — a running session still uses the version loaded at startup (or `/reload-plugins` if only a hook/agent changed)
+5. In Claude Code: `/plugin` → Marketplaces → update dat-kit. In Codex: reinstall from the configured marketplace. Confirm the installed version in each host.
+6. Open a NEW session — a running session still uses the version loaded at startup.
 
 ## License
 

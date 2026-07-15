@@ -7,6 +7,12 @@ Exit 0 = all green; exit 1 = findings printed.
 """
 import json, re, sys, glob, pathlib
 
+try:
+    import yaml
+except ModuleNotFoundError:
+    print("PyYAML is required: python3 -m pip install -r requirements-dev.txt")
+    sys.exit(1)
+
 # Windows consoles default to a legacy codepage (cp1252) that cannot encode the
 # ✓/❌ status symbols — the script would crash on its final print with a false-red
 # exit code even when every check passed. CI (Linux, UTF-8) never sees this.
@@ -29,7 +35,6 @@ def frontmatter(path):
     if len(parts) < 3:
         return None, text
     try:
-        import yaml
         return yaml.safe_load(parts[1]), text
     except Exception as e:
         findings.append(f"{path}: frontmatter YAML error: {e}")
@@ -39,12 +44,25 @@ def frontmatter(path):
 # 1. Manifests
 plugin = json.load(open(ROOT / ".claude-plugin/plugin.json"))
 market = json.load(open(ROOT / ".claude-plugin/marketplace.json"))
+codex_plugin = json.load(open(ROOT / ".codex-plugin/plugin.json"))
+codex_market = json.load(open(ROOT / ".agents/plugins/marketplace.json"))
 check(plugin["name"] == "dat-kit", "plugin.json: unexpected name")
 check(re.match(r"^\d+\.\d+\.\d+", plugin.get("version", "")), "plugin.json: version must be semver")
 check(plugin["version"] == market["plugins"][0]["version"],
       f"version mismatch: plugin.json {plugin['version']} vs marketplace.json {market['plugins'][0]['version']}")
 check(market["plugins"][0]["source"] == "./", "marketplace.json: source must be './'")
 check(plugin.get("hooks") == "./hooks.json", "plugin.json: hooks must be declared explicitly (auto-discovery unreliable in dev mode)")
+check(codex_plugin.get("name") == plugin["name"], "Codex plugin name must match Claude plugin name")
+check(codex_plugin.get("version") == plugin["version"], "Codex plugin version must match Claude plugin version")
+check(codex_plugin.get("skills") == "./skills/", "Codex plugin must expose the shared skills directory")
+check("hooks" not in codex_plugin, "Codex plugin must not reuse Claude's SessionStart hook")
+codex_entry = codex_market.get("plugins", [{}])[0]
+check(codex_entry.get("name") == plugin["name"], "Codex marketplace plugin name must match manifest")
+check(codex_entry.get("source", {}).get("source") == "url", "Codex marketplace must use a root-repo URL source")
+check(codex_entry.get("source", {}).get("url") == plugin["repository"], "Codex marketplace URL must match repository")
+check(codex_entry.get("policy") == {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+      "Codex marketplace policy must be AVAILABLE / ON_INSTALL")
+check(codex_entry.get("category") == "Productivity", "Codex marketplace category must be Productivity")
 
 # 2. Skills
 for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
@@ -105,6 +123,11 @@ check("SessionStart" in hooks.get("hooks", {}), "hooks.json: SessionStart missin
 boot = ROOT / "templates/session-bootstrap.txt"
 check(boot.exists(), "templates/session-bootstrap.txt missing")
 check(len(boot.read_text().split()) < 150, "session-bootstrap.txt too long (injected into every session — keep under 150 words)")
+agents_template = ROOT / "templates/common/AGENTS.md"
+check(agents_template.exists(), "templates/common/AGENTS.md missing")
+if agents_template.exists():
+    check("`CLAUDE.md`" in agents_template.read_text(encoding="utf-8"),
+          "AGENTS.md template must route Codex to the canonical CLAUDE.md contract")
 
 # 5. Personal-info gate (this repo is public and portfolio-linked)
 BANNED = re.compile(r"datmba3|freighttracker|meoanca|30kft|yuranga|job.hunt", re.I)

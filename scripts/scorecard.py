@@ -6,9 +6,10 @@ scorecard skill) by parsing Claude Code transcript files, then prints an
 aggregate benchmark table.
 
 Usage (from the project you want to report on):
-    python3 /path/to/dat-kit/scripts/scorecard.py            # fill tokens + report
-    python3 .../scorecard.py --report-only                   # just the table
-    python3 .../scorecard.py --projects-dir /custom/path     # override transcript location (tests)
+    python3 /path/to/dat-kit/scripts/scorecard.py --provider claude
+    python3 .../scorecard.py --provider claude --report-only
+    python3 .../scorecard.py --provider claude --projects-dir /custom/path
+    python3 .../scorecard.py --provider codex                # report only; no unverified parser
 
 Token matching: each scorecard entry's `ts` is matched to the transcript
 session whose [first, last] message window contains it (or ends within 6h
@@ -116,6 +117,8 @@ def report(entries):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--provider", choices=("claude", "codex"), default="claude",
+                    help="Transcript format to parse; Codex token parsing is not implemented yet")
     ap.add_argument("--projects-dir", default=os.path.expanduser("~/.claude/projects"))
     ap.add_argument("--project", default=os.getcwd(), help="project path whose transcripts to scan")
     ap.add_argument("--report-only", action="store_true")
@@ -126,7 +129,9 @@ def main():
     if sc_path.exists():
         entries = [json.loads(x) for x in sc_path.read_text().splitlines() if x.strip()]
 
-    if not args.report_only:
+    if args.provider == "codex" and not args.report_only:
+        print("(Codex transcript token parsing is not verified yet — tokens stay null.)\n")
+    elif not args.report_only:
         tdir = project_transcript_dir(pathlib.Path(args.projects_dir), args.project)
         if tdir.is_dir():
             n = fill_tokens(entries, list(scan_sessions(tdir)))

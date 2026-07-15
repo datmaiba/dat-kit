@@ -20,8 +20,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install PyYAML
-        run: pip install pyyaml
+      - name: Install validation dependencies
+        run: pip install -r requirements-dev.txt
 
       - name: Repo validation (manifests, skills, agents, hooks, info gate)
         run: python3 scripts/validate.py
@@ -35,6 +35,11 @@ jobs:
           cd "$(mktemp -d)"
           bash "$GITHUB_WORKSPACE/scripts/init.sh" demo --desc "ci smoke"
           test -f demo/CLAUDE.md && ! grep -q '{{' demo/CLAUDE.md
+          test -f demo/AGENTS.md
           cd demo && rm spec/07-design.md
-          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -q "1 created, 12 skipped"
+          claude_hash="$(sha256sum CLAUDE.md)"
+          agents_hash="$(sha256sum AGENTS.md)"
+          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -q "1 created, 13 skipped"
+          test "$claude_hash" = "$(sha256sum CLAUDE.md)"
+          test "$agents_hash" = "$(sha256sum AGENTS.md)"
           echo "init.sh smoke ✓"

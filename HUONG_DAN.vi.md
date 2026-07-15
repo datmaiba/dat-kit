@@ -1,6 +1,6 @@
 # dat-kit — Hướng dẫn tiếng Việt
 
-Toolkit phát triển phần mềm spec-driven cho Claude Code. Cài 1 lệnh, agent có ngay kỷ luật làm việc trọn bộ: nghĩ trước khi code, plan trước khi build, verify trước khi báo xong, đúc kết bài học sau khi ship.
+Toolkit phát triển phần mềm spec-driven cho Claude Code và Codex. Cài 1 lệnh, agent có ngay kỷ luật làm việc trọn bộ: nghĩ trước khi code, plan trước khi build, verify trước khi báo xong, đúc kết bài học sau khi ship.
 
 ## Cài đặt
 
@@ -11,11 +11,20 @@ Toolkit phát triển phần mềm spec-driven cho Claude Code. Cài 1 lệnh, a
 
 Dev/test local từ folder: `claude --plugin-dir /đường/dẫn/dat-kit`
 
+**Codex:**
+
+```bash
+codex plugin marketplace add datmaiba/dat-kit
+codex plugin add dat-kit@dat-kit
+```
+
+Xem [docs/codex.md](docs/codex.md) để biết giới hạn theo host: Codex dùng `AGENTS.md` bridge, chưa parse token transcript và không dùng Claude SessionStart hook.
+
 ## Có gì bên trong
 
 | Thành phần | Công dụng |
 |---|---|
-| `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): CLAUDE.md ghép từ stack profile + skeleton `spec/00→08` + rules + lessons-learned + `CONTEXT.md` (glossary thuật ngữ domain — agent dùng đúng từ của team, đỡ tốn token) |
+| `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): CLAUDE.md canonical + AGENTS.md bridge cho Codex, skeleton `spec/00→08`, rules, lessons-learned + `CONTEXT.md` |
 | `/dat-kit:build-loop` | Vòng lặp build: load context → tự chất vấn theo spec → plan → **chờ duyệt** → build → chạy gates → review độc lập → đúc kết bài học. Autopilot: PREFLIGHT gom mọi câu hỏi thành 1 lần duyệt duy nhất. Delegated-build ("delegated build"): session chính làm orchestrator, mỗi task 1 builder subagent mới + review 2 bước (đúng spec → chất lượng code) |
 | `/dat-kit:handoff` | Nén session đang dở thành file bàn giao trong `handoffs/` — session mới (hoặc máy khác) đọc là tiếp tục được ngay; build-loop recovery tự đọc file mới nhất |
 | `/dat-kit:fable-mode` | Kỷ luật làm việc kiểu Fable với 3 mức effort (low/medium/high) |
@@ -52,7 +61,7 @@ Dev/test local từ folder: `claude --plugin-dir /đường/dẫn/dat-kit`
 
 1. Sửa file (skill/agent/template/script/hook)
 2. `python scripts/validate.py` — phải "all checks green" (đúng bộ check CI chạy)
-3. Bump version ở CẢ HAI file: `.claude-plugin/plugin.json` và `.claude-plugin/marketplace.json` — không bump = client không nhận update. Patch (`x.y.Z`) cho fix, minor (`x.Y.0`) cho tính năng mới
+3. Bump version ở BA manifest: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`; chỉ sửa `.agents/plugins/marketplace.json` khi source metadata đổi. Patch (`x.y.Z`) cho fix, minor (`x.Y.0`) cho tính năng mới
 4. `git add -A && git commit && git push` — check tab Actions trên GitHub phải xanh
 5. Trong Claude Code: `/plugin` → Marketplaces → update dat-kit → tab Installed hiện version mới (bước này bắt buộc làm tay — model không tự chạy được lệnh UI, và đây là chốt bảo mật có chủ đích)
 6. Mở session MỚI — session đang chạy vẫn dùng bản cũ đã nạp lúc khởi động (hoặc `/reload-plugins` nếu chỉ cần hook/agent)

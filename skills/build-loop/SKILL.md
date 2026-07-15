@@ -9,6 +9,10 @@ You are building a production project from a spec. Think like the senior enginee
 
 ## Prerequisites
 
+On Codex, read `AGENTS.md` first. dat-kit's generated `AGENTS.md` routes to
+the same `CLAUDE.md` contract used by Claude Code, so the build loop stays one
+workflow instead of two drifting copies.
+
 The project must have: a `CLAUDE.md` (architecture rules + quality-gate commands) and a `spec/` directory (vision, features, architecture, build phases — the numbering convention from dat-kit's `project-init`: `00-vision` … `08-decisions`). Missing both? Suggest running `/dat-kit:project-init` first. A partial spec is workable — say what's missing and proceed with what exists.
 
 ## The review team

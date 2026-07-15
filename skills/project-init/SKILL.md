@@ -22,10 +22,17 @@ description: >-
 
 ## 2. Run the scaffold
 
+### Package root (Claude Code and Codex)
+
+Resolve `DAT_KIT_ROOT` before invoking the script. In Claude Code it is
+`${CLAUDE_PLUGIN_ROOT}`. In Codex, start from the directory containing this
+skill's `SKILL.md`, then go up two directories to the package root. The commands below use `DAT_KIT_ROOT` so neither
+host depends on the other's environment variables.
+
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/init.sh" <name> --profile <profile> --desc "<one-liner>"
+bash "$DAT_KIT_ROOT/scripts/init.sh" <name> --profile <profile> --desc "<one-liner>"
 # or, inside an existing repo:
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/init.sh" --here --profile <profile>
+bash "$DAT_KIT_ROOT/scripts/init.sh" --here --profile <profile>
 ```
 
 Brownfield guarantees: existing files are never overwritten — the script prints `skip (exists)` per conflict. If `CLAUDE.md` already exists, the profile sections are NOT merged automatically; read the profile files and propose a manual merge as a diff for approval.
@@ -47,6 +54,13 @@ Adjust the gate commands in `CLAUDE.md` to the project's real service names befo
 
 ## 4. Suggest companion tools (detect, don't install)
 
+### Codex manual fallback
+
+When the scaffold script cannot run in Codex, use `$DAT_KIT_ROOT/templates/`
+instead of the Claude-only environment-variable path mentioned above. Copy
+`common/AGENTS.md` alongside the listed templates so Codex has its project
+entrypoint.
+
 dat-kit is a methodology, not a package manager — it never installs anything for the user. But two optional, independent, local-first tools pair well with the build loop, and a fresh repo is the natural moment to point them out. **Detect, then suggest the exact command — never run a privileged install yourself.**
 
 - **CodeGraph** (semantic code index → far fewer tool calls when exploring a repo). Two checks:
@@ -60,6 +74,9 @@ dat-kit is a methodology, not a package manager — it never installs anything f
 Rules: suggest each tool at most once per repo; if the user declines, or the tool is already set up, say nothing further. Never run `npm` / `pip` / `sudo` on the user's behalf — print the command and let them decide. These are independent projects with their own release cycles; dat-kit only points at them, it does not wrap or version them.
 
 ## 5. Hand off
+
+In Codex, `AGENTS.md` is the entrypoint: it routes the agent to the canonical
+`CLAUDE.md` contract and the rest of the generated project context.
 
 Tell the user: run the **build-loop** skill for phase 0 (or "autopilot from phase 0" — PREFLIGHT will batch every open decision into one questionnaire, recorded in `spec/08-decisions.md`). The scaffold is done when `claude` opened in the project reads CLAUDE.md and can recite the rules on "verify rules".
 
