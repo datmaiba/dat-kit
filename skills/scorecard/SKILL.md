@@ -3,13 +3,15 @@ name: scorecard
 description: >-
   Benchmark scoring for AI-assisted work sessions. Invoke at the END of any
   substantive task — or whenever the user says "scorecard", "score this
-  task", "benchmark this session", "log this work". Scores the task on a
+  task", "benchmark this session", "log this work", or "log this completed
+  task". Scores the task on a
   fixed 1-5 complexity rubric, estimates manual hours saved (clearly labeled as
   an estimate), records actual wall time and gate results, and appends one JSONL
-  line to the project's benchmarks/scorecard.jsonl. Token usage is filled in
-  later by scripts/scorecard.py, which parses Claude Code transcripts for real
-  numbers. The build-loop skill calls this automatically at the end of every
-  phase; use it standalone for one-off tasks outside the build loop.
+  line to the project's benchmarks/scorecard.jsonl through the append-only
+  scripts/scorecard.py helper. Exact Claude session totals are attached only
+  when one session maps to one task; ambiguous or unsupported attribution stays
+  null with a reason code. The build-loop skill calls this automatically at the
+  end of every phase; use it standalone for one-off tasks outside the build loop.
 ---
 
 # scorecard — score a completed task
@@ -30,13 +32,19 @@ Half-points are allowed (e.g. 3.5) when genuinely between levels.
 
 ## Fields to record
 
-- `date` — ISO date. `ts` — ISO timestamp of task end (used to match tokens to a session later).
+- `date` — ISO date. `ts` — ISO timestamp of task end (used for token attribution before append).
 - `task` — short label ("blog phase 1", "fix Form.config ftCode bug").
 - `complexity` — from the rubric, with one line of justification in `notes`.
 - `est_manual_hours` — your estimate of hands-on hours a competent developer would need without AI. Propose it with your reasoning in one line; if the user is present, let them adjust — their number wins. This is an ESTIMATE and stays labeled as such.
 - `actual_wall_minutes` — real elapsed time for the task (from session timestamps if known, otherwise ask).
 - `gates` — concrete results string ("pest 24/24 ✓, tsc ✓") or "none run" — never invent.
-- `tokens` — always `null` at write time; `scripts/scorecard.py` fills real numbers from transcripts.
+- `tokens` — supply `null`; the append helper replaces it with exact Claude
+  session totals only when one transcript session maps to this task and no
+  existing scorecard task maps to that session.
+- `token_attribution` — written by the append helper: `status` is `exact` or
+  `unknown`; `reason` is `exact_session_total`, `unsupported_provider`,
+  `missing_timestamp`, `no_matching_session`, `multiple_matching_sessions`, or
+  `ambiguous_multi_task_session`.
 - `model` — which model did the work, if known.
 - `schema_version` — always `2` for new records.
 - `agent_runtime` — `claude-code`, `codex`, `cursor`, or `other`; use the enum from `scripts/contract_check.py`.
@@ -54,14 +62,22 @@ record or rewrite history merely to normalize attribution.
 
 Resolve `DAT_KIT_ROOT` from the selected skill directory (two parent directories
 up to the package root) before invoking the helper.
-Use `python3 "$DAT_KIT_ROOT/scripts/scorecard.py" --provider claude` to parse
-Claude Code transcripts. Use `--provider codex` in Codex: token enrichment is
-not implemented until its transcript schema has a verified fixture, so the
-script leaves `tokens` as `null` rather than estimating.
+Use `python3 "$DAT_KIT_ROOT/scripts/scorecard.py" --provider <host>
+--append-record <record.json> --project <project-root>` to append. The record may
+also be supplied as JSON on stdin with `--append-record -`. Use `claude` for
+Claude Code and `codex` for Codex. Codex token parsing remains unverified, so the
+helper records `tokens: null` with `reason: unsupported_provider`.
 
-1. Compute/propose all fields. Show the line to the user in one compact block.
-2. Append to `benchmarks/scorecard.jsonl` in the project root (create the directory on first use). Append-only — never edit or delete existing lines; corrections are new lines with a `supersedes` field.
-3. Remind (once per session, not nagging): run the host-appropriate command from **Host support**. Never invoke the Claude transcript parser from Codex.
+1. Compute/propose all input fields with `tokens: null`. Show the candidate to
+   the user in one compact block.
+2. Pass that JSON object to the host-appropriate append command above. The
+   helper is the only scorecard writer: it validates schema v2, resolves token
+   attribution, and performs one append. Never edit, normalize, or rewrite
+   existing lines. It fails closed on symlink, reparse-point, and hard-linked
+   scorecard paths. Corrections are new records with a `supersedes` field.
+3. For a report, run the same host command without `--append-record`.
+   Report-time Claude attribution is display-only and never persists. Never
+   invoke the Claude transcript parser from Codex.
 
 Example line:
 
@@ -71,4 +87,7 @@ Example line:
 
 ## What NOT to do
 
-Do not inflate `est_manual_hours` to make the tool look good — when unsure, estimate low. Do not fill `tokens` by guessing. Do not score trivial Q&A exchanges — the benchmark is for work, not chat.
+Do not inflate `est_manual_hours` to make the tool look good — when unsure,
+estimate low. Do not fill `tokens` or `token_attribution` yourself; the helper
+owns both. Do not score trivial Q&A exchanges — the benchmark is for work, not
+chat.
