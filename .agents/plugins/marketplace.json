@@ -9,7 +9,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/datmaiba/dat-kit",
-        "ref": "master"
+        "ref": "release/1.x"
       },
       "policy": {
         "installation": "AVAILABLE",
