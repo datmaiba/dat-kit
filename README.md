@@ -2,7 +2,7 @@
 
 A spec-driven development toolkit for Claude Code and Codex, distilled from real production workflows. One install gives your agent a complete working discipline: think before coding, plan before building, verify before claiming, and harvest lessons after shipping.
 
-> Status: **v1.17.0 — contract migration recovery implemented locally; release pending approval**. See [Roadmap](#roadmap).
+> Status: **v1.17.1 — append-only scorecard maintenance correction**. See [Roadmap](#roadmap).
 
 ## What's inside
 
@@ -14,7 +14,7 @@ A spec-driven development toolkit for Claude Code and Codex, distilled from real
 | `skills/guardian-builder` | Generate a project-specific "guardian" skill: guardrails, naming rules, plan gate, lessons integration for any repo. |
 | `skills/project-init` | Scaffold a new project (or adopt an existing one) with canonical AGENTS.md guidance, pointer-only runtime adapters, a spec skeleton, shared agent docs, CONTEXT.md glossary, and a stack profile. |
 | `skills/handoff` | Compact a session into a resumable handoff document in `handoffs/` — survives across sessions and machines; build-loop recovery reads it first; its format doubles as the builder brief for delegated builds. |
-| `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled as estimates), real wall time and gates — appended to `benchmarks/scorecard.jsonl`. Claude Code transcripts can enrich token usage; Codex leaves tokens null until a parser is verified. |
+| `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled as estimates), real wall time and gates — appended to `benchmarks/scorecard.jsonl` without rewriting history. Exact Claude session totals are attached only when one session maps to one task; ambiguous or Codex attribution remains null with a reason code. |
 | `skills/diagnosing-bugs` | Disciplined diagnosis loop for hard bugs and perf regressions: feedback-loop-first → reproduce+minimise → ranked falsifiable hypotheses → instrument one variable → fix behind a regression test → post-mortem into lessons-learned. The backward counterpart to build-loop. |
 | `skills/improve-codebase-architecture` | Find "deepening" refactors (shallow → deep modules) for testability and AI-navigability: Explore subagent walk → ranked candidates in a fixed depth/seam vocabulary → grill the chosen one → hand the design to build-loop. |
 | `skills/git-worktrees` | Set up an isolated workspace before a feature or a build-loop plan: detect existing isolation → prefer native worktree tools → git fallback (verified gitignored) → project setup → clean-baseline check. |
@@ -111,6 +111,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.15.0 — Codex adapter: native plugin manifest + marketplace, shared skills, AGENTS.md scaffold bridge, provider-safe scorecard behavior, and dual-host validation/documentation. Claude Code hooks and plugin behavior remain unchanged.
 - [x] v1.16.0 — Shared-agent migration: AGENTS.md is the sole canonical contract; Claude/Cursor files are pointers, runtime settings are adapters, scorecards record runtime/workflow, and handoffs carry contract and Git state.
 - [x] v1.17.0 — Contract migration recovery: package versions are decoupled from the v1.16 project-contract revision; typed diagnostics and a deterministic read-only migration planner turn brownfield drift into a preservation-first file plan without weakening fail-closed scaffolding.
+- [x] v1.17.1 — Scorecard maintenance correction: the helper never rewrites historical JSONL, appends one validated record at a time, persists exact Claude session totals only for unambiguous single-task attribution, and otherwise records an explicit unknown-attribution reason.
 
 The no-drift guarantee applies to installations that pass
 `python scripts/contract_check.py --target .`; unmigrated brownfield repos may

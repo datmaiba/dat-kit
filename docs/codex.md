@@ -1,6 +1,6 @@
 # Codex support
 
-dat-kit v1.17.0 supports Codex without changing its Claude Code adapter. The same `skills/` directory is the workflow source of truth; Codex receives it through `.codex-plugin/plugin.json`.
+dat-kit v1.17.1 supports Codex without changing its Claude Code adapter. The same `skills/` directory is the workflow source of truth; Codex receives it through `.codex-plugin/plugin.json`.
 
 ## Install
 
@@ -48,7 +48,7 @@ For a typical v1.15 project, inventory policy from the old canonical file and
 runtime pointers, merge it into the v1.16 `AGENTS.md` plus working rules, replace
 the three pointers and static workflow from templates, inspect local adapters,
 then require `contract_check.py --target .` to exit 0. The package version and
-project-contract revision are independent: v1.17.0 continues to accept the
+project-contract revision are independent: v1.17.1 continues to accept the
 unchanged `dat-kit 1.16.0` contract layout.
 
 ## Host-specific behavior
@@ -58,16 +58,28 @@ unchanged `dat-kit 1.16.0` contract layout.
 | Plugin manifest | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` |
 | Session bootstrap | Included through `hooks.json` | No shipped hook; skills plus `AGENTS.md` provide the workflow |
 | Reviewer profiles | `agents/*.md` frontmatter and model routing | Fresh subagents use the same reviewer charters; no unverified model-routing schema |
-| Token enrichment | Claude transcript parser | Unsupported in v1; scorecard tokens remain `null` |
+| Token attribution | Exact session totals only when one session maps to one task | Parser unverified; new records keep `tokens: null` with `unsupported_provider` |
 
 ## Scorecard
 
-Use `scripts/scorecard.py --provider claude` only when parsing Claude Code transcripts. `--provider codex` intentionally leaves token fields unchanged and reports that parser support has not been verified yet. It never estimates token usage.
+Append through the helper instead of writing JSONL directly:
+
+```bash
+python3 scripts/scorecard.py --provider codex --project . --append-record record.json
+```
+
+`--provider codex` records `tokens: null` with the reason
+`unsupported_provider`; it never estimates usage. Claude Code may use
+`--provider claude`, but session totals are persisted only when exactly one
+transcript session maps to the new task and no prior scorecard task maps to the
+same session. Running the helper without `--append-record` may enrich a report
+in memory; it never writes those display-only values back to history.
 
 New scorecard lines use schema v2 and record `agent_runtime` (`claude-code`,
 `codex`, `cursor`, or `other`), workflow, canonical-contract revision, and Git
 state. Historical v1 lines remain append-only and valid only before the first
-v2 record.
+v2 record. The optional `token_attribution` object is additive, so v1.17 readers
+that do not know it continue to ignore it safely.
 
 ## Development checks
 

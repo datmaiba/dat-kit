@@ -27,6 +27,15 @@ def codes(report):
     return {code for code, _ in report.items}
 
 
+class ChangedCtimeStat:
+    def __init__(self, value, ctime_ns):
+        self._value = value
+        self.st_ctime_ns = ctime_ns
+
+    def __getattr__(self, name):
+        return getattr(self._value, name)
+
+
 def test_empty_brownfield_is_compatible(tmp_path):
     assert not cc.check_target(tmp_path).items
 
@@ -183,6 +192,92 @@ def test_target_swap_between_lstat_and_open_is_not_read(monkeypatch, tmp_path):
     report = cc.check_target(tmp_path)
     assert [code for code, _ in report.items] == ["UNSAFE_SYMLINK"]
     assert all("SECRET_OUTSIDE_POLICY" not in item.summary for item in report.diagnostics)
+
+
+def test_target_swap_is_rejected_when_file_identity_is_reused(monkeypatch, tmp_path):
+    pointer = tmp_path / "CLAUDE.md"
+    pointer.write_text("Read AGENTS.md.\n", encoding="utf-8")
+    original = pointer.lstat()
+    real_open = cc.os.open
+    real_lstat = Path.lstat
+    swapped = False
+
+    def swap_then_open(path, flags, *args, **kwargs):
+        nonlocal swapped
+        if Path(path) == pointer and not swapped:
+            swapped = True
+            pointer.unlink()
+            pointer.write_text("X" * original.st_size, encoding="utf-8")
+            os.utime(pointer, ns=(original.st_atime_ns, original.st_mtime_ns))
+        return real_open(path, flags, *args, **kwargs)
+
+    def reused_identity_lstat(path):
+        result = real_lstat(path)
+        if Path(path) == pointer and swapped:
+            return ChangedCtimeStat(result, original.st_ctime_ns + 1)
+        return result
+
+    monkeypatch.setattr(cc.os, "open", swap_then_open)
+    monkeypatch.setattr(Path, "lstat", reused_identity_lstat)
+    monkeypatch.setattr(cc.os.path, "samestat", lambda _before, _after: True)
+    report = cc.check_target(tmp_path)
+
+    assert [code for code, _ in report.items] == ["UNSAFE_SYMLINK"]
+    assert all("X" * original.st_size not in item.summary for item in report.diagnostics)
+
+
+def test_target_root_reuse_with_changed_ctime_is_rejected(monkeypatch, tmp_path):
+    target = tmp_path / "target"
+    target.mkdir()
+    original = target.lstat()
+    real_lstat = Path.lstat
+    target_calls = 0
+
+    def reused_root_lstat(path):
+        nonlocal target_calls
+        result = real_lstat(path)
+        if Path(path) == target:
+            target_calls += 1
+            if target_calls >= 2:
+                return ChangedCtimeStat(result, original.st_ctime_ns + 1)
+        return result
+
+    monkeypatch.setattr(Path, "lstat", reused_root_lstat)
+    monkeypatch.setattr(cc.os.path, "samestat", lambda _before, _after: True)
+    report = cc.Report()
+
+    assert cc._target_root(target, report) is None
+    assert [code for code, _ in report.items] == ["UNSAFE_SYMLINK"]
+
+
+def test_metadata_reader_rejects_reused_file_identity(monkeypatch, tmp_path):
+    metadata = tmp_path / "index"
+    metadata.write_bytes(b"SAFE")
+    original = metadata.lstat()
+    real_open = cc.os.open
+    real_lstat = Path.lstat
+    swapped = False
+
+    def swap_then_open(path, flags, *args, **kwargs):
+        nonlocal swapped
+        if Path(path) == metadata and not swapped:
+            swapped = True
+            metadata.unlink()
+            metadata.write_bytes(b"EVIL")
+            os.utime(metadata, ns=(original.st_atime_ns, original.st_mtime_ns))
+        return real_open(path, flags, *args, **kwargs)
+
+    def reused_metadata_lstat(path):
+        result = real_lstat(path)
+        if Path(path) == metadata and swapped:
+            return ChangedCtimeStat(result, original.st_ctime_ns + 1)
+        return result
+
+    monkeypatch.setattr(cc.os, "open", swap_then_open)
+    monkeypatch.setattr(Path, "lstat", reused_metadata_lstat)
+    monkeypatch.setattr(cc.os.path, "samestat", lambda _before, _after: True)
+
+    assert cc._safe_metadata_bytes(metadata, 1024) is None
 
 
 def test_parent_swap_between_inventory_and_read_is_not_followed(monkeypatch, tmp_path):

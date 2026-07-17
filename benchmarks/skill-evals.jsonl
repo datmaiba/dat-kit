@@ -14,3 +14,4 @@
 {"id":"trg-knowwork-01","prompt":"write a researched report on EV battery supply chains","expect_skill":"knowledge-work","match":"write a researched report"}
 {"id":"trg-cookbook-01","prompt":"is there a cookbook example for RAG we can start from?","expect_skill":"cookbook-lookup","match":"find a recipe in the cookbook"}
 {"id":"trg-terse-01","prompt":"talk terse from now on, drop the filler","expect_skill":"terse-mode","match":"talk terse"}
+{"id":"trg-scorecard-02","prompt":"log this completed task in the scorecard","expect_skill":"scorecard","match":"log this completed task"}
