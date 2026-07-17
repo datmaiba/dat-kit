@@ -1,6 +1,6 @@
 # Loops in dat-kit
 
-dat-kit organizes work along **two orthogonal axes**. This doc explains the model; it is documentation, not an executable spec. (The original rollout plan, `PLAN-general-work-loop-v2.md`, was cancelled 2026-07-14 — the layout described here is final; see git history for the plan.)
+dat-kit organizes work along **two orthogonal axes**. This doc explains the model; it is documentation, not an executable spec. [ADR 0001](decisions/0001-open-platform.md) records the current versioned architecture decision, its evidence, migration cost, and explicit conditions to revisit.
 
 ## The two axes
 

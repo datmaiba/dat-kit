@@ -1,0 +1,13 @@
+# Revert map by phase
+
+| Phase/slice | Revert boundary | Verification after revert | State that needs special handling |
+|---|---|---|---|
+| 0B decisions and probes | Revert Phase 0B docs/harness commits; Option A has no released runtime effect yet. | Full 1.17.1 gates. | Probe marketplace/plugin and its exact empty cache namespace were removed; verified no probe host state remains. |
+| 1A normative contracts | Revert the contract-doc commit as one Class C slice before any registry implementation depends on it. | Docs links and full gates. | Do not keep code that claims a reverted contract revision. |
+| 1B registry bootstrap | Revert bootstrap, descriptors, Catalog, and their tests together. | Existing public scaffolding byte snapshot plus full gates. | Generated projections revert with their source descriptor; never leave a stale projection. |
+| 1B projection/FilePlan | Revert renderer, committed projections, and fixture expectations together. | `render.py --check`, Bash materialization fixture, full gates. | Registry remains authority; do not hand-edit a projection to make the revert green. |
+| 2 Host Adapter conformance | One commit series per adapter while lifecycle is `repo_only`. Revert only that adapter descriptor/fixtures/projection. | Generic synthetic-adapter fixture and affected official-doc fact check. | No project files were emitted, so rollback is repository-only. |
+| 3 migration and activation | Revert per adapter lifecycle transition. If a project migration ran, use its immutable pre-change hashes and backup, never a blind Git revert. | Clean/customized brownfield fixtures and contract checker. | Preserve user-authored content; `RETIRE_LEGACY` removal requires explicit approval. |
+| 4 engine cutover | Commit and revert by semantic owner: engine, software pack, knowledge pack, project contract, maintainer policy. | Validate after each slice; before/after behavioral evals for both real packs. | Never restore the old owner while leaving a duplicate new owner. A failing slice returns fully to its previous single owner. |
+| 5 RC/release | Drop an unapproved RC branch or revert the RC commit before tagging. After a public tag, publish a corrective version rather than moving the tag. | Artifact equality, rollback-to-1.17.1 rehearsal, release/1.x gates. | Project migrations already applied use migration backups; release tags and append-only evidence are immutable. |
+| 2.1 / 2.2 | Revert the program release commit before tag, or issue a corrective release after tag. | Full prior-release regressions plus telemetry/evolution-specific rollback fixtures. | Never rewrite telemetry, scorecard, proposal, or decision history. |
