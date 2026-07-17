@@ -171,6 +171,23 @@ def exact_path(root: Path, relative: str, report: Report) -> Path | None:
     return current
 
 
+def _same_stat_version(expected: os.stat_result, current: os.stat_result) -> bool:
+    """Compare file identity plus metadata that changes on inode reuse/replacement."""
+    if not os.path.samestat(expected, current) or expected.st_mode != current.st_mode:
+        return False
+    if not stat.S_ISREG(expected.st_mode):
+        return True
+    return bool(
+        expected.st_size == current.st_size
+        and expected.st_mtime_ns == current.st_mtime_ns
+    )
+
+
+def _same_path_version(expected: os.stat_result, current: os.stat_result) -> bool:
+    """Compare two path snapshots, including replacement-sensitive ctime."""
+    return _same_stat_version(expected, current) and expected.st_ctime_ns == current.st_ctime_ns
+
+
 def _target_path(
     root: Path,
     relative: str,
@@ -192,7 +209,7 @@ def _target_path(
             action="BLOCKED_UNSAFE",
         )
         return None
-    if root_fingerprint is not None and not os.path.samestat(root_fingerprint, current_root):
+    if root_fingerprint is not None and not _same_path_version(root_fingerprint, current_root):
         report.add(
             "UNSAFE_SYMLINK",
             ".: target root changed during inspection",
@@ -357,7 +374,7 @@ def _target_root(target: Path, report: Report) -> tuple[Path, os.stat_result] | 
             current_stat is None
             or stat.S_ISLNK(current_stat.st_mode)
             or (reparse_flag and file_attributes & reparse_flag)
-            or not os.path.samestat(expected, current_stat)
+            or not _same_path_version(expected, current_stat)
         ):
             report.add(
                 "UNSAFE_SYMLINK",
@@ -393,7 +410,7 @@ def _fingerprints_match(inspected: InspectedTargetPath) -> bool:
         file_attributes = getattr(current, "st_file_attributes", 0)
         if stat.S_ISLNK(current.st_mode) or (reparse_flag and file_attributes & reparse_flag):
             return False
-        if not os.path.samestat(expected, current):
+        if not _same_path_version(expected, current):
             return False
     return True
 
@@ -420,8 +437,9 @@ def _read_target(inspected: InspectedTargetPath, relative: str, report: Report) 
         after = path.lstat()
         if (
             not stat.S_ISREG(opened.st_mode)
-            or not os.path.samestat(before, opened)
-            or not os.path.samestat(opened, after)
+            or not _same_stat_version(before, opened)
+            or not _same_stat_version(opened, after)
+            or not _same_path_version(before, after)
             or not _fingerprints_match(inspected)
         ):
             os.close(descriptor)
@@ -604,7 +622,7 @@ def _safe_metadata_fingerprints(path: Path) -> tuple[tuple[Path, os.stat_result]
         if (
             stat.S_ISLNK(current_stat.st_mode)
             or (reparse_flag and file_attributes & reparse_flag)
-            or not os.path.samestat(expected, current_stat)
+            or not _same_path_version(expected, current_stat)
         ):
             return None
     return tuple(fingerprints)
@@ -623,7 +641,7 @@ def _metadata_fingerprints_match(
         if (
             stat.S_ISLNK(current.st_mode)
             or (reparse_flag and file_attributes & reparse_flag)
-            or not os.path.samestat(expected, current)
+            or not _same_path_version(expected, current)
         ):
             return False
     return True
@@ -640,7 +658,7 @@ def _safe_metadata_bytes(path: Path, maximum: int) -> bytes | None:
         opened = os.fstat(descriptor)
         if (
             opened.st_size > maximum
-            or not os.path.samestat(fingerprints[-1][1], opened)
+            or not _same_stat_version(fingerprints[-1][1], opened)
             or not _metadata_fingerprints_match(fingerprints)
         ):
             return None
@@ -935,8 +953,8 @@ def check_target(target: Path) -> Report:
             current_root = root.lstat()
         except OSError:
             current_root = None
-        if current_root is None or not os.path.samestat(root_fingerprint, current_root):
-            if not any(item.code == "UNSAFE_SYMLINK" and item.path == "." for item in report.diagnostics):
+        if current_root is None or not _same_path_version(root_fingerprint, current_root):
+            if not any(item.code == "UNSAFE_SYMLINK" for item in report.diagnostics):
                 report.add(
                     "UNSAFE_SYMLINK",
                     ".: target root changed during inspection",
@@ -1037,8 +1055,8 @@ def check_target(target: Path) -> Report:
         final_root = root.lstat()
     except OSError:
         final_root = None
-    if final_root is None or not os.path.samestat(root_fingerprint, final_root):
-        if not any(item.code == "UNSAFE_SYMLINK" and item.path == "." for item in report.diagnostics):
+    if final_root is None or not _same_path_version(root_fingerprint, final_root):
+        if not any(item.code == "UNSAFE_SYMLINK" for item in report.diagnostics):
             report.add(
                 "UNSAFE_SYMLINK",
                 ".: target root changed during inspection",
