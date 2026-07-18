@@ -96,7 +96,8 @@ def add_synthetic_adapter(root: Path) -> None:
 
     evolution_path = root / "registry/evolution.json"
     evolution = json.loads(evolution_path.read_text(encoding="utf-8"))
-    evolution["governed_roots"].append({"path": "adapters", "owner": "host-adapter-platform"})
+    if not any(item["path"] == "adapters" for item in evolution["governed_roots"]):
+        evolution["governed_roots"].append({"path": "adapters", "owner": "host-adapter-platform"})
     evolution["component_classes"].append(
         {
             "component_id": "synthetic-adapter-fixture",

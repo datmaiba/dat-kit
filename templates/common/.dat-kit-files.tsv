@@ -3,4 +3,5 @@ templates/common/.claude/CLAUDE.md	.claude/CLAUDE.md	adapter	copy	dat-kit 1.16.0
 templates/common/.cursorrules	.cursorrules	adapter	copy	dat-kit 1.16.0	scaffold_active
 templates/common/AGENTS.md	AGENTS.md	dat-kit	copy	dat-kit 1.16.0	scaffold_active
 templates/common/CLAUDE.md	CLAUDE.md	adapter	copy	dat-kit 1.16.0	scaffold_active
+templates/adapters/gemini-cli/GEMINI.md	GEMINI.md	adapter	copy	dat-kit 2.0	repo_only
 templates/common/docs/agent-workflow.md	docs/agent-workflow.md	dat-kit	copy	dat-kit 1.16.0	scaffold_active

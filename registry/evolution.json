@@ -32,6 +32,22 @@
       "owner": "maintainers"
     },
     {
+      "path": "HUONG_DAN.vi.md",
+      "owner": "maintainers"
+    },
+    {
+      "path": "LICENSE",
+      "owner": "maintainers"
+    },
+    {
+      "path": "README.md",
+      "owner": "maintainers"
+    },
+    {
+      "path": "adapters",
+      "owner": "maintainer"
+    },
+    {
       "path": "agents",
       "owner": "software-dev"
     },
@@ -56,23 +72,11 @@
       "owner": "host-adapter-platform"
     },
     {
-      "path": "HUONG_DAN.vi.md",
-      "owner": "maintainers"
-    },
-    {
       "path": "lessons-learned",
       "owner": "maintainers"
     },
     {
-      "path": "LICENSE",
-      "owner": "maintainers"
-    },
-    {
       "path": "plans",
-      "owner": "maintainers"
-    },
-    {
-      "path": "README.md",
       "owner": "maintainers"
     },
     {
@@ -104,6 +108,7 @@
         ".agents/**",
         ".claude-plugin/**",
         ".codex-plugin/**",
+        "adapters/**",
         "hooks.json"
       ],
       "owner": "host-adapter-platform",

@@ -162,7 +162,7 @@ if handoff_skill.is_file():
 BANNED = re.compile(r"datmba3|freighttracker|meoanca|30kft|yuranga|job.hunt", re.I)
 for f in glob.glob(str(ROOT / "**/*"), recursive=True):
     p = pathlib.Path(f)
-    if p.is_dir() or ".git/" in f or p.suffix not in {".md", ".json", ".sh", ".txt", ".tpl", ".py", ".yml", ".yaml"}:
+    if p.is_dir() or ".git/" in f or p.suffix not in {".md", ".json", ".sh", ".txt", ".tpl", ".py", ".yml", ".yaml", ".mdc", ".toml", ".tsv"}:
         continue
     if p.name == "validate.py":  # the gate itself names the patterns
         continue
