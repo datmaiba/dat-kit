@@ -31,7 +31,18 @@ the predecessors.
 | v7.1 | token-discipline amendment committed | `7c06383`, plan §16 |
 | 3 | CLOSED — impl `92699ce`, reviews 3/3 APPROVE, fixes `89f63d2` | `docs/spikes/phase-3/evidence.md` |
 | 4a | CLOSED — ownership map, tripwire CLEAR, round-2 APPROVE (3 findings fixed) | `docs/spikes/phase-4/ownership-map.md` |
-| 4b–4f, 5 | not started — 4b next (engine extraction per map) | — |
+| 4b | CLOSED — engine extracted per map (work-loop/1, no bump); code + security APPROVE (3 MINOR + 1 MEDIUM/2 LOW fixed, findings-scoped re-review APPROVE); skills byte-identical | `engine/work-loop/ENGINE.md`, `engine/work-loop/engine.json`, validate.py §1b, `scripts/tests/test_engine_manifest.py` |
+| 4c–4f, 5 | not started — 4c next (software-dev pack per map) | — |
+
+4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
+six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
+domains/ layout doesn't exist until 4c/4d, so rewriting now would state
+falsehoods. Security LOW flag for the platform owner: engine-work-loop sits at
+class B/maintainer-policy while contract surfaces are class C — revisit at 4f
+conformance. domain-pack.md DP2 phase list aligned to map convention 5 names
+(FRAME → SELF-QUESTION, + REPORT); one-line Class C-surface edit, flagged for
+owner blessing via this commit. 4d note: engine PLAN's attended approval stop
+has no kw phase-B counterpart — workflow.md's correspondence must address it.
 
 ## Next: Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES
 

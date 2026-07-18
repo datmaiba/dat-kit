@@ -41,8 +41,9 @@ links to them; they do not create new semantic slots.
 | `evolution_profile_ref` | Owner/class/policy reference in `evolution.json`. |
 
 The descriptor owns discovery and composition metadata. Slot files own domain
-behavior. The engine owns only `LOAD → FRAME → PLAN → EXECUTE → VERIFY → REVIEW
-→ HARVEST` mechanics. It must not contain software terms, repository
+behavior. The engine owns only `LOAD → SELF-QUESTION → PLAN → EXECUTE → VERIFY
+→ REVIEW → REPORT → HARVEST` mechanics (canonical phase names per the Phase 4
+ownership map, convention 5; materialized as `engine/work-loop/ENGINE.md`). It must not contain software terms, repository
 operations, test commands, host model routing, or a profession's standards of
 truth.
 

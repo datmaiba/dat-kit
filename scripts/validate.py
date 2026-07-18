@@ -73,6 +73,42 @@ else:
     for diagnostic in check_outputs(ROOT, expected_outputs(catalog)):
         findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
 
+# 1b. Engine revision entry — every registered domain's `required_engine_revision`
+# must resolve to a committed engine manifest whose declared revision matches, and
+# the engine policy file the manifest names must exist. A mismatch is the
+# composition stop (DOMAIN_ENGINE_REVISION_MISMATCH) enforced at validation time.
+if catalog is not None:
+    for domain in catalog.domains():
+        required = domain.get("required_engine_revision", "")
+        if not re.fullmatch(r"[a-z][a-z0-9-]*/[0-9]+", required or ""):
+            findings.append(f"{domain.get('domain_id')}: malformed required_engine_revision {required!r}")
+            continue
+        engine_id = required.split("/")[0]
+        manifest_path = ROOT / "engine" / engine_id / "engine.json"
+        check(manifest_path.is_file(),
+              f"{domain.get('domain_id')}: requires engine {required!r} but engine/{engine_id}/engine.json is missing")
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            findings.append(f"engine/{engine_id}/engine.json: invalid JSON: {e}")
+            continue
+        if not isinstance(manifest, dict):
+            findings.append(f"engine/{engine_id}/engine.json: manifest must be a JSON object")
+            continue
+        check(manifest.get("engine_revision") == required,
+              f"DOMAIN_ENGINE_REVISION_MISMATCH: {domain.get('domain_id')} requires {required!r} "
+              f"but engine/{engine_id}/engine.json declares {manifest.get('engine_revision')!r}")
+        # The policy path comes from data: require a repo-relative path with no
+        # parent escapes (ROOT / "/abs" discards ROOT; ".." walks out of it).
+        policy = manifest.get("policy", "")
+        policy_parts = pathlib.PurePosixPath(policy).parts if isinstance(policy, str) and policy else ()
+        policy_ok = bool(policy_parts) and not pathlib.PurePosixPath(policy).is_absolute() and ".." not in policy_parts
+        check(policy_ok, f"engine/{engine_id}/engine.json: policy must be a repo-relative path, got {policy!r}")
+        check(not policy_ok or (ROOT / policy).is_file(),
+              f"engine/{engine_id}/engine.json: declared policy file missing: {policy!r}")
+
 # 2. Skills
 skill_files = sorted(path for path in (ROOT / "skills").rglob("SKILL.md") if path.is_file())
 for f in skill_files:

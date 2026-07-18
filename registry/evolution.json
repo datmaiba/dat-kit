@@ -64,6 +64,10 @@
       "owner": "maintainers"
     },
     {
+      "path": "engine",
+      "owner": "maintainers"
+    },
+    {
       "path": "handoffs",
       "owner": "maintainers"
     },
@@ -132,6 +136,15 @@
       "owner": "software-dev",
       "governance_class": "B",
       "policy_ref": "software-dev-policy"
+    },
+    {
+      "component_id": "engine-work-loop",
+      "path_globs": [
+        "engine/**"
+      ],
+      "owner": "maintainers",
+      "governance_class": "B",
+      "policy_ref": "maintainer-policy"
     },
     {
       "component_id": "maintainer-evidence",
