@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import errno
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 _FALLBACK_CANONICAL = "dat-kit 2.0"
 _FALLBACK_RECOGNIZED = ("dat-kit 2.0", "dat-kit 1.16.0")
 JSON_SCHEMA_VERSION = 1
+MAX_TARGET_READ_BYTES = 10 * 1024 * 1024  # brownfield DoS guard (security review, Phase 3)
 WORKING_RULES_MARKER = "<!-- dat-kit:working-rules -->"
 WORKING_RULES_SENTINEL = "This document is part of the canonical `AGENTS.md` contract."
 
@@ -456,6 +458,19 @@ def _read_target(inspected: InspectedTargetPath, relative: str, report: Report) 
         flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(path, flags)
         opened = os.fstat(descriptor)
+        if opened.st_size > MAX_TARGET_READ_BYTES:
+            os.close(descriptor)
+            descriptor = None
+            report.add(
+                "CONTRACT_CONTENT_INVALID",
+                f"{relative}: file exceeds the {MAX_TARGET_READ_BYTES // (1024 * 1024)} MiB inspection limit",
+                path=relative,
+                classification="unsafe-path",
+                summary="target file too large to inspect safely",
+                evidence=("oversize",),
+                action="BLOCKED_UNSAFE",
+            )
+            return None
         after = path.lstat()
         if (
             not stat.S_ISREG(opened.st_mode)
@@ -963,8 +978,6 @@ def _runtime_evidence(root: Path, relative: str, text: str) -> tuple[str, ...]:
 
 
 def _hash_normalized(text: str) -> str:
-    import hashlib
-
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 

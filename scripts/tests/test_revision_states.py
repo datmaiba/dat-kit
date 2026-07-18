@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import stat
 import subprocess
 import sys
 
@@ -22,11 +23,16 @@ from test_contract_check import scaffold_contract
 
 
 def tree_hash(target: Path) -> dict[str, str]:
-    return {
-        str(path.relative_to(target)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted(target.rglob("*"))
-        if path.is_file()
-    }
+    # lstat-based: a file swapped for a symlink to identical content must
+    # register as a change (no-follow discipline, security review item 6).
+    result: dict[str, str] = {}
+    for path in sorted(target.rglob("*")):
+        mode = path.lstat().st_mode
+        if stat.S_ISLNK(mode):
+            result[str(path.relative_to(target))] = "symlink:" + str(path.readlink())
+        elif stat.S_ISREG(mode):
+            result[str(path.relative_to(target))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return result
 
 
 def run_cli(target: Path, *extra: str) -> subprocess.CompletedProcess:
