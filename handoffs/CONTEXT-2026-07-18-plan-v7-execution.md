@@ -32,7 +32,8 @@ the predecessors.
 | 3 | CLOSED — impl `92699ce`, reviews 3/3 APPROVE, fixes `89f63d2` | `docs/spikes/phase-3/evidence.md` |
 | 4a | CLOSED — ownership map, tripwire CLEAR, round-2 APPROVE (3 findings fixed) | `docs/spikes/phase-4/ownership-map.md` |
 | 4b | CLOSED — engine extracted per map (work-loop/1, no bump); code + security APPROVE (3 MINOR + 1 MEDIUM/2 LOW fixed, findings-scoped re-review APPROVE); skills byte-identical | `engine/work-loop/ENGINE.md`, `engine/work-loop/engine.json`, validate.py §1b, `scripts/tests/test_engine_manifest.py` |
-| 4c–4f, 5 | not started — 4c next (software-dev pack per map) | — |
+| 4c | CLOSED — domains/software-dev/ six slots per map (§16 R1–R4 exact sw phrasing in reviewers.md; agents/*.md stay in place, reviewers.md is the binding surface); descriptor active + rendered thin trigger byte-exact; loop-profile migrated; 24 behavioral/purity tests; code APPROVE (4 MINOR fixed) + security APPROVE (1 MEDIUM frontmatter-injection guard in render.py + 2 LOW fixed, findings-scoped re-review APPROVE) | `domains/software-dev/`, `scripts/tests/test_software_dev_pack.py`, validate.py §3b |
+| 4d–4f, 5 | not started — 4d next (knowledge-work pack per map) | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -43,6 +44,21 @@ conformance. domain-pack.md DP2 phase list aligned to map convention 5 names
 (FRAME → SELF-QUESTION, + REPORT); one-line Class C-surface edit, flagged for
 owner blessing via this commit. 4d note: engine PLAN's attended approval stop
 has no kw phase-B counterpart — workflow.md's correspondence must address it.
+
+4c deferrals/flags for later slices: validate.py §3b now resolves reviewer
+tables for ACTIVE domains via `<pack_location>/reviewers.md` (legacy still via
+trigger SKILL.md) and only probes names matching `[a-z][a-z0-9-]*` — 4d: kw
+reviewers.md has no `| \`` table rows today; if 4d adds one, only real
+agents/*.md names or non-matching ids are safe. render.py now rejects
+multi-line/control-char trigger descriptions (frontmatter-injection guard) —
+4e's domain-builder rewrite must inherit this constraint when authoring
+descriptors. The sw trigger description was rewritten for the rendered
+frontmatter; skill-eval `trg-buildloop-01` ("run the build loop") keys on it —
+any future description edit must keep that phrase. docs/domains.md got a
+minimal truth-fix (six-slot wording, sw row); full re-derivation stays 4f.
+Transient note: commits C2 (pack) and C3 (descriptor+trigger) briefly
+duplicate sw policy across old/new locations within the slice — revert unit is
+the whole 4c slice, not C2 alone.
 
 ## Next: Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES
 
