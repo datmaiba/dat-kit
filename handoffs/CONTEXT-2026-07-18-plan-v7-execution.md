@@ -29,23 +29,23 @@ the predecessors.
 | 1B | done + reviewed | `docs/spikes/phase-1b/evidence.md`, commits `dbe42db..1e409de` |
 | 2 | done repo-side; host smokes = external | `docs/spikes/phase-2/evidence.md`, `eae1ca5..55dfa2c` |
 | v7.1 | token-discipline amendment committed | `7c06383`, plan §16 |
-| 3 | implementation committed `92699ce`; reviews PENDING | this file §Next |
+| 3 | CLOSED — impl `92699ce`, reviews 3/3 APPROVE, fixes `89f63d2` | `docs/spikes/phase-3/evidence.md` |
 | 4, 5 | not started | — |
 
-## Phase 3 — what exists and what remains
+## Next: Phase 4 — isolated structural cutover (the heaviest phase)
 
-Committed in `92699ce`: registry-driven revision state machine in
-`contract_check.py` (`Catalog.revision_model()`, R4-amended); five states
-green/migration-source/partial/unsupported/unclassified; typed
-`RETIRE_LEGACY` for `.cursorrules` + `ADD_RULES_POINTER` step (plan-only);
-cursor `.mdc` artifact at `migration_ready`; 9 state fixtures. Gates at
-commit time: pytest 133 passed/3 skipped; validate green; render --check
-byte-exact; scaffold output unchanged (.cursor never emitted).
-
-**Remaining to close Phase 3:** sequential reviews per §16 — qa-agent
-(runtime attacks) → code-reviewer (static) → security-reviewer (static;
-mandatory: migration/path surface) → findings fixed → regression QA →
-evidence bundle `docs/spikes/phase-3/evidence.md` + scorecard line.
+Prerequisite reading for the executing session: plan §6 Phase 4 + §16 only.
+First deliverable is the LINE-LEVEL OWNERSHIP MAP over: skills/build-loop/
+SKILL.md (+loop-profile.md), skills/knowledge-work/* (SKILL.md + 5 slot
+files), docs/loops.md, agents/*.md tables, templates — every substantive
+line → engine | domain-pack | project-contract | maintainer-policy |
+retired-with-reason. The map is independently reviewed BEFORE any move
+(tripwire: engine line requiring domain knowledge = stop). §16 rules 1–4
+must land in both domains' reviewers.md via the map. Then: engine/work-loop/
+ENGINE.md; domains/{software-dev,knowledge-work}/ six slots; descriptors →
+active; triggers rendered; domain-builder rewrite; behavioral tests;
+commit-by-semantic-owner. Phase 3 follow-ups FU-1..3 live in
+docs/spikes/phase-3/evidence.md.
 
 ## Standing execution rules (do not re-derive)
 
