@@ -66,9 +66,9 @@ def test_current_catalog_is_atomic_and_cutover_state_matches_plan():
     catalog = load_ok(ROOT)
     assert [item["domain_id"] for item in catalog.domains()] == ["knowledge-work", "software-dev"]
     # Phase 4 cutover state: software-dev cut over in slice 4c;
-    # knowledge-work cuts over in slice 4d.
+    # knowledge-work cut over in slice 4d.
     assert {item["domain_id"]: item["lifecycle"] for item in catalog.domains()} == {
-        "knowledge-work": "legacy",
+        "knowledge-work": "active",
         "software-dev": "active",
     }
     assert catalog.release_version == "1.17.1"
