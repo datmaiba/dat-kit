@@ -9,7 +9,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
-from registry import Catalog, Diagnostic
+from registry import Catalog, Diagnostic, canonical_relative_path
 
 
 def write_json(path: Path, value: object) -> None:
@@ -38,6 +38,16 @@ def registry_fixture(tmp_path: Path) -> Path:
     paths.update(item["source_template"] for item in snapshot["files"])
     for relative in sorted(paths):
         copy_file(ROOT / relative, tmp_path)
+    # Active Domain Packs: Catalog.load fails closed (DOMAIN_SLOT_MISSING)
+    # unless every declared slot exists under pack_location, so the fixture
+    # must carry each active pack's slot tree alongside the registry. The
+    # location is validated before touching the filesystem — raw registry
+    # data must never drive a copy outside ROOT/tmp_path, even in tests.
+    domains = json.loads((ROOT / "registry/domains.json").read_text(encoding="utf-8"))
+    for descriptor in domains["domains"]:
+        if descriptor["lifecycle"] == "active":
+            location = canonical_relative_path(descriptor["pack_location"])
+            shutil.copytree(ROOT / location, tmp_path / location)
     return tmp_path
 
 
@@ -52,10 +62,15 @@ def codes(result: object) -> list[str]:
     return [item.code for item in result]
 
 
-def test_current_catalog_is_atomic_and_current_state_is_not_cut_over():
+def test_current_catalog_is_atomic_and_cutover_state_matches_plan():
     catalog = load_ok(ROOT)
     assert [item["domain_id"] for item in catalog.domains()] == ["knowledge-work", "software-dev"]
-    assert {item["lifecycle"] for item in catalog.domains()} == {"legacy"}
+    # Phase 4 cutover state: software-dev cut over in slice 4c;
+    # knowledge-work cuts over in slice 4d.
+    assert {item["domain_id"]: item["lifecycle"] for item in catalog.domains()} == {
+        "knowledge-work": "legacy",
+        "software-dev": "active",
+    }
     assert catalog.release_version == "1.17.1"
     assert [item.path for item in catalog.version_targets()] == [
         ".claude-plugin/marketplace.json",

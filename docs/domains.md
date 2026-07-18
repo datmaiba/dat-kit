@@ -1,17 +1,17 @@
 # Domain registry
 
-The domains dat-kit currently supports. A **Domain Pack** teaches the working loop what one *type of work* means, via the five-slot contract (ground-truth · gates · reviewers · deliverables · loop-profile). New packs are authored with `domain-builder` — and only for a field the author or a supplying practitioner actually practices (`docs/loops.md` scope boundary).
+The domains dat-kit currently supports. A **Domain Pack** teaches the working loop what one *type of work* means, via the six-slot contract (workflow · ground-truth · gates · reviewers · deliverables · loop-profile — `docs/contracts/domain-pack.md`). New packs are authored with `domain-builder` — and only for a field the author or a supplying practitioner actually practices (`docs/loops.md` scope boundary).
 
 | Domain | Pack location | Loop ceiling | Notes |
 |---|---|---|---|
-| **software-dev** | `skills/build-loop/` (+ `skills/build-loop/loop-profile.md`) | Goal | The flagship. `build-loop` *is* this domain's loop; its reviewer chain (`qa-agent` → `code-reviewer` → `security-reviewer`) is the gate. Not relocated — referenced in place. |
+| **software-dev** | `domains/software-dev/` (six slots; generated trigger at `skills/build-loop/SKILL.md`) | Goal | The flagship. The `build-loop` trigger loads this pack + the work-loop engine; its reviewer chain (`qa-agent` → `code-reviewer` → `security-reviewer`) is the gate. |
 | **knowledge-work** | `skills/knowledge-work/` | Goal (human-run) | First non-dev pack: research, writing, analysis. Load-bearing gate G2 (source–claim fidelity) is human-run, so no automation. |
 
 ## How a domain plugs in
 
-Each pack declares the five slots; the working loop reads them at the relevant phase (ground-truth before acting, gates + reviewers at verify). The loop itself is domain-neutral — the pack supplies the specifics.
+Each pack declares the six slots; the working loop reads them at the relevant phase (ground-truth before acting, gates + reviewers at verify). The loop itself is domain-neutral — the pack supplies the specifics.
 
-`software-dev` predates the contract, so its slots are currently expressed inside `build-loop` rather than as separate files: ground-truth = the spec + codebase, gates = the reviewer verdicts, reviewers = the three subagents, deliverables = code/PR, loop-profile = `skills/build-loop/loop-profile.md`. This is the v1.17 compatibility layout. [ADR 0001](decisions/0001-open-platform.md) reverses the 2026-07-14 layout freeze and authorizes the staged, registry-backed six-slot cutover after its conformance gates pass.
+`software-dev` cut over to the registry-backed six-slot layout in Phase 4c: the pack lives at `domains/software-dev/`, the `build-loop` trigger is generated from `registry/domains.json` (byte-checked by `render.py --check`), and the engine mechanics live in `engine/work-loop/ENGINE.md`. `knowledge-work` still uses the v1.17 compatibility layout inside `skills/knowledge-work/` until its Phase 4d cutover. [ADR 0001](decisions/0001-open-platform.md) reverses the 2026-07-14 layout freeze and authorizes this staged cutover after its conformance gates pass.
 
 ## Adding a domain
 

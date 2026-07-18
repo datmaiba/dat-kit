@@ -153,20 +153,32 @@ for f in sorted(glob.glob(str(ROOT / "agents/*.md"))):
     for key in ("name", "description", "tools"):
         check(key in fm, f"{f}: frontmatter missing '{key}'")
 
-# 3b. Registered legacy triggers may own reviewer-agent projection tables.
+# 3b. Reviewer-agent tables: legacy triggers own them inside SKILL.md; active
+# packs own them in <pack_location>/reviewers.md (the binding surface — the
+# rendered trigger carries no policy). Every `name` in a table row must
+# resolve to a committed agents/<name>.md charter.
 if catalog is not None:
     for domain in catalog.domains():
         trigger_path = ROOT / "skills" / domain["trigger"]["name"] / "SKILL.md"
         check(trigger_path.is_file(), f"registered domain trigger is missing: {trigger_path.relative_to(ROOT)}")
-        if not trigger_path.is_file():
+        if domain["lifecycle"] == "active":
+            table_path = ROOT / domain["pack_location"] / "reviewers.md"
+        else:
+            table_path = trigger_path
+        if not table_path.is_file():
             continue
-        for line in trigger_path.read_text(encoding="utf-8").splitlines():
+        for line in table_path.read_text(encoding="utf-8").splitlines():
             if line.startswith("| `"):
                 match = re.search(r"`([^`]+)`", line)
                 if match:
                     name = match.group(1)
+                    # Only well-formed single-segment ids resolve to charters;
+                    # anything else (verdict vocabulary, a traversal like
+                    # `../x`) must never reach the filesystem probe.
+                    if not re.fullmatch(r"[a-z][a-z0-9-]*", name):
+                        continue
                     check((ROOT / f"agents/{name}.md").exists(),
-                          f"{trigger_path}: references missing agents/{name}.md")
+                          f"{table_path}: references missing agents/{name}.md")
 
 # 4. Hooks
 hooks = json.load(open(ROOT / "hooks.json"))
