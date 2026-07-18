@@ -32,6 +32,20 @@ def render_domain_trigger(catalog: Catalog, descriptor: dict[str, object]) -> by
     aliases = trigger["aliases"]
     if not isinstance(aliases, list):
         raise ValueError(f"descriptor {descriptor.get('domain_id')!r} aliases must be a list")
+    # The description is embedded in generated YAML frontmatter: a newline (legal
+    # JSON) would terminate the `>-` block scalar and let registry data smuggle
+    # frontmatter keys or instruction lines into the rendered trigger. Same
+    # content guard as the scaffold-manifest fields below.
+    description = trigger.get("description")
+    if (
+        not isinstance(description, str)
+        or not description.strip()
+        or any(ch in description for ch in "\t\n\r")
+    ):
+        raise ValueError(
+            f"descriptor {descriptor.get('domain_id')!r} description must be a"
+            " non-empty single line without tabs or newlines"
+        )
     pack = descriptor["pack_location"]
     lines = [
         "---",
