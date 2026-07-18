@@ -30,7 +30,8 @@ the predecessors.
 | 2 | done repo-side; host smokes = external | `docs/spikes/phase-2/evidence.md`, `eae1ca5..55dfa2c` |
 | v7.1 | token-discipline amendment committed | `7c06383`, plan §16 |
 | 3 | CLOSED — impl `92699ce`, reviews 3/3 APPROVE, fixes `89f63d2` | `docs/spikes/phase-3/evidence.md` |
-| 4, 5 | not started | — |
+| 4a | CLOSED — ownership map, tripwire CLEAR, round-2 APPROVE (3 findings fixed) | `docs/spikes/phase-4/ownership-map.md` |
+| 4b–4f, 5 | not started — 4b next (engine extraction per map) | — |
 
 ## Next: Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES
 
