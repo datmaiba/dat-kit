@@ -18,8 +18,10 @@ from typing import Iterable
 from registry import Catalog, resolve_json_pointer
 
 ROOT = Path(__file__).resolve().parent.parent
-CONTRACT_REVISION = "dat-kit 1.16.0"
-SUPPORTED_CONTRACT_REVISIONS = (CONTRACT_REVISION,)
+# Fallbacks apply only when the registry itself fails to load; every load
+# failure is already reported as its own diagnostic.
+_FALLBACK_CANONICAL = "dat-kit 2.0"
+_FALLBACK_RECOGNIZED = ("dat-kit 2.0", "dat-kit 1.16.0")
 JSON_SCHEMA_VERSION = 1
 WORKING_RULES_MARKER = "<!-- dat-kit:working-rules -->"
 WORKING_RULES_SENTINEL = "This document is part of the canonical `AGENTS.md` contract."
@@ -27,6 +29,21 @@ WORKING_RULES_SENTINEL = "This document is part of the canonical `AGENTS.md` con
 _CATALOG_RESULT = Catalog.load(ROOT)
 _CATALOG = _CATALOG_RESULT if isinstance(_CATALOG_RESULT, Catalog) else None
 _CATALOG_DIAGNOSTICS = () if _CATALOG is not None else _CATALOG_RESULT
+_REVISION_MODEL = _CATALOG.revision_model() if _CATALOG is not None else None
+CONTRACT_REVISION = (
+    _REVISION_MODEL["canonical_revision"] if _REVISION_MODEL is not None else _FALLBACK_CANONICAL
+)
+GREEN_REVISIONS = tuple(
+    _REVISION_MODEL["green_revisions"] if _REVISION_MODEL is not None else (_FALLBACK_CANONICAL,)
+)
+MIGRATABLE_REVISIONS = tuple(
+    _REVISION_MODEL["migratable_source_revisions"] if _REVISION_MODEL is not None else ()
+)
+# Recognized = may appear in a project without making AGENTS.md a competing
+# contract. Recognition is NOT green (§2 invariant 6).
+SUPPORTED_CONTRACT_REVISIONS = (
+    GREEN_REVISIONS + MIGRATABLE_REVISIONS if _REVISION_MODEL is not None else _FALLBACK_RECOGNIZED
+)
 POINTERS = _CATALOG.pointer_inventory() if _CATALOG is not None else {}
 RUNTIMES = tuple(POINTERS) + ("other",)
 POINTER_TEMPLATES = {
@@ -60,6 +77,8 @@ ACTIONS = {
     "INSPECT_REMOVE",
     "RENAME_REQUIRED",
     "BLOCKED_UNSAFE",
+    "MIGRATE_REPLACE",
+    "RETIRE_LEGACY",
 }
 
 
@@ -862,7 +881,11 @@ def check_repo(root: Path = ROOT) -> Report:
     except (OSError, ValueError) as exc:
         report.add("ADAPTER_INVALID", f"hooks.json: {exc}")
     agents = root / "templates/common/AGENTS.md"
-    if agents.exists() and CONTRACT_REVISION not in normalized(agents):
+    if agents.exists() and not any(
+        revision in normalized(agents) for revision in SUPPORTED_CONTRACT_REVISIONS
+    ):
+        # Templates must implement a recognized revision. They flip from the
+        # migratable source to the canonical revision at the Phase 4 cutover.
         report.add("CONTRACT_REVISION_MISMATCH", "templates/common/AGENTS.md revision is stale")
     manifest_versions(report)
     return report
@@ -939,6 +962,176 @@ def _runtime_evidence(root: Path, relative: str, text: str) -> tuple[str, ...]:
     return tuple(evidence)
 
 
+def _hash_normalized(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], report: Report) -> str:
+    """Project-contract revision state machine (plan §3.6, contract R8).
+
+    Returns one of: green | migration-source | partial | unsupported |
+    unclassified. Recognition never certifies currency; only a green revision
+    produces no revision diagnostic. Read-only: never mutates the target.
+    """
+    if _REVISION_MODEL is None:
+        return "unclassified"  # registry load failure already reported
+    text_cache: dict[str, str | None] = {}
+
+    def read(relative: str) -> str | None:
+        if relative not in text_cache:
+            inspected = paths.get(relative)
+            if inspected is None or not inspected.exists:
+                text_cache[relative] = None
+            else:
+                text_cache[relative] = _read_target(inspected, relative, report)
+        return text_cache[relative]
+
+    matched: dict[str, dict[str, object]] = {}
+    for descriptor in _REVISION_MODEL["revision_descriptors"]:
+        rules = descriptor["marker_rules"]
+        texts = [read(rule["path"]) for rule in rules]
+        if texts and all(
+            text is not None and rule["required_text"] in text
+            for rule, text in zip(rules, texts)
+        ):
+            matched[descriptor["revision"]] = descriptor
+
+    green = [revision for revision in matched if revision in GREEN_REVISIONS]
+    sources = [revision for revision in matched if revision in MIGRATABLE_REVISIONS]
+
+    if green and sources:
+        report.add(
+            "CONTRACT_PARTIAL_MIGRATION",
+            f"AGENTS.md carries mixed revision markers: {', '.join(sorted(matched))}",
+            path="AGENTS.md",
+            classification="mixed-revision",
+            summary="disk state mixes contract revisions",
+            evidence=tuple(sorted(matched)),
+            action="MERGE_REQUIRED",
+        )
+        return "partial"
+
+    if green:
+        descriptor = matched[green[0]]
+        missing = [
+            relative
+            for relative in descriptor["required_pointer_paths"]
+            if paths.get(relative) is None or not paths[relative].exists
+        ]
+        if missing:
+            report.add(
+                "CONTRACT_PARTIAL_MIGRATION",
+                f"green marker present but required pointers missing: {', '.join(missing)}",
+                path=missing[0],
+                classification="partial-install",
+                summary="green revision with an incomplete pointer set",
+                evidence=tuple(missing),
+                action="MERGE_REQUIRED",
+            )
+            return "partial"
+        return "green"
+
+    if sources:
+        revision = sources[0]
+        descriptor = matched[revision]
+        customized: list[str] = []
+        untouched: list[str] = []
+        # Marker-rule files (e.g. AGENTS.md) are rendered per project by
+        # design — their hash never matches the pristine template, so hash
+        # divergence there is not customization evidence. They are always
+        # migrated by merge, never by replace.
+        rendered = {rule["path"] for rule in descriptor["marker_rules"]}
+        for relative, expected in sorted(descriptor["static_template_hashes"].items()):
+            if relative in rendered:
+                continue
+            text = read(relative)
+            if text is None:
+                continue
+            (untouched if _hash_normalized(text) == expected else customized).append(relative)
+        report.add(
+            "CONTRACT_MIGRATION_REQUIRED",
+            f"recognized migration source {revision}: run the migration plan; "
+            "recognition prevents data loss, it does not certify currency",
+            path="AGENTS.md",
+            classification="migration-source",
+            summary=f"project is on migratable revision {revision}",
+            evidence=tuple(f"untouched:{item}" for item in untouched),
+            action="MIGRATE_REPLACE",
+        )
+        legacy_pointer = ".cursorrules"
+        if legacy_pointer in untouched:
+            report.add(
+                "CONTRACT_MIGRATION_REQUIRED",
+                ".cursorrules is a retired-generation pointer: replace with the "
+                ".cursor/rules pointer only inside an approved migration plan",
+                path=legacy_pointer,
+                classification="retire-legacy",
+                summary="typed RETIRE_LEGACY pointer recognized",
+                evidence=("hash-match",),
+                action="RETIRE_LEGACY",
+            )
+        for relative in customized:
+            report.add(
+                "CONTRACT_MIGRATION_CONFLICT",
+                f"{relative}: customized since {revision}; preserved — approved "
+                "migration must merge, never overwrite",
+                path=relative,
+                classification="customized-source",
+                summary="customized file conflicts with migration",
+                evidence=("hash-mismatch",),
+                action="MERGE_REQUIRED",
+            )
+        return "migration-source"
+
+    agents_text = read("AGENTS.md")
+    if agents_text is not None and any(
+        marker in agents_text for marker in KNOWN_DAT_KIT_AGENT_MARKERS
+    ):
+        version_like = re.search(r"dat-kit \d+[\w.\-]*", agents_text)
+        if version_like:
+            report.add(
+                "CONTRACT_UNSUPPORTED_REVISION",
+                f"unrecognized revision {version_like.group(0)!r}: unsupported-with-"
+                "guidance; migrate manually, no automatic mutation",
+                path="AGENTS.md",
+                classification="unsupported-revision",
+                summary="unknown dat-kit revision",
+                evidence=(version_like.group(0),),
+                action="MERGE_REQUIRED",
+            )
+            return "unsupported"
+        report.add(
+            "CONTRACT_PARTIAL_MIGRATION",
+            "recognizable dat-kit contract without a revision marker: ambiguous; "
+            "no automatic mutation",
+            path="AGENTS.md",
+            classification="ambiguous-no-marker",
+            summary="dat-kit files present without a revision marker",
+            evidence=("marker-missing",),
+            action="MERGE_REQUIRED",
+        )
+        return "partial"
+
+    if any(
+        (inspected := paths.get(legacy)) is not None and inspected.exists for legacy in LEGACY
+    ):
+        report.add(
+            "CONTRACT_UNSUPPORTED_REVISION",
+            "pre-marker dat-kit install recognized: unsupported-with-guidance; "
+            "see docs/codex.md, no automatic mutation",
+            path=LEGACY[0],
+            classification="pre-marker",
+            summary="pre-marker dat-kit generation detected",
+            evidence=("legacy-artifact",),
+            action="MERGE_REQUIRED",
+        )
+        return "unsupported"
+
+    return "unclassified"
+
+
 def check_target(target: Path) -> Report:
     report = Report()
     established = _target_root(target, report)
@@ -996,6 +1189,8 @@ def check_target(target: Path) -> Report:
                 evidence=(("canonical-marker",) if recognizable else ()),
                 action="MERGE_REQUIRED",
             )
+
+    report.revision_state = _classify_target_revision(paths, report)
 
     for relative, template_relative in CANONICAL_STATIC.items():
         inspected = paths.get(relative)
@@ -1086,6 +1281,8 @@ def _action_instruction(action: str) -> str:
         "INSPECT_REMOVE": "INSPECT_RUNTIME_ADAPTER",
         "RENAME_REQUIRED": "RENAME_PATH",
         "BLOCKED_UNSAFE": "RESOLVE_UNSAFE_PATH",
+        "MIGRATE_REPLACE": "MIGRATE_FROM_SOURCE_REVISION",
+        "RETIRE_LEGACY": "REMOVE_LEGACY_POINTER",
     }[action]
 
 
@@ -1127,6 +1324,11 @@ def migration_plan(report: Report) -> dict[str, object]:
         if action == "EXTRACT_THEN_REPLACE":
             terminal = add_step("REPLACE_FROM_TEMPLATE", [path], [first], True)
             step_ids.append(terminal)
+        elif action == "RETIRE_LEGACY":
+            # .cursor/rules pointer is added only inside this approved plan —
+            # never by greenfield scaffolding (plan §6 Phase 3).
+            terminal = add_step("ADD_RULES_POINTER", [".cursor/rules/dat-kit.mdc"], [first], True)
+            step_ids.append(terminal)
         terminal_ids.append(terminal)
         groups.append(
             {
@@ -1137,7 +1339,11 @@ def migration_plan(report: Report) -> dict[str, object]:
                 "manual_review": True,
             }
         )
-        if action in {"EXTRACT_THEN_REPLACE", "MERGE_REQUIRED"}:
+        if action in {"MIGRATE_REPLACE", "RETIRE_LEGACY"}:
+            method = "BYTE_SNAPSHOT"
+            destination = None
+            reason = "SOURCE_REVISION" if action == "MIGRATE_REPLACE" else "LEGACY_POINTER"
+        elif action in {"EXTRACT_THEN_REPLACE", "MERGE_REQUIRED"}:
             method = "POLICY_INVENTORY"
             destination = "docs/agent-working-rules.md"
             reason = "POLICY_DESTINATION" if diagnostics[0].classification != "competing-contract" else "UNKNOWN_CONTENT"
@@ -1171,6 +1377,9 @@ def target_json(report: Report, *, mode: str, plan: dict[str, object] | None) ->
         "ok": not report.diagnostics,
         "package_version": package_version(),
         "contract_revision": CONTRACT_REVISION,
+        "green_revisions": list(GREEN_REVISIONS),
+        "migratable_source_revisions": list(MIGRATABLE_REVISIONS),
+        "revision_state": getattr(report, "revision_state", "unclassified"),
         "supported_contract_revisions": list(SUPPORTED_CONTRACT_REVISIONS),
         "diagnostics": [item.as_json() for item in report.diagnostics],
         "migration_plan": plan,

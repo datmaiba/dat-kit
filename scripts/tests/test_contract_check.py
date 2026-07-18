@@ -40,9 +40,19 @@ def test_empty_brownfield_is_compatible(tmp_path):
     assert not cc.check_target(tmp_path).items
 
 
-def test_canonical_brownfield_is_compatible(tmp_path):
+def test_recognized_v116_is_migration_source_never_green(tmp_path):
+    # v2 state machine (plan §3.6): recognition prevents data loss, it does
+    # not certify currency — a clean 1.16 scaffold is nonzero, without
+    # conflicts, and its legacy pointer gets typed RETIRE_LEGACY semantics.
     scaffold_contract(tmp_path)
-    assert not cc.check_target(tmp_path).items
+    report = cc.check_target(tmp_path)
+    assert "CONTRACT_MIGRATION_REQUIRED" in codes(report)
+    assert "CONTRACT_MIGRATION_CONFLICT" not in codes(report)
+    assert report.revision_state == "migration-source"
+    retire = [
+        item for item in report.diagnostics if item.action == "RETIRE_LEGACY"
+    ]
+    assert [item.path for item in retire] == [".cursorrules"]
 
 
 @pytest.mark.parametrize(
@@ -392,8 +402,8 @@ def test_registry_separates_package_and_contract_versions():
     data = cc.registry_json()
     manifest = json.loads((ROOT / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
     assert data["package_version"] == manifest["version"]
-    assert data["contract_revision"] == "dat-kit 1.16.0"
-    assert data["supported_contract_revisions"] == ["dat-kit 1.16.0"]
+    assert data["contract_revision"] == "dat-kit 2.0"
+    assert data["supported_contract_revisions"] == ["dat-kit 2.0", "dat-kit 1.16.0"]
 
 
 def test_typed_pointer_diagnostics_preserve_legacy_items(tmp_path):

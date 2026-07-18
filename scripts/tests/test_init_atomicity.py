@@ -95,12 +95,17 @@ def test_blocked_unsafe_class_aborts_before_mutation(tmp_path):
     assert snapshot(tmp_path) == before
 
 
-def test_canonical_rerun_is_idempotent(tmp_path):
+def test_canonical_rerun_is_readonly_migration_gate(tmp_path):
+    # Until the Phase 4 template flip, a fresh scaffold is the migratable
+    # 1.16 revision: a rerun must fail closed as a migration gate (v1.16 is
+    # never green under the v2 checker) while mutating NOTHING — the real
+    # idempotency invariant.
     first = run_here(tmp_path)
     assert first.returncode == 0, first.stdout + first.stderr
     before = snapshot(tmp_path)
     second = run_here(tmp_path)
-    assert second.returncode == 0, second.stdout + second.stderr
+    assert second.returncode != 0
+    assert "CONTRACT_MIGRATION_REQUIRED" in second.stdout + second.stderr
     assert snapshot(tmp_path) == before
 
 

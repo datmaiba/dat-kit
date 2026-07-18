@@ -137,9 +137,14 @@ Convenience members, stable but secondary to the eight methods above:
 `load_or_raise(repo_root)` (raises `CatalogLoadError` carrying the same
 diagnostics), the read-only properties `registry_revision`, `release_version`,
 and `domain_registry_revision`, `pointer_inventory()` (per-adapter
-`scaffold_active` project targets, consumed by the contract checker), and
-`validate_governed_inventory()`. Anything not listed in this section is
-internal; new members require a contract amendment first.
+`scaffold_active` project targets, consumed by the contract checker),
+`validate_governed_inventory()`, and `revision_model()` — a defensive copy of
+the project-contract state machine (`canonical_revision`, `green_revisions`,
+`migratable_source_revisions`, `unsupported_revisions`,
+`revision_descriptors`, `migration_edges`, and loaded snapshots), consumed by
+the Phase 3 contract checker so no second parser of `platform.json` exists.
+Anything not listed in this section is internal; new members require a
+contract amendment first.
 
 `version_targets()` returns deterministic records containing `path`, `kind`,
 `locator`, and derived `expected_version`. A missing target, invalid locator, or

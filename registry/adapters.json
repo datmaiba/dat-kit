@@ -225,7 +225,7 @@
       ],
       "contract_revision": "host-adapter/1",
       "host": "Cursor",
-      "lifecycle": "scaffold_active",
+      "lifecycle": "migration_ready",
       "official_facts": [
         {
           "fact_id": "cursor-agents-native",
@@ -246,6 +246,7 @@
       },
       "repository_artifact_paths": [
         "adapters/cursor/ADAPTER.md",
+        "templates/adapters/cursor/dat-kit.mdc",
         "templates/common/.cursorrules"
       ],
       "project_artifacts": [
@@ -257,6 +258,16 @@
           "artifact_lifecycle": "scaffold_active",
           "project_contract_revision": "dat-kit 1.16.0",
           "expected_content_hash": "f4c5adb7eb851d019e944441938ba4714b345057b5653df6c6bb4455d60e585e",
+          "precondition": "target-absent"
+        },
+        {
+          "source_template": "templates/adapters/cursor/dat-kit.mdc",
+          "target_relative_path": ".cursor/rules/dat-kit.mdc",
+          "ownership_class": "adapter",
+          "materialization_action": "copy",
+          "artifact_lifecycle": "migration_ready",
+          "project_contract_revision": "dat-kit 2.0",
+          "expected_content_hash": "0e2754f181333e36b3ba788d3080d08ab5ff8b843b72f519adfd24de42296f45",
           "precondition": "target-absent"
         }
       ],
@@ -291,14 +302,17 @@
       ],
       "migration_fixture_refs": [
         "MIG-CLEAN-116",
+        "MIG-CURSORRULES-RETIRE",
         "MIG-CUSTOM-116"
       ],
       "rollback": {
         "owned_repository_paths": [
           "adapters/cursor/ADAPTER.md",
+          "templates/adapters/cursor/dat-kit.mdc",
           "templates/common/.cursorrules"
         ],
         "owned_project_paths": [
+          ".cursor/rules/dat-kit.mdc",
           ".cursorrules"
         ],
         "removal_precondition": "exact-adapter-owned-hash",

@@ -17,6 +17,9 @@ TOP_LEVEL_KEYS = {
     "ok",
     "package_version",
     "contract_revision",
+    "green_revisions",
+    "migratable_source_revisions",
+    "revision_state",
     "supported_contract_revisions",
     "diagnostics",
     "migration_plan",
@@ -85,10 +88,10 @@ def test_incident_json_check_preserves_legacy_diagnostic_cardinality(tmp_path):
     assert data["mode"] == "check"
     assert data["target"] == "."
     assert data["ok"] is False
-    assert data["contract_revision"] == "dat-kit 1.16.0"
-    assert data["supported_contract_revisions"] == ["dat-kit 1.16.0"]
+    assert data["contract_revision"] == "dat-kit 2.0"
+    assert data["supported_contract_revisions"] == ["dat-kit 2.0", "dat-kit 1.16.0"]
     assert data["migration_plan"] is None
-    assert len(data["diagnostics"]) == 10
+    assert len(data["diagnostics"]) == len(legacy.stdout.splitlines())
     assert all(set(item) == DIAGNOSTIC_KEYS for item in data["diagnostics"])
     assert {item["action"] for item in data["diagnostics"]} <= ACTIONS
     assert all(len(item["summary"]) <= 240 for item in data["diagnostics"])

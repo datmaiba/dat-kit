@@ -933,6 +933,20 @@ class Catalog:
             ]
         return FilePlan(mode, tuple(entries))
 
+    def revision_model(self) -> dict[str, Any]:
+        """Project-contract state machine (contract R4): defensive copy."""
+        return copy.deepcopy(
+            {
+                "canonical_revision": self._platform["canonical_revision"],
+                "green_revisions": self._platform["green_revisions"],
+                "migratable_source_revisions": self._platform["migratable_source_revisions"],
+                "unsupported_revisions": self._platform["unsupported_revisions"],
+                "revision_descriptors": self._platform["revision_descriptors"],
+                "migration_edges": self._platform["migration_edges"],
+                "snapshots": self._snapshots,
+            }
+        )
+
     def pointer_inventory(self) -> dict[str, tuple[str, ...]]:
         return {
             adapter["adapter_id"]: tuple(
