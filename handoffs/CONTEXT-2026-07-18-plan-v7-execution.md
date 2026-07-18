@@ -32,20 +32,43 @@ the predecessors.
 | 3 | CLOSED — impl `92699ce`, reviews 3/3 APPROVE, fixes `89f63d2` | `docs/spikes/phase-3/evidence.md` |
 | 4, 5 | not started | — |
 
-## Next: Phase 4 — isolated structural cutover (the heaviest phase)
+## Next: Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES
 
-Prerequisite reading for the executing session: plan §6 Phase 4 + §16 only.
-First deliverable is the LINE-LEVEL OWNERSHIP MAP over: skills/build-loop/
-SKILL.md (+loop-profile.md), skills/knowledge-work/* (SKILL.md + 5 slot
-files), docs/loops.md, agents/*.md tables, templates — every substantive
-line → engine | domain-pack | project-contract | maintainer-policy |
-retired-with-reason. The map is independently reviewed BEFORE any move
-(tripwire: engine line requiring domain knowledge = stop). §16 rules 1–4
-must land in both domains' reviewers.md via the map. Then: engine/work-loop/
-ENGINE.md; domains/{software-dev,knowledge-work}/ six slots; descriptors →
-active; triggers rendered; domain-builder rewrite; behavioral tests;
-commit-by-semantic-owner. Phase 3 follow-ups FU-1..3 live in
-docs/spikes/phase-3/evidence.md.
+Prerequisite reading per session: plan §6 Phase 4 + §16 + this file only.
+One slice per session-budget (~50–80k each); each commits by semantic owner
+and reverts alone; NO partial six-slot claim reaches master. §16 rules 1–4
+must land in both domains' reviewers.md via the map (rule carried from §16).
+
+- **4a — Ownership map (read-only doc).** Line-level map over
+  skills/build-loop/SKILL.md + loop-profile.md, skills/knowledge-work/*
+  (SKILL.md + 5 slots), docs/loops.md, reviewer tables, domain-builder,
+  templates: every substantive line → engine | domain-pack |
+  project-contract | maintainer-policy | retired-with-reason. Output
+  docs/spikes/phase-4/ownership-map.md. Independent tripwire review BEFORE
+  any move (any engine line requiring domain knowledge = STOP). Est 60–90k.
+- **4b — Engine extraction.** engine/work-loop/ENGINE.md (LOAD→…→HARVEST,
+  host-neutral, per map only) + engine revision in registry + composition/
+  contradiction rules. No skill file moves yet. Est 40–60k.
+- **4c — software-dev pack.** domains/software-dev/ six slots per map;
+  descriptor → active; rendered thin trigger replaces build-loop body;
+  behavioral before/after tests (normal, autopilot, delegated, security,
+  recovery, harvest). Est 70–100k.
+- **4d — knowledge-work pack.** domains/knowledge-work/ six slots
+  (workflow.md absorbs A→G playbook; 5 slot files migrate; loop-profile
+  keeps Goal-human-run ceiling mirrored in descriptor); rendered trigger;
+  report + fact-check path tests before/after. Est 50–80k.
+- **4e — domain-builder rewrite + synthetic pack.** Authors descriptor + six
+  slots + rendered trigger + inherited evolution profile; synthetic
+  non-software pack completes the engine lifecycle; alias-collision and
+  negative trigger evals. Est 40–60k.
+- **4f — Cutover closure.** Engine deletion test (no domain policy left),
+  replace sentence-marker pack detection with registry conformance,
+  docs/examples re-derived, templates flip AGENTS.md marker → "dat-kit 2.0"
+  (greenfield becomes green under the v2 checker), full sequential reviews
+  of the whole cutover, evidence + scorecard. Est 60–90k.
+
+Phase 3 follow-ups FU-1..3 live in docs/spikes/phase-3/evidence.md — fold
+FU-1 (marker hardening) into 4f if budget allows, else keep tracked.
 
 ## Standing execution rules (do not re-derive)
 
