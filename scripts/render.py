@@ -27,9 +27,11 @@ SLOT_ORDER = (
 
 def render_domain_trigger(catalog: Catalog, descriptor: dict[str, object]) -> bytes:
     trigger = descriptor["trigger"]
-    assert isinstance(trigger, dict)
+    if not isinstance(trigger, dict):  # not assert: must survive python -O
+        raise ValueError(f"descriptor {descriptor.get('domain_id')!r} has no trigger object")
     aliases = trigger["aliases"]
-    assert isinstance(aliases, list)
+    if not isinstance(aliases, list):
+        raise ValueError(f"descriptor {descriptor.get('domain_id')!r} aliases must be a list")
     pack = descriptor["pack_location"]
     lines = [
         "---",
@@ -58,8 +60,19 @@ def render_domain_trigger(catalog: Catalog, descriptor: dict[str, object]) -> by
 
 
 def render_scaffold_manifest(catalog: Catalog) -> bytes:
+    # The manifest is a full registry projection: it carries the lifecycle
+    # column and init.sh materializes only scaffold_active rows. Do NOT use
+    # the greenfield FilePlan here — that plan is lifecycle-filtered for
+    # Python consumers (contract R5) and would hide repo_only rows that the
+    # manifest must still report.
     lines = [f"# {GENERATED_MARKER}; source_revision={catalog.registry_revision}"]
-    for entry in catalog.scaffold_file_plan("greenfield").entries:
+    entries = [
+        entry
+        for entry in catalog.scaffold_file_plan("inspect-brownfield").entries
+        if entry.precondition == "target-absent"
+        and entry.materialization_action in {"copy", "render-pointer"}
+    ]
+    for entry in entries:
         fields = (
             entry.source_template,
             entry.target_relative_path,
@@ -143,6 +156,10 @@ def _emit(diagnostics: Iterable[Diagnostic]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # cp1252 trap (paid-for lesson): diagnostics may carry non-ASCII paths.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--check", action="store_true", help="compare every expected projection without writing")

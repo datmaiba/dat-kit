@@ -116,7 +116,13 @@ def _no_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _reject_symlink(path: Path) -> None:
+    if path.is_symlink():
+        raise ValueError(f"refusing to follow symlink {path.name!r}")
+
+
 def _load_json(path: Path) -> Any:
+    _reject_symlink(path)
     return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_no_duplicate_keys)
 
 
@@ -153,6 +159,7 @@ def canonical_json(value: Any) -> bytes:
 
 
 def canonical_file_hash(path: Path) -> str:
+    _reject_symlink(path)
     data = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     return hashlib.sha256(data).hexdigest()
 
@@ -289,7 +296,14 @@ class _Builder:
                 ),
             )
         self._validate_platform(platform)
-        if not isinstance(platform.get("children"), list):
+        if not isinstance(platform.get("children"), list) or not platform["children"]:
+            # Fail closed with a guaranteed non-empty diagnostic tuple (never
+            # "no Catalog and no diagnostics").
+            self.add(
+                "REGISTRY_BOOTSTRAP_MALFORMED",
+                f"{BOOTSTRAP}#/children",
+                "children must be a non-empty array of child references",
+            )
             return tuple(self.diagnostics)
 
         children: dict[str, dict[str, Any]] = {}
@@ -337,6 +351,8 @@ class _Builder:
             children[kind] = child
             child_paths[kind] = relative
         if set(children) != {"domains", "adapters", "evolution"}:
+            for kind in sorted({"domains", "adapters", "evolution"} - set(children)):
+                self.add("REGISTRY_CHILD_MISSING", f"{BOOTSTRAP}#/children", f"no valid {kind} child loaded")
             return tuple(self.diagnostics)
 
         snapshots = self._validate_snapshots(platform)
@@ -346,11 +362,10 @@ class _Builder:
         self._validate_cross_references(platform, children)
         if self.diagnostics:
             return tuple(self.diagnostics)
-        catalog = Catalog(self.root, platform, children, snapshots)
-        inventory_diagnostics = catalog.validate_governed_inventory()
-        if inventory_diagnostics:
-            return inventory_diagnostics
-        return catalog
+        # Governed-inventory sweep is intentionally NOT part of load: a stray
+        # untracked file must not brick every Catalog consumer. Validation
+        # entry points call validate_governed_inventory() explicitly.
+        return Catalog(self.root, platform, children, snapshots)
 
     def _validate_platform(self, value: dict[str, Any]) -> None:
         self.closed(value, self.BOOTSTRAP_KEYS, BOOTSTRAP)
@@ -369,6 +384,24 @@ class _Builder:
         for field in ("unsupported_revisions", "revision_descriptors", "migration_edges", "version_targets"):
             if not isinstance(value.get(field), list):
                 self.add("REGISTRY_TYPE_INVALID", f"{BOOTSTRAP}#/{field}", "must be an array")
+        if isinstance(value.get("unsupported_revisions"), list):
+            for index, item in enumerate(value["unsupported_revisions"]):
+                if not isinstance(item, str) or not item.strip():
+                    self.add("REGISTRY_INVALID_VALUE", f"{BOOTSTRAP}#/unsupported_revisions/{index}", "must be a non-empty string")
+        if isinstance(value.get("migration_edges"), list):
+            edge_ids: set[str] = set()
+            for index, edge in enumerate(value["migration_edges"]):
+                edge_path = f"{BOOTSTRAP}#/migration_edges/{index}"
+                if not self.closed(edge, {"migration_id", "source_revision", "target_revision", "status"}, edge_path):
+                    continue
+                if edge["status"] not in {"planned", "available", "retired"}:
+                    self.add("REGISTRY_INVALID_VALUE", f"{edge_path}/status", f"unknown status {edge['status']!r}")
+                if not all(isinstance(edge[key], str) and edge[key].strip() for key in ("migration_id", "source_revision", "target_revision")):
+                    self.add("REGISTRY_INVALID_VALUE", edge_path, "edge fields must be non-empty strings")
+                elif edge["migration_id"] in edge_ids:
+                    self.add("REGISTRY_INVALID_VALUE", f"{edge_path}/migration_id", "duplicate migration_id")
+                else:
+                    edge_ids.add(edge["migration_id"])
         version_paths: list[str] = []
         if isinstance(value.get("version_targets"), list):
             for index, target in enumerate(value["version_targets"]):
@@ -380,8 +413,10 @@ class _Builder:
                     version_paths.append(relative)
                 if target["kind"] != "json-pointer":
                     self.add("REGISTRY_VERSION_KIND_INVALID", f"{path}/kind", "format 1 supports json-pointer only")
+                if relative is None:
+                    continue  # never read a path that failed validation
                 try:
-                    document = _load_json(self.root / target["path"])
+                    document = _load_json(self.root / relative)
                     actual = resolve_json_pointer(document, target["locator"])
                     if actual != value.get("release_version"):
                         self.add(
@@ -405,6 +440,26 @@ class _Builder:
                 if revision in revisions:
                     self.add("REGISTRY_REVISION_DUPLICATE", f"{path}/revision", f"duplicate {revision!r}")
                 revisions.add(revision)
+                marker_rules = descriptor.get("marker_rules")
+                if not isinstance(marker_rules, list) or not marker_rules:
+                    self.add("REGISTRY_TYPE_INVALID", f"{path}/marker_rules", "must be a non-empty array")
+                else:
+                    for rule_index, rule in enumerate(marker_rules):
+                        rule_path = f"{path}/marker_rules/{rule_index}"
+                        if self.closed(rule, {"path", "required_text"}, rule_path):
+                            self.path(rule["path"], f"{rule_path}/path")
+                            if not isinstance(rule["required_text"], str) or not rule["required_text"].strip():
+                                self.add("REGISTRY_INVALID_VALUE", f"{rule_path}/required_text", "must be a non-empty string")
+                provenance = descriptor.get("snapshot_provenance")
+                if provenance is not None and (
+                    not isinstance(provenance, str)
+                    or not (provenance.endswith(".json") or "#/" in provenance)
+                ):
+                    self.add(
+                        "REGISTRY_TYPE_INVALID",
+                        f"{path}/snapshot_provenance",
+                        "must be a snapshot .json path, a #/ fragment reference, or null",
+                    )
                 pointer_paths = descriptor.get("required_pointer_paths", [])
                 if isinstance(pointer_paths, list):
                     for item_index, relative in enumerate(pointer_paths):
@@ -457,7 +512,11 @@ class _Builder:
                 if not source.is_file():
                     self.add("REGISTRY_SOURCE_MISSING", f"{entry_path}/source_template", entry["source_template"])
                     continue
-                actual_hash = canonical_file_hash(source)
+                try:
+                    actual_hash = canonical_file_hash(source)
+                except (OSError, ValueError) as exc:
+                    self.add("REGISTRY_SNAPSHOT_INVALID", f"{entry_path}/source_template", str(exc))
+                    continue
                 if entry["expected_content_hash"] != actual_hash:
                     self.add("REGISTRY_SNAPSHOT_HASH_MISMATCH", f"{entry_path}/expected_content_hash", source.as_posix())
                 if hashes.get(entry["target_relative_path"]) != actual_hash:
@@ -516,12 +575,17 @@ class _Builder:
             name = trigger["name"]
             if not isinstance(name, str) or STABLE_ID.fullmatch(name) is None or "/" in name:
                 self.add("REGISTRY_TRIGGER_INVALID", f"{path}/trigger/name", "must be one stable path segment")
+                continue  # never raise from load: an invalid name cannot form a destination key
             destination = f"skills/{name}/SKILL.md"
             destination_key = portable_path_key(destination)
             if destination_key in destinations:
                 self.add("PROJECTION_DESTINATION_COLLISION", f"{path}/trigger/name", destinations[destination_key])
             destinations[destination_key] = domain_id
-            for alias in [name, *trigger.get("aliases", [])]:
+            trigger_aliases = trigger.get("aliases", [])
+            if not isinstance(trigger_aliases, list):
+                self.add("REGISTRY_TYPE_INVALID", f"{path}/trigger/aliases", "must be an array")
+                trigger_aliases = []
+            for alias in [name, *trigger_aliases]:
                 if not isinstance(alias, str) or not alias.strip():
                     self.add("REGISTRY_TRIGGER_INVALID", f"{path}/trigger/aliases", "alias must be non-empty")
                     continue
@@ -533,7 +597,10 @@ class _Builder:
                 pack_root = self.root / pack
                 for slot in SLOT_PATHS:
                     slot_path = pack_root / slot
-                    exists = slot_path.is_dir() and any(slot_path.iterdir()) if slot == "deliverables" and slot_path.is_dir() else slot_path.exists()
+                    if slot == "deliverables":
+                        exists = slot_path.is_dir() and any(slot_path.iterdir())
+                    else:
+                        exists = slot_path.is_file()
                     if not exists:
                         self.add("DOMAIN_SLOT_MISSING", f"{path}/pack_location", f"{pack}/{slot}")
 
@@ -558,7 +625,11 @@ class _Builder:
             ids.add(adapter_id)
             if descriptor["lifecycle"] not in LIFECYCLES:
                 self.add("REGISTRY_ADAPTER_LIFECYCLE_INVALID", f"{path}/lifecycle", descriptor["lifecycle"])
-            for alias in [adapter_id, *descriptor.get("aliases", [])]:
+            adapter_aliases = descriptor.get("aliases", [])
+            if not isinstance(adapter_aliases, list):
+                self.add("REGISTRY_TYPE_INVALID", f"{path}/aliases", "must be an array")
+                adapter_aliases = []
+            for alias in [adapter_id, *adapter_aliases]:
                 if not isinstance(alias, str) or not alias.strip():
                     self.add("REGISTRY_ADAPTER_ALIAS_INVALID", f"{path}/aliases", "alias must be non-empty")
                     continue
@@ -595,8 +666,12 @@ class _Builder:
                 source = self.root / entry["source_template"]
                 if not source.is_file():
                     self.add("REGISTRY_SOURCE_MISSING", f"{entry_path}/source_template", entry["source_template"])
-                elif entry["expected_content_hash"] is not None and canonical_file_hash(source) != entry["expected_content_hash"]:
-                    self.add("REGISTRY_SOURCE_HASH_MISMATCH", f"{entry_path}/expected_content_hash", entry["source_template"])
+                elif entry["expected_content_hash"] is not None:
+                    try:
+                        if canonical_file_hash(source) != entry["expected_content_hash"]:
+                            self.add("REGISTRY_SOURCE_HASH_MISMATCH", f"{entry_path}/expected_content_hash", entry["source_template"])
+                    except (OSError, ValueError) as exc:
+                        self.add("REGISTRY_SOURCE_HASH_MISMATCH", f"{entry_path}/source_template", str(exc))
             if artifact_lifecycles:
                 order = {"repo_only": 0, "migration_ready": 1, "scaffold_active": 2, "retired": 3}
                 minimum = min(artifact_lifecycles, key=order.__getitem__)
@@ -641,7 +716,20 @@ class _Builder:
                 self.add("REGISTRY_TYPE_INVALID", f"{relative}#/{field}", "must be an array")
                 continue
             for index, record in enumerate(records):
-                self.closed(record, shape, f"{relative}#/{field}/{index}")
+                record_path = f"{relative}#/{field}/{index}"
+                if not self.closed(record, shape, record_path):
+                    continue
+                if field == "authorities":
+                    appointments = record.get("appointments")
+                    if not isinstance(appointments, list):
+                        self.add("REGISTRY_TYPE_INVALID", f"{record_path}/appointments", "must be an array")
+                        continue
+                    appointment_keys = {
+                        "appointment_id", "identity", "role", "effective_from",
+                        "revoked_at", "successor_of", "evidence_ref", "evidence_hash",
+                    }
+                    for item_index, appointment in enumerate(appointments):
+                        self.closed(appointment, appointment_keys, f"{record_path}/appointments/{item_index}")
         for field in ("governed_roots", "explicit_exclusions"):
             paths = []
             for index, record in enumerate(value.get(field, [])):
@@ -834,11 +922,15 @@ class Catalog:
         if mode == "greenfield":
             entries = [
                 item for item in entries
-                if item.precondition == "target-absent"
+                if item.artifact_lifecycle == "scaffold_active"
+                and item.precondition == "target-absent"
                 and item.materialization_action in {"copy", "render-pointer"}
             ]
         elif mode == "add-missing":
-            entries = [item for item in entries if item.precondition == "target-absent"]
+            entries = [
+                item for item in entries
+                if item.artifact_lifecycle == "scaffold_active" and item.precondition == "target-absent"
+            ]
         return FilePlan(mode, tuple(entries))
 
     def pointer_inventory(self) -> dict[str, tuple[str, ...]]:
@@ -863,6 +955,11 @@ def _emit_diagnostics(diagnostics: Iterable[Diagnostic], *, json_output: bool) -
 
 
 def main(argv: list[str] | None = None) -> int:
+    # cp1252 trap (paid-for lesson): registry data is legitimately non-ASCII;
+    # a Windows console must not turn a green result into a UnicodeEncodeError.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
     parser.add_argument("--json", action="store_true")
@@ -879,7 +976,9 @@ def main(argv: list[str] | None = None) -> int:
     if isinstance(loaded, tuple):
         return _emit_diagnostics(loaded, json_output=args.json)
     if args.command == "validate":
-        return 0
+        # The governed-inventory sweep runs here (validation entry point),
+        # not inside Catalog.load — see docs/contracts/registry.md R4.
+        return _emit_diagnostics(loaded.validate_governed_inventory(), json_output=args.json)
     if args.command == "list":
         values: Any = {
             "domains": loaded.domains(),

@@ -66,6 +66,10 @@ if catalog is None:
     for diagnostic in catalog_result:
         findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
 else:
+    # Governed-inventory sweep runs at validation time, not inside
+    # Catalog.load (a stray untracked file must not brick every consumer).
+    for diagnostic in catalog.validate_governed_inventory():
+        findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
     for diagnostic in check_outputs(ROOT, expected_outputs(catalog)):
         findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
 

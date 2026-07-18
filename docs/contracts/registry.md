@@ -121,11 +121,25 @@ Catalog.governed_paths() -> GovernedPathSet
 Catalog.explain_path(path) -> OwnershipExplanation
 ```
 
-`load` is the only constructor. Returned collections are deterministic and
-sorted by stable ID or canonical path. `explain_path` is read-only and reports
-the matched root/exclusion, owner, governance class, required evidence, gates,
-reviewers, authority reference, and source descriptor. It never mutates a
-project or creates a proposal.
+`load` is the only supported constructor. Returned collections are
+deterministic, sorted by stable ID or canonical path, and defensive copies.
+`explain_path` is read-only and reports the matched root/exclusion, owner,
+governance class, required evidence, gates, reviewers, authority reference, and
+source descriptor. It never mutates a project or creates a proposal.
+
+`load` validates the registry graph only. It does **not** sweep the working
+tree: the governed-inventory check (`validate_governed_inventory() ->
+Diagnostic[]`) runs at validation entry points (`scripts/validate.py`,
+`registry.py validate`), so a stray untracked file fails validation without
+bricking every Catalog consumer. `load` performs no subprocess call.
+
+Convenience members, stable but secondary to the eight methods above:
+`load_or_raise(repo_root)` (raises `CatalogLoadError` carrying the same
+diagnostics), the read-only properties `registry_revision`, `release_version`,
+and `domain_registry_revision`, `pointer_inventory()` (per-adapter
+`scaffold_active` project targets, consumed by the contract checker), and
+`validate_governed_inventory()`. Anything not listed in this section is
+internal; new members require a contract amendment first.
 
 `version_targets()` returns deterministic records containing `path`, `kind`,
 `locator`, and derived `expected_version`. A missing target, invalid locator, or
@@ -279,34 +293,103 @@ path, and optional related paths. Codes are stable API; wording is not.
 Validation is deterministic and reports independent errors in canonical
 source/JSON-path order.
 
+The complete emitted vocabulary is enumerated below, grouped by family. A code
+appearing in code but not in this table, or removed from this table while still
+emitted, is a contract violation; `scripts/tests/test_diagnostic_codes.py`
+enforces the subset mechanically in both directions.
+
+**Bootstrap and child graph**
+
 | Code | Required condition |
 |---|---|
 | `REGISTRY_BOOTSTRAP_MISSING` | Bootstrap path absent. |
-| `REGISTRY_BOOTSTRAP_MALFORMED` | Not decodable JSON object or duplicate key. |
+| `REGISTRY_BOOTSTRAP_MALFORMED` | Not a decodable JSON object, duplicate key, or empty/non-array `children`. |
 | `REGISTRY_FORMAT_UNSUPPORTED` | Bootstrap format not understood; checked before children. |
-| `REGISTRY_CHILD_MISSING` | Referenced child absent. |
-| `REGISTRY_CHILD_MALFORMED` | Referenced child is undecodable, not an object, or has duplicate keys. |
+| `REGISTRY_CHILD_MISSING` | Referenced child absent, or a required child kind never loaded. |
+| `REGISTRY_CHILD_MALFORMED` | Referenced child undecodable, not an object, or duplicate keys. |
+| `REGISTRY_CHILD_KIND_INVALID` | Child reference declares an unsupported kind. |
+| `REGISTRY_CHILD_PATH_INVALID` | Child path escapes `registry/`. |
+| `REGISTRY_CHILD_DUPLICATE` | Two references declare the same child kind. |
 | `REGISTRY_CHILD_REVISION_MISMATCH` | Child revision differs from bootstrap reference. |
-| `REGISTRY_ATOMIC_UPGRADE_REQUIRED` | Running code and registry graph require incompatible revisions. |
+| `REGISTRY_ATOMIC_UPGRADE_REQUIRED` | Code and registry graph require incompatible format revisions. |
+
+**Generic schema and value**
+
+| Code | Required condition |
+|---|---|
 | `REGISTRY_UNKNOWN_FIELD` | Closed object contains an undeclared field. |
 | `REGISTRY_REQUIRED_FIELD_MISSING` | Required field absent. |
-| `REGISTRY_INVALID_VALUE` | Type, enum, lexical, or invariant violation. |
-| `REGISTRY_REFERENCE_MISSING` | Cross-reference has no declared owner. |
-| `REGISTRY_ID_COLLISION` | Stable IDs collide. |
-| `REGISTRY_ALIAS_COLLISION` | Normalized trigger aliases collide. |
+| `REGISTRY_TYPE_INVALID` | Value has the wrong JSON type. |
+| `REGISTRY_INVALID_VALUE` | Enum, lexical, or invariant violation. |
 | `REGISTRY_PATH_INVALID` | Canonical/containment path rule fails. |
+| `REGISTRY_PATH_COLLISION` | Two portable path keys collide. |
+| `REGISTRY_HASH_INVALID` | Digest is not a lowercase SHA-256. |
+| `REGISTRY_REVISION_INVALID` | Registry revision fails the stable-ID rule. |
+| `REGISTRY_RELEASE_VERSION_INVALID` | Release version is not SemVer. |
+| `REGISTRY_PROJECT_REVISION_INVALID` | Project-contract revision fields differ from format 1. |
+| `REGISTRY_REVISION_DUPLICATE` | Duplicate revision descriptor. |
+
+**Version mirrors**
+
+| Code | Required condition |
+|---|---|
+| `REGISTRY_VERSION_KIND_INVALID` | Mirror kind unsupported in format 1. |
+| `REGISTRY_VERSION_TARGET_INVALID` | Mirror path/locator unreadable or unresolvable. |
+| `REGISTRY_VERSION_MISMATCH` | Mirror value differs from bootstrap `release_version`. |
+
+**Snapshots and file plans**
+
+| Code | Required condition |
+|---|---|
+| `REGISTRY_SNAPSHOT_INVALID` | Snapshot unreadable, malformed, or hashing failed. |
+| `REGISTRY_SNAPSHOT_REVISION_MISMATCH` | Snapshot revision differs from its descriptor. |
+| `REGISTRY_SNAPSHOT_HASH_MISMATCH` | Snapshot/descriptor hash disagrees with template bytes. |
+| `REGISTRY_SOURCE_MISSING` | Referenced template/artifact file absent. |
+| `REGISTRY_SOURCE_HASH_MISMATCH` | Template bytes differ from declared hash. |
+| `REGISTRY_FILEPLAN_INVALID` | FilePlan entry enum/precondition/hash invariant fails. |
+
+**Domains, triggers, adapters**
+
+| Code | Required condition |
+|---|---|
+| `REGISTRY_DOMAIN_ID_INVALID` / `REGISTRY_DOMAIN_ID_DUPLICATE` | Domain ID fails stable-ID rule / collides. |
+| `REGISTRY_DOMAIN_LIFECYCLE_INVALID` | Domain lifecycle outside the closed enum. |
+| `REGISTRY_TRIGGER_INVALID` | Trigger name/alias fails lexical rules. |
+| `REGISTRY_TRIGGER_ALIAS_COLLISION` | Normalized trigger aliases collide. |
+| `DOMAIN_SLOT_MISSING` | Active pack lacks one of the six slots. |
+| `REGISTRY_ADAPTER_ID_INVALID` / `REGISTRY_ADAPTER_ID_DUPLICATE` | Adapter ID fails stable-ID rule / collides. |
+| `REGISTRY_ADAPTER_LIFECYCLE_INVALID` | Adapter lifecycle outside enum, or below its artifacts' minimum. |
+| `REGISTRY_ADAPTER_ALIAS_INVALID` / `REGISTRY_ADAPTER_ALIAS_COLLISION` | Adapter alias empty / collides. |
+| `REGISTRY_FACT_INVALID` / `REGISTRY_FACT_ID_DUPLICATE` / `REGISTRY_FACT_REF_MISSING` | Official-fact record malformed / duplicated / dangling reference. |
+
+**Evolution governance**
+
+| Code | Required condition |
+|---|---|
+| `EVOLUTION_CLASS_INVALID` | Governance class outside A/B/C. |
+| `EVOLUTION_GLOB_INVALID` | Component glob uses unsupported syntax. |
+| `EVOLUTION_ORPHAN_PATH` | Tracked product path matches no governed root or component. |
+| `EVOLUTION_OWNERSHIP_AMBIGUOUS` | Path matches more than one root or component. |
+| `EVOLUTION_EXCLUSION_AMBIGUOUS` | Path matches more than one explicit exclusion. |
+| `EVOLUTION_AUTHORITY_REQUIRED` | Policy or domain references a missing authority. |
+| `EVOLUTION_POLICY_MISSING` | Component or domain references a missing/mismatched policy. |
+| `EVOLUTION_SIGNAL_UNAVAILABLE` | Policy requires a missing or `planned` signal. |
+
+**Projections (Projection Module)**
+
+| Code | Required condition |
+|---|---|
 | `PROJECTION_MISSING` | Required derived artifact absent. |
-| `PROJECTION_STALE` | Bytes differ from the current authoritative descriptor. |
+| `PROJECTION_BYTE_MISMATCH` | Committed bytes differ from the authoritative render. |
+| `PROJECTION_STALE_OUTPUT` | A marked generated file has no active descriptor owner. |
 | `PROJECTION_DESTINATION_COLLISION` | Two source descriptors derive the same output path. |
-| `VERSION_TARGET_MISSING` | Declared version mirror path or locator is absent. |
-| `VERSION_TARGET_INVALID` | Locator does not resolve to a string under its declared kind. |
-| `VERSION_TARGET_MISMATCH` | Mirror value differs from bootstrap `release_version`. |
-| `CONTRACT_MIGRATION_REQUIRED` | Recognized non-green revision needs migration. |
-| `CONTRACT_UNSUPPORTED_REVISION` | Unknown or pre-marker source is guidance-only. |
-| `CONTRACT_PARTIAL_MIGRATION` | Disk state mixes revisions or cannot be classified atomically. |
-| `CONTRACT_MIGRATION_CONFLICT` | Approved migration encounters customized/user-owned conflict. |
-| `FILE_PLAN_PRECONDITION_FAILED` | Entry precondition is false at execution time. |
-| `FILE_PLAN_APPROVAL_REQUIRED` | A mutating plan lacks explicit approval. |
+| `DOMAIN_NOT_FOUND` / `DOMAIN_LIFECYCLE_INELIGIBLE` | Render request names an unknown / non-active domain. |
+
+**Reserved (defined by this contract, emitted by the Phase 3 migration
+machinery, not by the Phase 1 registry):** `CONTRACT_MIGRATION_REQUIRED`,
+`CONTRACT_UNSUPPORTED_REVISION`, `CONTRACT_PARTIAL_MIGRATION`,
+`CONTRACT_MIGRATION_CONFLICT`, `FILE_PLAN_PRECONDITION_FAILED`,
+`FILE_PLAN_APPROVAL_REQUIRED`.
 
 ## R9. Extension, retirement, compatibility, rollback
 

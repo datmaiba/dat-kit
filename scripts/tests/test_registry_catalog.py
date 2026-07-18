@@ -110,7 +110,10 @@ def test_new_governed_product_path_without_component_is_orphaned(tmp_path):
     product = root / "docs/new-area/product.bin"
     product.parent.mkdir(parents=True)
     product.write_bytes(b"product")
-    result = Catalog.load(root)
+    # Load must still succeed: a stray file must not brick every Catalog
+    # consumer. The governed-inventory sweep is a validation-time concern.
+    catalog = load_ok(root)
+    result = catalog.validate_governed_inventory()
     assert "EVOLUTION_ORPHAN_PATH" in codes(result)
     assert any(item.path == "docs/new-area/product.bin" for item in result)
 

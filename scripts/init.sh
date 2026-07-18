@@ -67,9 +67,14 @@ copy_if_missing() { # $1 src, $2 dst
 
 validate_manifest_path() { # $1 canonical relative POSIX path
   local value="$1" part
+  local -a manifest_parts=()
   [ -n "$value" ] || return 1
+  # Allowlist (not denylist): a manifest path may contain only these
+  # characters. Everything else — shell metacharacters, backslashes,
+  # controls, spaces, quotes — is rejected before any file is written.
   case "$value" in
-    /*|*\\*|*[$'\t\r\n']*|*[\<\>:\"\|\?\*]*) return 1 ;;
+    /*) return 1 ;;
+    *[!A-Za-z0-9._/-]*) return 1 ;;
   esac
   IFS='/' read -r -a manifest_parts <<< "$value"
   for part in "${manifest_parts[@]}"; do
@@ -96,6 +101,12 @@ materialize_manifest() { # validates every row before publishing any file
     case "$ownership" in dat-kit|adapter|user) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: ownership"; exit 1 ;; esac
     case "$action" in copy|render-pointer|preserve|RETIRE_LEGACY) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: action"; exit 1 ;; esac
     case "$lifecycle" in repo_only|migration_ready|scaffold_active|retired) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: lifecycle"; exit 1 ;; esac
+    # render-pointer is defined as "render pointer semantics", not "byte-copy
+    # the template" — Bash cannot render, so an active render-pointer row must
+    # fail closed here, during validation, before anything is published.
+    if [ "$lifecycle" = "scaffold_active" ] && [ "$action" = "render-pointer" ]; then
+      echo "✗ SCAFFOLD_ACTION_UNIMPLEMENTED: active render-pointer rows require the Python renderer"; exit 1
+    fi
     [[ "$revision" =~ ^dat-kit\ [0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
       echo "✗ SCAFFOLD_MANIFEST_INVALID: revision"; exit 1;
     }
@@ -115,7 +126,7 @@ materialize_manifest() { # validates every row before publishing any file
   for index in "${!sources[@]}"; do
     [ "${lifecycles[$index]}" = "scaffold_active" ] || continue
     case "${actions[$index]}" in
-      copy|render-pointer) copy_if_missing "$DIR/${sources[$index]}" "$TARGET/${targets[$index]}" ;;
+      copy) copy_if_missing "$DIR/${sources[$index]}" "$TARGET/${targets[$index]}" ;;
       *) echo "✗ SCAFFOLD_MANIFEST_INVALID: active non-materializing action"; exit 1 ;;
     esac
   done

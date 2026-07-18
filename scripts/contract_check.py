@@ -15,7 +15,7 @@ import sys
 import tempfile
 from typing import Iterable
 
-from registry import Catalog
+from registry import Catalog, resolve_json_pointer
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_REVISION = "dat-kit 1.16.0"
@@ -805,7 +805,6 @@ def manifest_versions(report: Report) -> None:
     for target in _CATALOG.version_targets():
         try:
             document = json.loads((ROOT / target.path).read_text(encoding="utf-8"))
-            from registry import resolve_json_pointer
             value = resolve_json_pointer(document, target.locator)
         except (OSError, ValueError, IndexError, json.JSONDecodeError) as exc:
             report.add("MANIFEST_INVALID", f"{target.path}: {exc}")

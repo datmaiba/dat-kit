@@ -3,63 +3,152 @@
   "registry_revision": "evolution/1",
   "contract_revision": "evolution/1",
   "governed_roots": [
-    {"path": ".agents", "owner": "host-adapter-platform"},
-    {"path": ".claude-plugin", "owner": "host-adapter-platform"},
-    {"path": ".codex-plugin", "owner": "host-adapter-platform"},
-    {"path": ".gitattributes", "owner": "maintainers"},
-    {"path": ".github", "owner": "maintainers"},
-    {"path": ".gitignore", "owner": "maintainers"},
-    {"path": "AGENTS.md", "owner": "maintainers"},
-    {"path": "agents", "owner": "software-dev"},
-    {"path": "benchmarks", "owner": "maintainers"},
-    {"path": "docs", "owner": "maintainers"},
-    {"path": "drafts", "owner": "maintainers"},
-    {"path": "handoffs", "owner": "maintainers"},
-    {"path": "hooks.json", "owner": "host-adapter-platform"},
-    {"path": "HUONG_DAN.vi.md", "owner": "maintainers"},
-    {"path": "lessons-learned", "owner": "maintainers"},
-    {"path": "LICENSE", "owner": "maintainers"},
-    {"path": "plans", "owner": "maintainers"},
-    {"path": "README.md", "owner": "maintainers"},
-    {"path": "registry", "owner": "registry-platform"},
-    {"path": "requirements-dev.txt", "owner": "maintainers"},
-    {"path": "scripts", "owner": "maintainers"},
-    {"path": "skills", "owner": "maintainers"},
-    {"path": "templates", "owner": "project-contract"}
+    {
+      "path": ".agents",
+      "owner": "host-adapter-platform"
+    },
+    {
+      "path": ".claude-plugin",
+      "owner": "host-adapter-platform"
+    },
+    {
+      "path": ".codex-plugin",
+      "owner": "host-adapter-platform"
+    },
+    {
+      "path": ".gitattributes",
+      "owner": "maintainers"
+    },
+    {
+      "path": ".github",
+      "owner": "maintainers"
+    },
+    {
+      "path": ".gitignore",
+      "owner": "maintainers"
+    },
+    {
+      "path": "AGENTS.md",
+      "owner": "maintainers"
+    },
+    {
+      "path": "agents",
+      "owner": "software-dev"
+    },
+    {
+      "path": "benchmarks",
+      "owner": "maintainers"
+    },
+    {
+      "path": "docs",
+      "owner": "maintainers"
+    },
+    {
+      "path": "drafts",
+      "owner": "maintainers"
+    },
+    {
+      "path": "handoffs",
+      "owner": "maintainers"
+    },
+    {
+      "path": "hooks.json",
+      "owner": "host-adapter-platform"
+    },
+    {
+      "path": "HUONG_DAN.vi.md",
+      "owner": "maintainers"
+    },
+    {
+      "path": "lessons-learned",
+      "owner": "maintainers"
+    },
+    {
+      "path": "LICENSE",
+      "owner": "maintainers"
+    },
+    {
+      "path": "plans",
+      "owner": "maintainers"
+    },
+    {
+      "path": "README.md",
+      "owner": "maintainers"
+    },
+    {
+      "path": "registry",
+      "owner": "registry-platform"
+    },
+    {
+      "path": "requirements-dev.txt",
+      "owner": "maintainers"
+    },
+    {
+      "path": "scripts",
+      "owner": "maintainers"
+    },
+    {
+      "path": "skills",
+      "owner": "maintainers"
+    },
+    {
+      "path": "templates",
+      "owner": "project-contract"
+    }
   ],
   "explicit_exclusions": [],
   "component_classes": [
     {
       "component_id": "host-adapter-packages",
-      "path_globs": [".agents/**", ".claude-plugin/**", ".codex-plugin/**", "hooks.json"],
+      "path_globs": [
+        ".agents/**",
+        ".claude-plugin/**",
+        ".codex-plugin/**",
+        "hooks.json"
+      ],
       "owner": "host-adapter-platform",
       "governance_class": "B",
       "policy_ref": "host-adapter-policy"
     },
     {
       "component_id": "automation",
-      "path_globs": [".github/**"],
+      "path_globs": [
+        ".github/**"
+      ],
       "owner": "maintainers",
       "governance_class": "B",
       "policy_ref": "maintainer-policy"
     },
     {
       "component_id": "software-reviewers",
-      "path_globs": ["agents/**"],
+      "path_globs": [
+        "agents/**"
+      ],
       "owner": "software-dev",
       "governance_class": "B",
       "policy_ref": "software-dev-policy"
     },
     {
       "component_id": "maintainer-evidence",
-      "path_globs": ["benchmarks/**", "drafts/**", "handoffs/**", "lessons-learned/**", "plans/**"],
+      "path_globs": [
+        "benchmarks/**",
+        "drafts/**",
+        "handoffs/**",
+        "lessons-learned/**",
+        "plans/**"
+      ],
       "owner": "maintainers",
       "governance_class": "B",
       "policy_ref": "maintainer-policy"
     },
     {
       "component_id": "registry-contract",
-      "path_globs": ["docs/contracts/**", "registry/**", "scripts/registry.py", "scripts/render.py"],
+      "path_globs": [
+        "docs/contracts/**",
+        "registry/**",
+        "scripts/registry.py",
+        "scripts/render.py"
+      ],
       "owner": "registry-platform",
       "governance_class": "C",
       "policy_ref": "platform-contract-policy"
@@ -67,8 +156,14 @@
     {
       "component_id": "maintainer-documentation",
       "path_globs": [
-        "docs/agent-*.md", "docs/codex.md", "docs/decisions/**", "docs/domains.md",
-        "docs/loops.md", "docs/model-selection.md", "docs/releases/**", "docs/spikes/**"
+        "docs/agent-*.md",
+        "docs/codex.md",
+        "docs/decisions/**",
+        "docs/domains.md",
+        "docs/loops.md",
+        "docs/model-selection.md",
+        "docs/releases/**",
+        "docs/spikes/**"
       ],
       "owner": "maintainers",
       "governance_class": "B",
@@ -77,8 +172,13 @@
     {
       "component_id": "maintainer-scripts",
       "path_globs": [
-        "scripts/contract_check.py", "scripts/init.sh", "scripts/scorecard.py", "scripts/spikes/**",
-        "scripts/statusline.py", "scripts/tests/**", "scripts/validate.py"
+        "scripts/contract_check.py",
+        "scripts/init.sh",
+        "scripts/scorecard.py",
+        "scripts/spikes/**",
+        "scripts/statusline.py",
+        "scripts/tests/**",
+        "scripts/validate.py"
       ],
       "owner": "maintainers",
       "governance_class": "B",
@@ -86,14 +186,18 @@
     },
     {
       "component_id": "software-dev-domain",
-      "path_globs": ["skills/build-loop/**"],
+      "path_globs": [
+        "skills/build-loop/**"
+      ],
       "owner": "software-dev",
       "governance_class": "B",
       "policy_ref": "software-dev-policy"
     },
     {
       "component_id": "knowledge-work-domain",
-      "path_globs": ["skills/knowledge-work/**"],
+      "path_globs": [
+        "skills/knowledge-work/**"
+      ],
       "owner": "knowledge-work",
       "governance_class": "B",
       "policy_ref": "knowledge-work-policy"
@@ -101,10 +205,18 @@
     {
       "component_id": "utility-skills",
       "path_globs": [
-        "skills/cookbook-lookup/**", "skills/diagnosing-bugs/**", "skills/domain-builder/**",
-        "skills/fable-mode/**", "skills/fable-pro/**", "skills/git-worktrees/**",
-        "skills/guardian-builder/**", "skills/handoff/**", "skills/improve-codebase-architecture/**",
-        "skills/project-init/**", "skills/scorecard/**", "skills/terse-mode/**"
+        "skills/cookbook-lookup/**",
+        "skills/diagnosing-bugs/**",
+        "skills/domain-builder/**",
+        "skills/fable-mode/**",
+        "skills/fable-pro/**",
+        "skills/git-worktrees/**",
+        "skills/guardian-builder/**",
+        "skills/handoff/**",
+        "skills/improve-codebase-architecture/**",
+        "skills/project-init/**",
+        "skills/scorecard/**",
+        "skills/terse-mode/**"
       ],
       "owner": "maintainers",
       "governance_class": "B",
@@ -112,14 +224,22 @@
     },
     {
       "component_id": "project-contract-templates",
-      "path_globs": ["templates/**"],
+      "path_globs": [
+        "templates/**"
+      ],
       "owner": "project-contract",
       "governance_class": "C",
       "policy_ref": "project-contract-policy"
     },
     {
       "component_id": "root-maintainer-files",
-      "path_globs": ["*.md", ".gitattributes", ".gitignore", "LICENSE", "requirements-dev.txt"],
+      "path_globs": [
+        "*.md",
+        ".gitattributes",
+        ".gitignore",
+        "LICENSE",
+        "requirements-dev.txt"
+      ],
       "owner": "maintainers",
       "governance_class": "B",
       "policy_ref": "maintainer-policy"
@@ -139,7 +259,10 @@
     {
       "authority_id": "software-dev-reviewer",
       "role_type": "independent-reviewer",
-      "allowed_decision_classes": ["A", "B"],
+      "allowed_decision_classes": [
+        "A",
+        "B"
+      ],
       "allowed_closer": "owner-appointed-independent-reviewer",
       "appointments": [
         {
@@ -149,8 +272,8 @@
           "effective_from": "2026-01-01T00:00:00Z",
           "revoked_at": null,
           "successor_of": null,
-          "evidence_ref": "authority/software-dev-reviewer-appointment-1",
-          "evidence_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+          "evidence_ref": "docs/decisions/0002-authority-appointments.md#software-dev-reviewer-1",
+          "evidence_hash": "d9e98932805888b0afc6d59fe8d615f36b2db39489fdb86d86168a03f9236502"
         }
       ],
       "succession_rule": "owner records a successor appointment",
@@ -160,7 +283,10 @@
     {
       "authority_id": "knowledge-work-reviewer",
       "role_type": "independent-fact-checker",
-      "allowed_decision_classes": ["A", "B"],
+      "allowed_decision_classes": [
+        "A",
+        "B"
+      ],
       "allowed_closer": "owner-appointed-independent-fact-checker",
       "appointments": [
         {
@@ -170,8 +296,8 @@
           "effective_from": "2026-01-01T00:00:00Z",
           "revoked_at": null,
           "successor_of": null,
-          "evidence_ref": "authority/knowledge-work-reviewer-appointment-1",
-          "evidence_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+          "evidence_ref": "docs/decisions/0002-authority-appointments.md#independent-fact-checker-1",
+          "evidence_hash": "d9e98932805888b0afc6d59fe8d615f36b2db39489fdb86d86168a03f9236502"
         }
       ],
       "succession_rule": "owner records a successor appointment",
@@ -181,7 +307,9 @@
     {
       "authority_id": "platform-owner",
       "role_type": "named-maintainer-authority",
-      "allowed_decision_classes": ["C"],
+      "allowed_decision_classes": [
+        "C"
+      ],
       "allowed_closer": "Dat Mai Ba or recorded successor",
       "appointments": [
         {
@@ -191,8 +319,8 @@
           "effective_from": "2026-01-01T00:00:00Z",
           "revoked_at": null,
           "successor_of": null,
-          "evidence_ref": "authority/platform-owner-appointment-1",
-          "evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+          "evidence_ref": "docs/decisions/0002-authority-appointments.md#platform-owner-1",
+          "evidence_hash": "d9e98932805888b0afc6d59fe8d615f36b2db39489fdb86d86168a03f9236502"
         }
       ],
       "succession_rule": "current owner records a Class C successor appointment",
@@ -205,10 +333,19 @@
       "policy_id": "software-dev-policy",
       "revision": "software-dev-policy/1",
       "owner": "software-dev",
-      "allowed_classes": ["A", "B"],
-      "required_signals": ["independent-review"],
-      "required_gates": ["software-regression"],
-      "required_reviewers": ["software-dev-reviewer"],
+      "allowed_classes": [
+        "A",
+        "B"
+      ],
+      "required_signals": [
+        "independent-review"
+      ],
+      "required_gates": [
+        "software-regression"
+      ],
+      "required_reviewers": [
+        "software-dev-reviewer"
+      ],
       "closer_authority_ref": "software-dev-reviewer",
       "rollback_evidence": "semantic-owner revert plus regression"
     },
@@ -216,10 +353,19 @@
       "policy_id": "knowledge-work-policy",
       "revision": "knowledge-work-policy/1",
       "owner": "knowledge-work",
-      "allowed_classes": ["A", "B"],
-      "required_signals": ["independent-review"],
-      "required_gates": ["source-claim-fidelity"],
-      "required_reviewers": ["knowledge-work-reviewer"],
+      "allowed_classes": [
+        "A",
+        "B"
+      ],
+      "required_signals": [
+        "independent-review"
+      ],
+      "required_gates": [
+        "source-claim-fidelity"
+      ],
+      "required_reviewers": [
+        "knowledge-work-reviewer"
+      ],
       "closer_authority_ref": "knowledge-work-reviewer",
       "rollback_evidence": "restore prior evidence-grounded pack behavior"
     },
@@ -227,10 +373,19 @@
       "policy_id": "maintainer-policy",
       "revision": "maintainer-policy/1",
       "owner": "maintainers",
-      "allowed_classes": ["A", "B"],
-      "required_signals": ["independent-review"],
-      "required_gates": ["full-script-regression"],
-      "required_reviewers": ["software-dev-reviewer"],
+      "allowed_classes": [
+        "A",
+        "B"
+      ],
+      "required_signals": [
+        "independent-review"
+      ],
+      "required_gates": [
+        "full-script-regression"
+      ],
+      "required_reviewers": [
+        "software-dev-reviewer"
+      ],
       "closer_authority_ref": "software-dev-reviewer",
       "rollback_evidence": "maintainer semantic-slice revert plus regression"
     },
@@ -238,10 +393,19 @@
       "policy_id": "host-adapter-policy",
       "revision": "host-adapter-policy/1",
       "owner": "host-adapter-platform",
-      "allowed_classes": ["A", "B"],
-      "required_signals": ["independent-review"],
-      "required_gates": ["host-adapter-conformance"],
-      "required_reviewers": ["software-dev-reviewer"],
+      "allowed_classes": [
+        "A",
+        "B"
+      ],
+      "required_signals": [
+        "independent-review"
+      ],
+      "required_gates": [
+        "host-adapter-conformance"
+      ],
+      "required_reviewers": [
+        "software-dev-reviewer"
+      ],
       "closer_authority_ref": "software-dev-reviewer",
       "rollback_evidence": "adapter-owned path rollback and host smoke"
     },
@@ -249,10 +413,20 @@
       "policy_id": "project-contract-policy",
       "revision": "project-contract-policy/1",
       "owner": "project-contract",
-      "allowed_classes": ["C"],
-      "required_signals": ["independent-review"],
-      "required_gates": ["full-cross-component-regression", "migration-rollback-rehearsal"],
-      "required_reviewers": ["knowledge-work-reviewer", "software-dev-reviewer"],
+      "allowed_classes": [
+        "C"
+      ],
+      "required_signals": [
+        "independent-review"
+      ],
+      "required_gates": [
+        "full-cross-component-regression",
+        "migration-rollback-rehearsal"
+      ],
+      "required_reviewers": [
+        "knowledge-work-reviewer",
+        "software-dev-reviewer"
+      ],
       "closer_authority_ref": "platform-owner",
       "rollback_evidence": "project-contract snapshot and migration rollback"
     },
@@ -260,10 +434,20 @@
       "policy_id": "platform-contract-policy",
       "revision": "platform-contract-policy/1",
       "owner": "registry-platform",
-      "allowed_classes": ["C"],
-      "required_signals": ["independent-review"],
-      "required_gates": ["full-cross-component-regression", "rollback-rehearsal"],
-      "required_reviewers": ["knowledge-work-reviewer", "software-dev-reviewer"],
+      "allowed_classes": [
+        "C"
+      ],
+      "required_signals": [
+        "independent-review"
+      ],
+      "required_gates": [
+        "full-cross-component-regression",
+        "rollback-rehearsal"
+      ],
+      "required_reviewers": [
+        "knowledge-work-reviewer",
+        "software-dev-reviewer"
+      ],
       "closer_authority_ref": "platform-owner",
       "rollback_evidence": "atomic contract, registry, and projection revert"
     }
