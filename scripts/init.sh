@@ -82,30 +82,30 @@ materialize_manifest() { # validates every row before publishing any file
   local manifest="$DIR/templates/common/.dat-kit-files.tsv"
   local header source target ownership action revision lifecycle extra target_key prior_key
   local -a sources=() targets=() ownerships=() actions=() revisions=() lifecycles=()
-  [ -f "$manifest" ] || { echo "âœ— SCAFFOLD_MANIFEST_MISSING: $manifest"; exit 1; }
+  [ -f "$manifest" ] || { echo "✗ SCAFFOLD_MANIFEST_MISSING: $manifest"; exit 1; }
   IFS= read -r header < "$manifest"
   case "$header" in
-    '# GENERATED FROM REGISTRY â€” DO NOT EDIT; source_revision='*) ;;
-    *) echo "âœ— SCAFFOLD_MANIFEST_INVALID: bad provenance header"; exit 1 ;;
+    '# GENERATED FROM REGISTRY — DO NOT EDIT; source_revision='*) ;;
+    *) echo "✗ SCAFFOLD_MANIFEST_INVALID: bad provenance header"; exit 1 ;;
   esac
   while IFS=$'\t' read -r source target ownership action revision lifecycle extra; do
     [ -n "$source$target$ownership$action$revision$lifecycle$extra" ] || continue
     if [ -n "$extra" ] || ! validate_manifest_path "$source" || ! validate_manifest_path "$target"; then
-      echo "âœ— SCAFFOLD_MANIFEST_INVALID: malformed row"; exit 1
+      echo "✗ SCAFFOLD_MANIFEST_INVALID: malformed row"; exit 1
     fi
-    case "$ownership" in dat-kit|adapter|user) ;; *) echo "âœ— SCAFFOLD_MANIFEST_INVALID: ownership"; exit 1 ;; esac
-    case "$action" in copy|render-pointer|preserve|RETIRE_LEGACY) ;; *) echo "âœ— SCAFFOLD_MANIFEST_INVALID: action"; exit 1 ;; esac
-    case "$lifecycle" in repo_only|migration_ready|scaffold_active|retired) ;; *) echo "âœ— SCAFFOLD_MANIFEST_INVALID: lifecycle"; exit 1 ;; esac
+    case "$ownership" in dat-kit|adapter|user) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: ownership"; exit 1 ;; esac
+    case "$action" in copy|render-pointer|preserve|RETIRE_LEGACY) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: action"; exit 1 ;; esac
+    case "$lifecycle" in repo_only|migration_ready|scaffold_active|retired) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: lifecycle"; exit 1 ;; esac
     [[ "$revision" =~ ^dat-kit\ [0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
-      echo "âœ— SCAFFOLD_MANIFEST_INVALID: revision"; exit 1;
+      echo "✗ SCAFFOLD_MANIFEST_INVALID: revision"; exit 1;
     }
     [ -f "$DIR/$source" ] && [ ! -L "$DIR/$source" ] || {
-      echo "âœ— SCAFFOLD_MANIFEST_INVALID: missing or linked source $source"; exit 1;
+      echo "✗ SCAFFOLD_MANIFEST_INVALID: missing or linked source $source"; exit 1;
     }
     target_key="$(printf '%s' "$target" | tr '[:upper:]' '[:lower:]')"
     for prior_key in "${targets[@]}"; do
       [ "$target_key" != "$(printf '%s' "$prior_key" | tr '[:upper:]' '[:lower:]')" ] || {
-        echo "âœ— SCAFFOLD_MANIFEST_INVALID: duplicate target $target"; exit 1;
+        echo "✗ SCAFFOLD_MANIFEST_INVALID: duplicate target $target"; exit 1;
       }
     done
     sources+=("$source"); targets+=("$target"); ownerships+=("$ownership")
@@ -116,7 +116,7 @@ materialize_manifest() { # validates every row before publishing any file
     [ "${lifecycles[$index]}" = "scaffold_active" ] || continue
     case "${actions[$index]}" in
       copy|render-pointer) copy_if_missing "$DIR/${sources[$index]}" "$TARGET/${targets[$index]}" ;;
-      *) echo "âœ— SCAFFOLD_MANIFEST_INVALID: active non-materializing action"; exit 1 ;;
+      *) echo "✗ SCAFFOLD_MANIFEST_INVALID: active non-materializing action"; exit 1 ;;
     esac
   done
 }
