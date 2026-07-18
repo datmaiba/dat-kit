@@ -643,7 +643,10 @@ def test_cli_registry_json():
     assert data["supported_contract_revisions"] == list(cc.SUPPORTED_CONTRACT_REVISIONS)
 
 
-def test_init_pointer_copy_list_matches_registry():
+def test_init_consumes_generated_pointer_manifest_without_host_tuple():
     script = (SCRIPTS / "init.sh").read_text(encoding="utf-8")
+    manifest = (ROOT / "templates/common/.dat-kit-files.tsv").read_text(encoding="utf-8")
+    assert "materialize_manifest" in script
     for pointer in {path for paths in cc.POINTERS.values() for path in paths}:
-        assert f'TARGET/{pointer}' in script
+        assert f"\t{pointer}\t" in manifest
+        assert f'TARGET/{pointer}' not in script

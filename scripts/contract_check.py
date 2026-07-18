@@ -15,6 +15,8 @@ import sys
 import tempfile
 from typing import Iterable
 
+from registry import Catalog
+
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_REVISION = "dat-kit 1.16.0"
 SUPPORTED_CONTRACT_REVISIONS = (CONTRACT_REVISION,)
@@ -22,16 +24,16 @@ JSON_SCHEMA_VERSION = 1
 WORKING_RULES_MARKER = "<!-- dat-kit:working-rules -->"
 WORKING_RULES_SENTINEL = "This document is part of the canonical `AGENTS.md` contract."
 
-POINTERS = {
-    "claude-code": ("CLAUDE.md", ".claude/CLAUDE.md"),
-    "cursor": (".cursorrules",),
-    "codex": (),
-}
+_CATALOG_RESULT = Catalog.load(ROOT)
+_CATALOG = _CATALOG_RESULT if isinstance(_CATALOG_RESULT, Catalog) else None
+_CATALOG_DIAGNOSTICS = () if _CATALOG is not None else _CATALOG_RESULT
+POINTERS = _CATALOG.pointer_inventory() if _CATALOG is not None else {}
 RUNTIMES = tuple(POINTERS) + ("other",)
 POINTER_TEMPLATES = {
-    "CLAUDE.md": "templates/common/CLAUDE.md",
-    ".claude/CLAUDE.md": "templates/common/.claude/CLAUDE.md",
-    ".cursorrules": "templates/common/.cursorrules",
+    artifact["target_relative_path"]: artifact["source_template"]
+    for adapter in (_CATALOG.adapters() if _CATALOG is not None else ())
+    for artifact in adapter["project_artifacts"]
+    if artifact["artifact_lifecycle"] == "scaffold_active"
 }
 CANONICAL_STATIC = {
     **POINTER_TEMPLATES,
@@ -148,11 +150,12 @@ def normalized(path: Path) -> str:
 
 
 def package_version(root: Path = ROOT) -> str:
-    data = json.loads((root / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
-    value = data.get("version")
-    if not isinstance(value, str) or not value:
-        raise ValueError(".claude-plugin/plugin.json has no version")
-    return value
+    if root.resolve() == ROOT.resolve() and _CATALOG is not None:
+        return _CATALOG.release_version
+    loaded = Catalog.load(root)
+    if isinstance(loaded, Catalog):
+        return loaded.release_version
+    raise ValueError("registry Catalog is unavailable")
 
 
 def exact_path(root: Path, relative: str, report: Report) -> Path | None:
@@ -795,26 +798,23 @@ def check_pointer(path: Path, template: Path, label: str, report: Report) -> Non
 
 
 def manifest_versions(report: Report) -> None:
-    sources = (
-        (".claude-plugin/plugin.json", lambda d: d.get("version")),
-        (".codex-plugin/plugin.json", lambda d: d.get("version")),
-        (".claude-plugin/marketplace.json", lambda d: d.get("plugins", [{}])[0].get("version")),
-    )
-    try:
-        expected = package_version()
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        report.add("MANIFEST_INVALID", f".claude-plugin/plugin.json: {exc}")
+    if _CATALOG is None:
+        for item in _CATALOG_DIAGNOSTICS:
+            report.add(item.code, f"{item.path}: {item.message}")
         return
-    for rel, getter in sources:
+    for target in _CATALOG.version_targets():
         try:
-            value = getter(json.loads((ROOT / rel).read_text(encoding="utf-8")))
-        except (OSError, ValueError, IndexError) as exc:
-            report.add("MANIFEST_INVALID", f"{rel}: {exc}")
+            document = json.loads((ROOT / target.path).read_text(encoding="utf-8"))
+            from registry import resolve_json_pointer
+            value = resolve_json_pointer(document, target.locator)
+        except (OSError, ValueError, IndexError, json.JSONDecodeError) as exc:
+            report.add("MANIFEST_INVALID", f"{target.path}: {exc}")
             continue
-        if value != expected:
-            # Preserve the published v1 diagnostic identifier even though the
-            # compared value is now explicitly the package version.
-            report.add("CONTRACT_REVISION_MISMATCH", f"{rel}: {value!r}, expected {expected!r}")
+        if value != target.expected_version:
+            report.add(
+                "CONTRACT_REVISION_MISMATCH",
+                f"{target.path}: {value!r}, expected {target.expected_version!r}",
+            )
 
 
 def check_repo(root: Path = ROOT) -> Report:

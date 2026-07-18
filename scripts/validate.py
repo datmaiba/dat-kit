@@ -7,6 +7,8 @@ Exit 0 = all green; exit 1 = findings printed.
 """
 import json, re, sys, glob, pathlib
 from contract_check import check_repo, validate_scorecard
+from registry import Catalog
+from render import check_outputs, expected_outputs
 
 try:
     import yaml
@@ -57,31 +59,19 @@ def exact_path(relative):
     return current
 
 
-# 1. Manifests
-plugin = json.load(open(ROOT / ".claude-plugin/plugin.json"))
-market = json.load(open(ROOT / ".claude-plugin/marketplace.json"))
-codex_plugin = json.load(open(ROOT / ".codex-plugin/plugin.json"))
-codex_market = json.load(open(ROOT / ".agents/plugins/marketplace.json"))
-check(plugin["name"] == "dat-kit", "plugin.json: unexpected name")
-check(re.match(r"^\d+\.\d+\.\d+", plugin.get("version", "")), "plugin.json: version must be semver")
-check(plugin["version"] == market["plugins"][0]["version"],
-      f"version mismatch: plugin.json {plugin['version']} vs marketplace.json {market['plugins'][0]['version']}")
-check(market["plugins"][0]["source"] == "./", "marketplace.json: source must be './'")
-check(plugin.get("hooks") == "./hooks.json", "plugin.json: hooks must be declared explicitly (auto-discovery unreliable in dev mode)")
-check(codex_plugin.get("name") == plugin["name"], "Codex plugin name must match Claude plugin name")
-check(codex_plugin.get("version") == plugin["version"], "Codex plugin version must match Claude plugin version")
-check(codex_plugin.get("skills") == "./skills/", "Codex plugin must expose the shared skills directory")
-check("hooks" not in codex_plugin, "Codex plugin must not reuse Claude's SessionStart hook")
-codex_entry = codex_market.get("plugins", [{}])[0]
-check(codex_entry.get("name") == plugin["name"], "Codex marketplace plugin name must match manifest")
-check(codex_entry.get("source", {}).get("source") == "url", "Codex marketplace must use a root-repo URL source")
-check(codex_entry.get("source", {}).get("url") == plugin["repository"], "Codex marketplace URL must match repository")
-check(codex_entry.get("policy") == {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
-      "Codex marketplace policy must be AVAILABLE / ON_INSTALL")
-check(codex_entry.get("category") == "Productivity", "Codex marketplace category must be Productivity")
+# 1. Registry Catalog and the only two committed projections.
+catalog_result = Catalog.load(ROOT)
+catalog = catalog_result if isinstance(catalog_result, Catalog) else None
+if catalog is None:
+    for diagnostic in catalog_result:
+        findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
+else:
+    for diagnostic in check_outputs(ROOT, expected_outputs(catalog)):
+        findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
 
 # 2. Skills
-for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
+skill_files = sorted(path for path in (ROOT / "skills").rglob("SKILL.md") if path.is_file())
+for f in skill_files:
     fm, text = frontmatter(f)
     if not fm:
         continue
@@ -96,7 +86,7 @@ for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
 # file must exist beside the SKILL.md, and deliverables/ must hold >=1 template.
 # Guards against a pack shipping (or being authored) with dangling slot refs.
 SLOT_ROW = re.compile(r"^\|[^|]+\|\s*`([a-z0-9_.-]+\.md)`")
-for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
+for f in skill_files:
     text = pathlib.Path(f).read_text(encoding="utf-8")
     # quoted mentions (e.g. domain-builder instructing pack authors to include
     # the marker) do not count — only the bare sentence marks a pack instance
@@ -123,15 +113,20 @@ for f in sorted(glob.glob(str(ROOT / "agents/*.md"))):
     for key in ("name", "description", "tools"):
         check(key in fm, f"{f}: frontmatter missing '{key}'")
 
-# 3b. Agent-existence gate — the review team table in build-loop is the single source of truth
-build_loop = ROOT / "skills/build-loop/SKILL.md"
-for line in build_loop.read_text(encoding="utf-8").splitlines():
-    if line.startswith("| `"):
-        m = re.search(r"`([^`]+)`", line)
-        if m:
-            name = m.group(1)
-            check((ROOT / f"agents/{name}.md").exists(),
-                  f"build-loop references agent '{name}' but agents/{name}.md does not exist")
+# 3b. Registered legacy triggers may own reviewer-agent projection tables.
+if catalog is not None:
+    for domain in catalog.domains():
+        trigger_path = ROOT / "skills" / domain["trigger"]["name"] / "SKILL.md"
+        check(trigger_path.is_file(), f"registered domain trigger is missing: {trigger_path.relative_to(ROOT)}")
+        if not trigger_path.is_file():
+            continue
+        for line in trigger_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("| `"):
+                match = re.search(r"`([^`]+)`", line)
+                if match:
+                    name = match.group(1)
+                    check((ROOT / f"agents/{name}.md").exists(),
+                          f"{trigger_path}: references missing agents/{name}.md")
 
 # 4. Hooks
 hooks = json.load(open(ROOT / "hooks.json"))
@@ -177,7 +172,7 @@ for f in glob.glob(str(ROOT / "**/*"), recursive=True):
 # Catches the common failure of editing a description and silently breaking a
 # skill's triggering, or two skills fighting over the same trigger.
 skill_desc = {}
-for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
+for f in skill_files:
     fm, _ = frontmatter(f)
     if fm and fm.get("name"):
         skill_desc[fm["name"]] = fm.get("description", "") or ""

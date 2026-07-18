@@ -213,6 +213,17 @@ release allowed to remove support. Recognition and migration rely on shipped
 immutable snapshot metadata, never Git history. Removing v1.16 source support
 before the next major release is Class C.
 
+A file-backed `snapshot_provenance` resolves to a closed object with exactly
+`format_revision`, `snapshot_revision`, `project_contract_revision`, and
+`files`. Its format matches the bootstrap, its project revision matches the
+owning descriptor, and `files` is a sorted, portable-unique array of exact R5
+FilePlan entries. Every `copy` source exists and its canonical shipped UTF-8/LF
+SHA-256 equals both the entry hash and the descriptor's
+`static_template_hashes[target_relative_path]`. Repository attributes pin these
+text inputs to LF so the snapshot is identical on Windows and Linux. A
+fragment-valued provenance points to the owning registry record and is not a
+file snapshot.
+
 Detection precedes writes. Migration classifies exact/customized/missing state,
 preserves user-authored policy, displays the FilePlan, snapshots hashes, and
 verifies the result with the new checker and host smokes. Partial or unknown
