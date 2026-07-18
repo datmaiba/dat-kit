@@ -90,18 +90,22 @@ def test_retired_artifact_never_reaches_greenfield(tmp_path):
     root = registry_fixture(tmp_path)
     path = root / "registry/adapters.json"
     value = json.loads(path.read_text(encoding="utf-8"))
-    target = value["adapters"][0]["project_artifacts"][0]
-    target["artifact_lifecycle"] = "retired"
-    # descriptor lifecycle must mirror the minimum artifact lifecycle
-    value["adapters"][0]["lifecycle"] = "repo_only"
+    adapter = value["adapters"][0]
+    retired_targets = set()
+    for artifact in adapter["project_artifacts"]:
+        artifact["artifact_lifecycle"] = "retired"
+        retired_targets.add(artifact["target_relative_path"])
+    # descriptor lifecycle mirrors the minimum artifact lifecycle
+    adapter["lifecycle"] = "retired"
     write_json(path, value)
     loaded = Catalog.load(root)
-    if isinstance(loaded, Catalog):
-        targets = {
-            entry.target_relative_path
-            for entry in loaded.scaffold_file_plan("greenfield").entries
-        }
-        assert target["target_relative_path"] not in targets
+    assert isinstance(loaded, Catalog), loaded  # must load, not skip vacuously
+    assert retired_targets, "fixture adapter must own at least one artifact"
+    greenfield = {
+        entry.target_relative_path
+        for entry in loaded.scaffold_file_plan("greenfield").entries
+    }
+    assert not (retired_targets & greenfield)
 
 
 def test_official_facts_have_dates_and_https_sources():
