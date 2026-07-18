@@ -219,6 +219,7 @@
     {
       "component_id": "knowledge-work-domain",
       "path_globs": [
+        "domains/knowledge-work/**",
         "skills/knowledge-work/**"
       ],
       "owner": "knowledge-work",
