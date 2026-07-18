@@ -6,11 +6,11 @@
     {
       "domain_id": "knowledge-work",
       "contract_revision": "domain-pack/1",
-      "lifecycle": "legacy",
-      "pack_location": "skills/knowledge-work",
+      "lifecycle": "active",
+      "pack_location": "domains/knowledge-work",
       "trigger": {
         "name": "knowledge-work",
-        "description": "Run the evidence-grounded research and writing workflow.",
+        "description": "The working loop for knowledge work — research, writing, analysis, synthesis, and documentation. Invoke when the user wants to write a researched report, produce a briefing or memo, do a literature or market review, fact-check a document, or synthesize sources into an argument. Loads the work-loop engine plus the knowledge-work Domain Pack (six slots: workflow, ground truth, gates, reviewers, deliverables, loop profile). Capped at the Goal loop — its load-bearing gate (does the cited source actually support the claim?) needs a human reviewer to close, so it never runs on a schedule or unattended. dat-kit's first non-dev Domain Pack.",
         "aliases": ["fact check", "research report"]
       },
       "required_engine_revision": "work-loop/1",
