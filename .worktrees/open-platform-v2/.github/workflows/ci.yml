@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-python:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Registry, projection, and repository validation
+        run: python scripts/validate.py
+
+      - name: Contract, registry, and evidence tests
+        run: python -m pytest scripts/tests
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Repo validation (manifests, skills, agents, hooks, info gate)
+        run: python3 scripts/validate.py
+
+      - name: Contract and evidence tests
+        run: pytest scripts/tests
+
+      - name: ShellCheck init.sh
+        run: shellcheck scripts/init.sh
+
+      - name: Smoke test init.sh (greenfield + brownfield)
+        run: |
+          set -e
+          cd "$(mktemp -d)"
+          bash "$GITHUB_WORKSPACE/scripts/init.sh" demo --desc "ci smoke"
+          test -f demo/AGENTS.md && ! grep -q '{{' demo/AGENTS.md
+          test -f demo/docs/agent-workflow.md
+          test -f demo/docs/agent-working-rules.md && ! grep -q '{{' demo/docs/agent-working-rules.md
+          test -f demo/CLAUDE.md && grep -q 'AGENTS.md' demo/CLAUDE.md
+          test -f demo/.claude/CLAUDE.md && grep -q 'AGENTS.md' demo/.claude/CLAUDE.md
+          test -f demo/.cursorrules && grep -q 'AGENTS.md' demo/.cursorrules
+          cd demo && rm spec/07-design.md
+          agents_hash="$(sha256sum AGENTS.md)"
+          workflow_hash="$(sha256sum docs/agent-workflow.md)"
+          rules_hash="$(sha256sum docs/agent-working-rules.md)"
+          bash "$GITHUB_WORKSPACE/scripts/init.sh" --here | grep -Eq "Done: 1 created, [0-9]+ skipped"
+          test "$agents_hash" = "$(sha256sum AGENTS.md)"
+          test "$workflow_hash" = "$(sha256sum docs/agent-workflow.md)"
+          test "$rules_hash" = "$(sha256sum docs/agent-working-rules.md)"
+          echo "init.sh smoke ✓"
