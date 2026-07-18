@@ -35,6 +35,8 @@ You are the **builder**. Independent reviewers keep you honest — never grade y
 
 Inner loop per phase: **build → qa-agent → fix → qa-agent → code-reviewer → fix → (regression qa) → done**. Applies in BOTH normal and autopilot modes. Phases touching security-relevant surfaces (see step 6b) add security-reviewer after code-reviewer.
 
+**Review-cost rules (hard):** reviewers run SEQUENTIALLY in the loop order — never in parallel (a parallel security review of a diff that code review then changes is wasted work). Every delegation prompt names the phase's diff scope (changed-file list) and pastes the gate outputs — the reviewer verifies claims instead of re-discovering them. Re-review rounds after fixes are findings-scoped, never fresh full reviews. Reviewers obey the scope-discipline block in their charters (diff-only reading, no PoC outside qa-agent, capped reports).
+
 ## PREFLIGHT — one-time whole-project questionnaire (before phase 0)
 
 Goal: the user answers ALL decisions ONCE, up front — no mid-build interruptions.

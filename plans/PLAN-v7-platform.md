@@ -1,7 +1,7 @@
 # dat-kit Open Platform Program Plan
 
 **Status:** APPROVED — §14 checklist answered 12/12 "approve" by the maintainer (Dat), 2026-07-17; see the approval record at the end of §14. Implementation may begin at Phase 0A.
-**Plan revision:** v7 (2026-07-17) — plan revisions are not product versions
+**Plan revision:** v7 (2026-07-17), amended v7.1 (2026-07-18 — §16 token discipline) — plan revisions are not product versions
 **Program releases:** dat-kit 2.0.0 (platform kernel) → 2.1.0 (telemetry) → 2.2.0 (self-evolution)
 **Maintenance prerequisite:** dat-kit 1.17.1
 **Supersedes:** `plans/PLAN-v5.0.0-open-platform.md` (plan rev v5) and the uploaded plan rev v6
@@ -1029,3 +1029,40 @@ activation and before the affected RC):
 criteria exist, not when its code is drafted. Any factual assumption found
 false updates the relevant contract and decision record before dependent
 work continues.
+
+## 16. Amendment v7.1 (2026-07-18) — Token discipline
+
+Motivation: executing phases 0A–1B on two machines (Claude Fable 5 Pro,
+Codex 5.6) exhausted token budgets prematurely. Measured worst offender: one
+3-agent parallel review round ≈ 284k tokens — roughly 60-70% of a session.
+Root causes were execution-discipline gaps, not plan-architecture flaws.
+
+Standing rules (extend §9.1; Class B change, maintainer-approved 2026-07-18):
+
+1. **Sequential reviewers only.** The §9.1 review order is a strict sequence.
+   Running reviewers in parallel is forbidden — a parallel security review of
+   a diff that code review then changes is wasted work.
+2. **Diff-scoped reviewers.** A reviewer reads the phase diff, the files it
+   touches, and directly referenced contract/spec sections — never the whole
+   repository. The dispatching prompt MUST name the changed-file list and
+   paste the gate outputs so the reviewer verifies claims instead of
+   re-discovering them.
+3. **Findings-scoped re-reviews.** Round 2+ verifies the previous findings
+   against the new diff only — never a fresh full review.
+4. **Charter enforcement.** code-reviewer and security-reviewer are
+   static-analysis-only (no PoC, no runtime attacks — those are qa-agent's
+   alone). Reviewer reports are capped: findings ≤ ~30 lines.
+5. **Session context protocol.** A session executing phase N of this plan
+   loads: `AGENTS.md` + its linked docs, the newest `handoffs/` file, §6 for
+   phase N only, §9, and this amendment. It does NOT read the whole plan or
+   sections for phases already completed.
+6. **Main-thread economy.** Grep before Read; Read targeted line ranges of
+   large files; never re-read a just-edited file; resume from handoffs, not
+   tree re-discovery.
+7. **Model tiering stays deferred** per §11: reviewer `model:` pins change
+   only on v2.1 per-reviewer evidence (Class C). This amendment does not
+   change any pin.
+
+Phase 4 must carry rules 1–4 into the software-dev and knowledge-work
+`reviewers.md` slots via the ownership map, so the discipline survives the
+cutover.

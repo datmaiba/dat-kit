@@ -4,6 +4,14 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-18 — One review round burned 284k tokens (~65% of a session) by ignoring three existing rules
+
+- **What happened**: during plan-v7 execution, three reviewer subagents (code 122k, security 94k, QA 68k) ran in PARALLEL, each re-read nearly the whole repo (registry.py ~900 lines, all contracts, tests), and the read-only reviewers ran their own PoCs. Token exhaustion hit two machines/accounts (Claude Fable 5 Pro, Codex 5.6) before phases could finish.
+- **Root cause**: charters said "scope the diff" descriptively but did not forbid whole-repo reads; the sequential review order was stated but parallel execution was not explicitly banned; "read-only analysis" was not enforced as "no PoC". A rule a subagent can profitably ignore is a description, not a rule.
+- **Rule**: reviewers run sequentially, read only the diff + touched files, cap reports at ~30 findings lines, re-review findings-scoped, and never run PoCs outside qa-agent. Dispatching prompts must name the diff scope and paste gate outputs. See PLAN-v7 §16 and the scope-discipline blocks in `agents/*.md`.
+
+---
+
 ### 2026-07-14 — validate.py green on CI, false-red on the maintainer's own Windows console
 
 - **What happened**: `python scripts/validate.py` ran every check successfully on Windows but crashed with `UnicodeEncodeError` on the final `print("✓ all checks green")` — non-zero exit despite all checks passing. The fail path's `❌` print had the same latent crash. CI (ubuntu, UTF-8) was green the whole time, so the bug lived only on the exact machine the README maintenance workflow tells the maintainer to run the script on.
