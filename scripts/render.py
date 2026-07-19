@@ -14,6 +14,11 @@ from registry import Catalog, CatalogLoadError, Diagnostic
 
 
 GENERATED_MARKER = "GENERATED FROM REGISTRY — DO NOT EDIT"
+
+# Field-content guard for generated files: ASCII separators plus the code
+# points some YAML parsers treat as line breaks (NEL, LS, PS) — any of them
+# could terminate a `>-` block scalar or a TSV field and smuggle content.
+UNSAFE_FIELD_CHARS = "\t\n\r\x85\u2028\u2029"
 MANIFEST_PATH = "templates/common/.dat-kit-files.tsv"
 SLOT_ORDER = (
     "workflow.md",
@@ -40,11 +45,11 @@ def render_domain_trigger(catalog: Catalog, descriptor: dict[str, object]) -> by
     if (
         not isinstance(description, str)
         or not description.strip()
-        or any(ch in description for ch in "\t\n\r")
+        or any(ch in description for ch in UNSAFE_FIELD_CHARS)
     ):
         raise ValueError(
             f"descriptor {descriptor.get('domain_id')!r} description must be a"
-            " non-empty single line without tabs or newlines"
+            " non-empty single line without tabs, newlines, or Unicode line breaks"
         )
     pack = descriptor["pack_location"]
     lines = [
@@ -95,7 +100,7 @@ def render_scaffold_manifest(catalog: Catalog) -> bytes:
             entry.project_contract_revision,
             entry.artifact_lifecycle,
         )
-        if any("\t" in field or "\n" in field or "\r" in field for field in fields):
+        if any(ch in field for field in fields for ch in UNSAFE_FIELD_CHARS):
             raise ValueError(f"unsafe manifest field in {entry.target_relative_path}")
         lines.append("\t".join(fields))
     return ("\n".join(lines) + "\n").encode("utf-8")
