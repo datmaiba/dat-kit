@@ -19,7 +19,7 @@ ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
 import contract_check as cc
-from test_contract_check import scaffold_contract
+from test_contract_check import scaffold_v116_contract
 
 
 def tree_hash(target: Path) -> dict[str, str]:
@@ -62,7 +62,7 @@ def scaffold_v2(target: Path) -> None:
 # 1. clean v1.16 → nonzero, deterministic preview ---------------------------
 
 def test_clean_v116_nonzero_with_deterministic_preview(tmp_path):
-    scaffold_contract(tmp_path)
+    scaffold_v116_contract(tmp_path)
     before = tree_hash(tmp_path)
     result = run_cli(tmp_path)
     assert result.returncode == 1
@@ -80,7 +80,7 @@ def test_clean_v116_nonzero_with_deterministic_preview(tmp_path):
 # 2. customized v1.16 → nonzero, preserved, conflict reported ---------------
 
 def test_customized_v116_reports_conflict_and_preserves(tmp_path):
-    scaffold_contract(tmp_path)
+    scaffold_v116_contract(tmp_path)
     custom = tmp_path / ".claude/CLAUDE.md"
     custom.write_text(custom.read_text(encoding="utf-8") + "\nMy local note.\n", encoding="utf-8")
     before = tree_hash(tmp_path)

@@ -23,6 +23,22 @@ def scaffold_contract(target: Path) -> None:
     rules.write_text("This document is part of the canonical `AGENTS.md` contract.\n", encoding="utf-8")
 
 
+def scaffold_v116_contract(target: Path) -> None:
+    # Frozen v1.16 project state. Since the slice-5a templates flip the live
+    # templates scaffold "dat-kit 2.0"; real 1.16 projects still carry the
+    # 1.16 marker line, which this fixture reconstructs byte-exactly (only
+    # the marker line ever differed between the 1.16 and 2.0 templates).
+    scaffold_contract(target)
+    agents = target / "AGENTS.md"
+    agents.write_text(
+        agents.read_text(encoding="utf-8").replace(
+            "**Canonical contract revision:** dat-kit 2.0",
+            "**Canonical contract revision:** dat-kit 1.16.0",
+        ),
+        encoding="utf-8",
+    )
+
+
 def codes(report):
     return {code for code, _ in report.items}
 
@@ -40,11 +56,22 @@ def test_empty_brownfield_is_compatible(tmp_path):
     assert not cc.check_target(tmp_path).items
 
 
+def test_greenfield_scaffold_is_green_under_v2(tmp_path):
+    # Slice 5a exit proof: after the atomic templates flip a fresh scaffold
+    # carries the 2.0 marker and the full 2.0 pointer set — GREEN, no
+    # migration gate, no conflicts.
+    scaffold_contract(tmp_path)
+    report = cc.check_target(tmp_path)
+    assert report.revision_state == "green"
+    assert "CONTRACT_MIGRATION_REQUIRED" not in codes(report)
+    assert not report.items
+
+
 def test_recognized_v116_is_migration_source_never_green(tmp_path):
     # v2 state machine (plan §3.6): recognition prevents data loss, it does
     # not certify currency — a clean 1.16 scaffold is nonzero, without
     # conflicts, and its legacy pointer gets typed RETIRE_LEGACY semantics.
-    scaffold_contract(tmp_path)
+    scaffold_v116_contract(tmp_path)
     report = cc.check_target(tmp_path)
     assert "CONTRACT_MIGRATION_REQUIRED" in codes(report)
     assert "CONTRACT_MIGRATION_CONFLICT" not in codes(report)
