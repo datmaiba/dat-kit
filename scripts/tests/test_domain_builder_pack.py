@@ -40,25 +40,37 @@ from test_registry_catalog import codes, load_ok, registry_fixture, write_json  
 BUILDER = (ROOT / "skills/domain-builder/SKILL.md").read_text(encoding="utf-8")
 PINNED_EVAL_PHRASES = ("run the build loop", "write a researched report")
 
-DESCRIPTOR = {
-    "domain_id": "ledger-close",
-    "contract_revision": "domain-pack/1",
-    "lifecycle": "active",
-    "pack_location": "domains/ledger-close",
-    "trigger": {
-        "name": "ledger-close",
-        "description": (
-            "The month-end close loop for bookkeeping. Invoke when the user wants "
-            "to close the books, reconcile accounts, or prepare the monthly close "
-            "package. Loads the work-loop engine plus the ledger-close Domain Pack."
-        ),
-        "aliases": ["close the books", "month-end close"],
-    },
-    "required_engine_revision": "work-loop/1",
-    "gate_authority_ref": "ledger-close-controller",
-    "loop_ceiling": "Goal",
-    "evolution_profile_ref": "maintainer-policy",
-}
+def make_descriptor() -> dict:
+    """Clone a registered descriptor and override every field: the closed
+    key set stays synced with registry/domains.json, so a descriptor schema
+    change breaks this fixture instead of silently diverging from it."""
+    domains = json.loads((ROOT / "registry/domains.json").read_text(encoding="utf-8"))
+    base = json.loads(json.dumps(
+        next(d for d in domains["domains"] if d["domain_id"] == "knowledge-work")
+    ))
+    base.update(
+        domain_id="ledger-close",
+        contract_revision="domain-pack/1",
+        lifecycle="active",
+        pack_location="domains/ledger-close",
+        trigger={
+            "name": "ledger-close",
+            "description": (
+                "The month-end close loop for bookkeeping. Invoke when the user wants "
+                "to close the books, reconcile accounts, or prepare the monthly close "
+                "package. Loads the work-loop engine plus the ledger-close Domain Pack."
+            ),
+            "aliases": ["close the books", "month-end close"],
+        },
+        required_engine_revision="work-loop/1",
+        gate_authority_ref="ledger-close-controller",
+        loop_ceiling="Goal",
+        evolution_profile_ref="maintainer-policy",
+    )
+    return base
+
+
+DESCRIPTOR = make_descriptor()
 
 # Slot content is what the rewritten domain-builder's interview produces: every
 # ENGINE.md "What every pack must declare" item lands in its mapped slot.
@@ -120,7 +132,13 @@ DELIVERABLE = (
 )
 
 
-def add_ledger_close_pack(root: pathlib.Path, descriptor: dict | None = None) -> dict:
+def add_ledger_close_pack(
+    root: pathlib.Path,
+    descriptor: dict | None = None,
+    *,
+    authority: bool = True,
+    governed: bool = True,
+) -> dict:
     descriptor = descriptor or json.loads(json.dumps(DESCRIPTOR))
     domains_path = root / "registry/domains.json"
     domains = json.loads(domains_path.read_text(encoding="utf-8"))
@@ -133,29 +151,33 @@ def add_ledger_close_pack(root: pathlib.Path, descriptor: dict | None = None) ->
     deliverables = pack / "deliverables"
     deliverables.mkdir()
     (deliverables / "close-package.md").write_text(DELIVERABLE, encoding="utf-8")
-    # evolution FIRST (4c/4d precedent, and what the rewritten builder teaches):
-    # the Catalog refuses a descriptor whose paths no component class governs
-    # (EVOLUTION_AUTHORITY_REQUIRED) — the profile is inherited, never invented.
+    # evolution FIRST (4c/4d precedent, and what the rewritten builder teaches).
+    # Two distinct fail-closed mechanisms, both exercised negatively below:
+    # - gate_authority_ref must resolve to an evolution authority with
+    #   succession (DP2) or Catalog.load fails: EVOLUTION_AUTHORITY_REQUIRED.
+    # - the pack's paths must be governed by exactly one component-class glob
+    #   or validate_governed_inventory() reports EVOLUTION_ORPHAN_PATH.
     evolution_path = root / "registry/evolution.json"
     evolution = json.loads(evolution_path.read_text(encoding="utf-8"))
-    # gate_authority_ref must resolve to an authority with succession (DP2);
-    # clone an existing authority shape rather than inventing a new schema.
-    authority = json.loads(json.dumps(
-        next(a for a in evolution["authorities"] if a["authority_id"] == "software-dev-reviewer")
-    ))
-    authority["authority_id"] = descriptor["gate_authority_ref"]
-    authority["role_type"] = "independent-controller"
-    evolution["authorities"].append(authority)
-    evolution["component_classes"].append(
-        {
-            "component_id": "ledger-close-fixture",
-            "path_globs": [f"skills/{descriptor['trigger']['name']}/**",
-                           f"{descriptor['pack_location']}/**"],
-            "owner": "maintainers",
-            "governance_class": "B",
-            "policy_ref": descriptor["evolution_profile_ref"],
-        }
-    )
+    if authority:
+        # clone an existing authority shape rather than inventing a new schema
+        entry = json.loads(json.dumps(
+            next(a for a in evolution["authorities"] if a["authority_id"] == "software-dev-reviewer")
+        ))
+        entry["authority_id"] = descriptor["gate_authority_ref"]
+        entry["role_type"] = "independent-controller"
+        evolution["authorities"].append(entry)
+    if governed:
+        evolution["component_classes"].append(
+            {
+                "component_id": "ledger-close-fixture",
+                "path_globs": [f"skills/{descriptor['trigger']['name']}/**",
+                               f"{descriptor['pack_location']}/**"],
+                "owner": "maintainers",
+                "governance_class": "B",
+                "policy_ref": descriptor["evolution_profile_ref"],
+            }
+        )
     write_json(evolution_path, evolution)
     return descriptor
 
@@ -251,6 +273,36 @@ def test_engine_revision_mismatch_is_the_composition_stop(tmp_path):
     assert "DOMAIN_ENGINE_REVISION_MISMATCH" in (ROOT / "scripts/validate.py").read_text(encoding="utf-8")
     trigger = expected_outputs(catalog)["skills/ledger-close/SKILL.md"].decode("utf-8")
     assert "DOMAIN_ENGINE_REVISION_MISMATCH" in trigger
+
+
+def test_unresolvable_gate_authority_fails_load(tmp_path):
+    # "evolution first" fail-closed proof, half 1: no authority, no Catalog.
+    root = registry_fixture(tmp_path)
+    add_ledger_close_pack(root, authority=False)
+    result = Catalog.load(root)
+    assert not isinstance(result, Catalog)
+    assert "EVOLUTION_AUTHORITY_REQUIRED" in codes(result)
+
+
+def test_ungoverned_pack_paths_are_orphans_in_the_inventory(tmp_path):
+    # half 2: without the component-class glob the pack files are orphans —
+    # the governance sweep (validate_governed_inventory) reports every one.
+    root = registry_fixture(tmp_path)
+    add_ledger_close_pack(root, governed=False)
+    catalog = load_ok(root)
+    orphans = [
+        d.path for d in catalog.validate_governed_inventory()
+        if d.code == "EVOLUTION_ORPHAN_PATH" and d.path.startswith("domains/ledger-close/")
+    ]
+    assert len(orphans) == len(SLOTS) + 1  # five slot files + the deliverable
+
+
+def test_pinned_eval_phrases_still_come_from_the_eval_corpus():
+    # the literals guarded here and warned about in domain-builder's body must
+    # keep tracking benchmarks/skill-evals.jsonl — not drift as folklore
+    evals = (ROOT / "benchmarks/skill-evals.jsonl").read_text(encoding="utf-8")
+    for phrase in PINNED_EVAL_PHRASES:
+        assert phrase in evals, f"pinned phrase no longer in skill-evals: {phrase!r}"
 
 
 def test_missing_and_stale_synthetic_trigger_fail_byte_exact_check(tmp_path):

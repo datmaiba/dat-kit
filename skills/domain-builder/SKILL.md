@@ -35,7 +35,7 @@ A Domain Pack is a **registry descriptor plus six semantic slots plus a rendered
 
 Authoring constraints the toolchain enforces (fail closed — do not fight them):
 
-- The trigger `description` is a SINGLE line: no tabs, no newlines, no U+0085/U+2028/U+2029 (render.py rejects unsafe field characters).
+- The trigger `description` is a SINGLE line: no tabs, no newlines (LF or CR), no U+0085/U+2028/U+2029 (render.py rejects unsafe field characters).
 - The description must not reuse a phrase another trigger's skill-eval pins (e.g. "run the build loop", "write a researched report" key existing evals).
 - Trigger `name` and `aliases` are collision-checked case-insensitively across every registered domain, and `skills/<trigger.name>/` must be globally unique — a collision fails registry load.
 - In `reviewers.md`, table rows starting ``| `name` `` are probed by validate.py against `agents/<name>.md` — commit real charter files for such rows, or declare reviewers in prose.
@@ -100,7 +100,7 @@ Record the ceiling and the reasoning at the top of `loop-profile.md`, and set th
 
 1. **Evolution first** — confirm `registry/evolution.json` governs `domains/<domain-id>/**` and the descriptor's `evolution_profile_ref` resolves; land that before any pack file.
 2. **Six slot files** under `domains/<domain-id>/` — keep each concrete and short: a pack is a working checklist, not documentation. `gates.md` must show, per gate: the criterion, its worked cases, its gaming line, human-needed flag, and unlocked ceiling. Cite the practitioner's real examples throughout; invent nothing.
-3. **Descriptor** in `registry/domains.json` — `lifecycle` becomes `active` only when all six slots exist and conform (DP6).
+3. **Descriptor** in `registry/domains.json` — `lifecycle` becomes `active` only under DP6's full active criteria: all six slots present and conforming, generated trigger, conformance tests, installed-host load smoke, and an approved loop ceiling.
 4. **Render and verify** — `python3 scripts/render.py`, then `python3 scripts/validate.py` and `python3 scripts/render.py --check` must pass; a missing or hand-edited trigger fails the byte-exact check.
 
 ### 5. Confirm, register, hand over
