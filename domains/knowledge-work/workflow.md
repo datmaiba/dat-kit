@@ -17,7 +17,7 @@ F Report → G Harvest**. The binding correspondence, by mechanism:
 | PLAN | B Decompose |
 | EXECUTE | D Execute |
 | VERIFY | E Verify (gate runs) |
-| REVIEW | E Verify (independent fact-check) |
+| REVIEW | E Verify (independent review) |
 | REPORT | F Report |
 | HARVEST | G Harvest |
 
