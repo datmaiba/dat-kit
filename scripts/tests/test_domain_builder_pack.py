@@ -322,6 +322,13 @@ def test_missing_and_stale_synthetic_trigger_fail_byte_exact_check(tmp_path):
 
 # --- negative trigger cases --------------------------------------------------
 
+def test_unsafe_field_charset_is_pinned():
+    # security LOW (4e): the parametrized cases below derive from the guard
+    # constant — pin the literal so a silently shrunken charset fails here
+    # instead of shrinking the test matrix (guard: render.py, commit 300c7fb).
+    assert UNSAFE_FIELD_CHARS == "\t\n\r\x85\u2028\u2029"
+
+
 @pytest.mark.parametrize("bad_char", list(UNSAFE_FIELD_CHARS))
 def test_unsafe_description_characters_fail_render(tmp_path, bad_char):
     root = registry_fixture(tmp_path)
