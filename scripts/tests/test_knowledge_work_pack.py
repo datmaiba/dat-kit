@@ -201,7 +201,10 @@ def test_no_bare_pack_marker_remains_but_the_mechanism_survives():
     for skill_md in (ROOT / "skills").glob("*/SKILL.md"):
         text = skill_md.read_text(encoding="utf-8")
         assert not bare.search(text), f"{skill_md}: bare five-slot marker should be gone after 4d"
-    # the detection mechanism retires only at 4f (registry conformance cutover)
+    # the detection mechanism retires only at 4f (registry conformance cutover).
+    # 4e decision: the rewritten domain-builder keeps ONE quoted legacy note
+    # (no bare marker, §2b stays vacuous) so the mechanism keeps its documented
+    # authoring partner; 4f removes validate §2b + that note in a single fire.
     validate = (ROOT / "scripts/validate.py").read_text(encoding="utf-8")
     assert "Contract files live beside this one" in validate
 
