@@ -34,7 +34,8 @@ the predecessors.
 | 4b | CLOSED — engine extracted per map (work-loop/1, no bump); code + security APPROVE (3 MINOR + 1 MEDIUM/2 LOW fixed, findings-scoped re-review APPROVE); skills byte-identical | `engine/work-loop/ENGINE.md`, `engine/work-loop/engine.json`, validate.py §1b, `scripts/tests/test_engine_manifest.py` |
 | 4c | CLOSED — domains/software-dev/ six slots per map (§16 R1–R4 exact sw phrasing in reviewers.md; agents/*.md stay in place, reviewers.md is the binding surface); descriptor active + rendered thin trigger byte-exact; loop-profile migrated; 24 behavioral/purity tests; code APPROVE (4 MINOR fixed) + security APPROVE (1 MEDIUM frontmatter-injection guard in render.py + 2 LOW fixed, findings-scoped re-review APPROVE) | `domains/software-dev/`, `scripts/tests/test_software_dev_pack.py`, validate.py §3b |
 | 4d | CLOSED — domains/knowledge-work/ six slots per map (A→G playbook + engine-phase correspondence in workflow.md with the PLAN approval stop bound at B, no plan reviewer declared; §16 R1–R4 exact kw phrasing in reviewers.md, prose format — no charter-table rows, fact-checker has no agents/ charter; loop-profile absorbs SKILL.md L47–49, Goal human-run ceiling mirrored in descriptor); descriptor active + rendered thin trigger byte-exact (description keeps "write a researched report" for trg-knowwork-01); six legacy files deleted from skills/knowledge-work/; 17 behavioral/purity tests; code APPROVE (1 MINOR fixed) + security APPROVE (1 LOW Unicode line-break guard in render.py fixed, findings-scoped re-review APPROVE) | `domains/knowledge-work/`, `scripts/tests/test_knowledge_work_pack.py` |
-| 4e–4f, 5 | not started — 4e next (domain-builder rewrite + synthetic pack) | — |
+| 4e | CLOSED — domain-builder rewritten per map §10 (descriptor + six slots + rendered trigger + inherited evolution profile; scope boundary and capability ladder dedup to docs/loops.md as canonical; interview extended with descriptor + evolution questions and maps onto ENGINE.md's full declare-list; gate-validity semantics unchanged; registration step added with DP5 fresh-session evidence rule; 4c/4d constraints encoded: single-line descriptions incl. CR + U+0085/U+2028/U+2029, pinned eval phrases, §3b reviewer-row rule, alias collision); synthetic ledger-close pack FIXTURE-ONLY completes the engine lifecycle (Catalog → engine-revision check → six slots in DP1 order, files actually load, alias/destination collision + authority/governance + missing/stale trigger all fail closed, no dispatch edit — DP6); code APPROVE (1 MAJOR + 2 MINOR + 2 INFO fixed, findings-scoped re-review APPROVE) + security APPROVE (1 LOW charset pin fixed, findings-scoped re-review closed) | `skills/domain-builder/SKILL.md`, `scripts/tests/test_domain_builder_pack.py` |
+| 4f, 5 | not started — 4f next (cutover closure) | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -86,6 +87,28 @@ re-derivation stays 4f (evolution.example.json already matched the 4d glob).
 Transient note: commits C2 (pack) and C3 (descriptor+trigger) briefly
 duplicate kw policy across old/new locations within the slice — revert unit is
 the whole 4d slice, not C2 alone.
+
+4e deferrals/flags for later slices: MARKER DECISION RESOLVED — the rewritten
+domain-builder keeps ONE quoted legacy note ("validate.py still detects old
+five-slot packs via the sentence …"); §2b stays vacuous, no bare marker
+anywhere, and 4f removes validate.py §2b + that note in a SINGLE fire (the
+kw marker test's comment pins this; 4f must not treat the quoted note as a
+second retirement). SYNTHETIC PACK DECISION — fixture-only: ledger-close
+(bookkeeping) lives entirely in scripts/tests/test_domain_builder_pack.py on
+the registry fixture; DP6 asks for a synthetic/non-software *fixture* and the
+plan's "installed Claude/Codex pack reads" is an external host smoke (Phase 5
+step 6), so nothing was committed to registry/, evolution.json, or domains/ —
+4f/5 must not expect a committed ledger-close pack. The 4e tests prove BOTH
+evolution fail-closed halves (EVOLUTION_AUTHORITY_REQUIRED at Catalog.load;
+EVOLUTION_ORPHAN_PATH via validate_governed_inventory) — reusable for 4f's
+registry-conformance cutover. Pinned eval phrases are now asserted against
+benchmarks/skill-evals.jsonl (test_pinned_eval_phrases_still_come_from_the_
+eval_corpus) — a phrase change in the eval corpus breaks the pin loudly.
+UNSAFE_FIELD_CHARS literal is pinned in the same file (security LOW fix) —
+extending the guard charset at 4f+ requires updating that pin in the same
+commit. Still 4f: docs/loops.md L7 rewrite, docs/contracts examples
+re-derivation, §2b mechanism removal, engine deletion test, FU-1 marker
+hardening fold-in.
 
 ## Next: Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES
 
