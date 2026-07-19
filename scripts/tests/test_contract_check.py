@@ -67,6 +67,39 @@ def test_greenfield_scaffold_is_green_under_v2(tmp_path):
     assert not report.items
 
 
+def test_marker_inside_a_code_fence_does_not_count(tmp_path):
+    # FU-1 (phase-3 evidence): a fenced example quoting the old revision
+    # header is documentation ABOUT a marker, not a marker — it must not
+    # make a green project read as mixed-revision.
+    scaffold_contract(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        agents.read_text(encoding="utf-8")
+        + "\n## Migration example\n\n```markdown\n"
+        "**Canonical contract revision:** dat-kit 1.16.0\n```\n",
+        encoding="utf-8",
+    )
+    report = cc.check_target(tmp_path)
+    assert report.revision_state == "green"
+    assert "CONTRACT_PARTIAL_MIGRATION" not in codes(report)
+
+
+def test_marker_in_inline_code_does_not_count(tmp_path):
+    # FU-1: same rule for inline code spans. Prose mentions still count —
+    # that boundary is pinned by test_mixed_markers_are_partial in
+    # test_revision_states.py.
+    scaffold_contract(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        agents.read_text(encoding="utf-8")
+        + "\nMigrate any `dat-kit 1.16.0` project before enabling gates.\n",
+        encoding="utf-8",
+    )
+    report = cc.check_target(tmp_path)
+    assert report.revision_state == "green"
+    assert "CONTRACT_PARTIAL_MIGRATION" not in codes(report)
+
+
 def test_recognized_v116_is_migration_source_never_green(tmp_path):
     # v2 state machine (plan §3.6): recognition prevents data loss, it does
     # not certify currency — a clean 1.16 scaffold is nonzero, without

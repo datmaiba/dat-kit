@@ -73,6 +73,35 @@ KNOWN_DAT_KIT_AGENT_MARKERS = (
     "single canonical instruction entrypoint",
 )
 
+_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+_INLINE_CODE = re.compile(r"`[^`\n]+`")
+
+
+def _marker_scan_text(text: str) -> str:
+    """Text with fenced code blocks and inline code spans removed (FU-1).
+
+    Revision markers quoted inside a code fence or inline code span are
+    documentation ABOUT a marker, not a marker: a migration guide that
+    fences the old 1.16 header must not read as mixed-revision. Prose
+    mentions still count (pinned by test_mixed_markers_are_partial) —
+    only code regions are excluded. An unclosed fence runs to the end of
+    the document, matching CommonMark and failing on the safe side.
+    """
+    lines: list[str] = []
+    fence: str | None = None
+    for line in text.split("\n"):
+        if fence is None:
+            match = _FENCE_OPEN.match(line)
+            if match is not None:
+                fence = match.group(1)
+                continue
+            lines.append(line)
+        else:
+            stripped = line.strip()
+            if stripped.startswith(fence) and not stripped.strip(fence[0]):
+                fence = None
+    return _INLINE_CODE.sub("``", "\n".join(lines))
+
 ACTIONS = {
     "EXTRACT_THEN_REPLACE",
     "MERGE_REQUIRED",
@@ -1002,9 +1031,18 @@ def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], re
         return text_cache[relative]
 
     matched: dict[str, dict[str, object]] = {}
+    scan_cache: dict[str, str | None] = {}
+
+    def scan(relative: str) -> str | None:
+        # FU-1: marker matching is fence/inline-code-aware.
+        if relative not in scan_cache:
+            text = read(relative)
+            scan_cache[relative] = None if text is None else _marker_scan_text(text)
+        return scan_cache[relative]
+
     for descriptor in _REVISION_MODEL["revision_descriptors"]:
         rules = descriptor["marker_rules"]
-        texts = [read(rule["path"]) for rule in rules]
+        texts = [scan(rule["path"]) for rule in rules]
         if texts and all(
             text is not None and rule["required_text"] in text
             for rule, text in zip(rules, texts)
@@ -1098,7 +1136,7 @@ def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], re
             )
         return "migration-source"
 
-    agents_text = read("AGENTS.md")
+    agents_text = scan("AGENTS.md")
     if agents_text is not None and any(
         marker in agents_text for marker in KNOWN_DAT_KIT_AGENT_MARKERS
     ):
@@ -1188,11 +1226,12 @@ def check_target(target: Path) -> Report:
     agents = paths.get("AGENTS.md")
     if agents is not None and agents.exists:
         text = _read_target(agents, "AGENTS.md", report)
-        if text is not None and (
-            "single canonical instruction entrypoint" not in text
-            or not any(revision in text for revision in SUPPORTED_CONTRACT_REVISIONS)
+        scanned = None if text is None else _marker_scan_text(text)  # FU-1
+        if scanned is not None and (
+            "single canonical instruction entrypoint" not in scanned
+            or not any(revision in scanned for revision in SUPPORTED_CONTRACT_REVISIONS)
         ):
-            recognizable = any(marker in text for marker in KNOWN_DAT_KIT_AGENT_MARKERS)
+            recognizable = any(marker in scanned for marker in KNOWN_DAT_KIT_AGENT_MARKERS)
             report.add(
                 "COMPETING_AGENTS",
                 "AGENTS.md is not the current dat-kit canonical contract",
