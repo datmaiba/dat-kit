@@ -79,7 +79,7 @@ def test_workflow_declares_the_engine_phase_correspondence():
         ("PLAN", "B Decompose"),
         ("EXECUTE", "D Execute"),
         ("VERIFY", "E Verify (gate runs)"),
-        ("REVIEW", "E Verify (independent fact-check)"),
+        ("REVIEW", "E Verify (independent review)"),
         ("REPORT", "F Report"),
         ("HARVEST", "G Harvest"),
     ]:
