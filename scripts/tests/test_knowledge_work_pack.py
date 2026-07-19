@@ -8,11 +8,12 @@ and the rendered thin trigger must actually resolve the files it names. Also
 pins plan §16 rules 1–4 in reviewers.md (the ownership map's exact kw
 phrasing), the Goal human-run ceiling in loop-profile + descriptor, the A→G ↔
 engine-phase correspondence (including the PLAN approval stop landing at B),
-pack purity both ways, and the 4d marker decision (§2b vacuous, mechanism
-intact until 4f).
+pack purity both ways, and (since 4f) the full retirement of sentence-marker
+pack detection — registry conformance is the only detection.
 """
 import pathlib
 import re
+import subprocess
 import sys
 
 import pytest
@@ -194,19 +195,30 @@ def test_purity_no_kw_policy_left_outside_the_pack():
         assert token not in ENGINE, f"engine carries kw policy token {token!r}"
 
 
-# --- 4d marker decision: §2b vacuous, mechanism intact until 4f -------------
+# --- 4f marker retirement: registry conformance is the only detection -------
 
-def test_no_bare_pack_marker_remains_but_the_mechanism_survives():
-    bare = re.compile(r'(?<!")Contract files live beside this one')
-    for skill_md in (ROOT / "skills").glob("*/SKILL.md"):
-        text = skill_md.read_text(encoding="utf-8")
-        assert not bare.search(text), f"{skill_md}: bare five-slot marker should be gone after 4d"
-    # the detection mechanism retires only at 4f (registry conformance cutover).
-    # 4e decision: the rewritten domain-builder keeps ONE quoted legacy note
-    # (no bare marker, §2b stays vacuous) so the mechanism keeps its documented
-    # authoring partner; 4f removes validate §2b + that note in a single fire.
-    validate = (ROOT / "scripts/validate.py").read_text(encoding="utf-8")
-    assert "Contract files live beside this one" in validate
+def test_pack_marker_is_fully_retired_registry_conformance_only():
+    # Final form (single 4f fire): the five-slot sentence marker appears
+    # NOWHERE on any operative surface — validate.py included, which lost
+    # §2b in the same commit that dropped domain-builder's quoted legacy
+    # note. Archival records (spike docs, handoffs, plans, lessons) may
+    # describe the retired mechanism; they are history, not detection.
+    marker = "Contract files live beside " + "this one"  # split: don't match this file
+    archival = ("docs/spikes/", "handoffs/", "plans/", "lessons-learned/", "benchmarks/")
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    hits = []
+    for relative in tracked:
+        if relative.startswith(archival):
+            continue
+        try:
+            text = (ROOT / relative).read_text(encoding="utf-8")
+        except (UnicodeDecodeError, FileNotFoundError):
+            continue
+        if marker in text:
+            hits.append(relative)
+    assert not hits, f"retired pack marker still present on operative surfaces: {hits}"
 
 
 def test_deliverables_slot_has_real_templates():

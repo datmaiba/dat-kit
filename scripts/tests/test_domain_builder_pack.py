@@ -384,10 +384,9 @@ def test_builder_retired_the_five_slot_authoring_path():
     assert "What it captures" not in BUILDER  # the old five-slot table header
     assert "skills/<domain>/" not in BUILDER  # old packs lived beside skills/
     assert "the five files" not in BUILDER
-    # marker mention survives only as the quoted legacy note (§2b stays vacuous)
-    assert not re.search(r'(?<!")Contract files live beside this one', BUILDER)
-    assert BUILDER.count("Contract files live beside this one") == 1
-    assert "never write that marker" in BUILDER
+    # 4f single fire: the quoted legacy note left with validate.py §2b —
+    # the marker sentence appears nowhere in the builder at all
+    assert "Contract files live beside " + "this one" not in BUILDER
 
 
 def test_builder_dedups_scope_boundary_and_ladder_to_docs_loops():

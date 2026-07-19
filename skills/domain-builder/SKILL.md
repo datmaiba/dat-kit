@@ -40,8 +40,6 @@ Authoring constraints the toolchain enforces (fail closed — do not fight them)
 - Trigger `name` and `aliases` are collision-checked case-insensitively across every registered domain, and `skills/<trigger.name>/` must be globally unique — a collision fails registry load.
 - In `reviewers.md`, table rows starting ``| `name` `` are probed by validate.py against `agents/<name>.md` — commit real charter files for such rows, or declare reviewers in prose.
 
-Legacy note (until the 4f registry-conformance cutover): validate.py still detects old five-slot packs via the sentence "Contract files live beside this one." — new packs never write that marker; registry conformance is the only contract for six-slot packs.
-
 ## Process
 
 ### 1. Learn the practitioner and the work (short interview)

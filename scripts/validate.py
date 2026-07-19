@@ -119,29 +119,10 @@ for f in skill_files:
     check(len(fm.get("description", "")) < 1024, f"{f}: description {len(fm.get('description',''))} chars (limit 1024)")
     check(text.count("\n") < 500, f"{f}: body {text.count(chr(10))} lines (keep under 500)")
 
-# 2b. Pack-contract completeness — a Domain Pack's SKILL.md declares its slot
-# files in the five-slot table and states "Contract files live beside this one."
-# (that sentence is the pack-instance marker; domain-builder's SKILL.md carries
-# the same table as a *definition* and must not be checked). Every declared slot
-# file must exist beside the SKILL.md, and deliverables/ must hold >=1 template.
-# Guards against a pack shipping (or being authored) with dangling slot refs.
-SLOT_ROW = re.compile(r"^\|[^|]+\|\s*`([a-z0-9_.-]+\.md)`")
-for f in skill_files:
-    text = pathlib.Path(f).read_text(encoding="utf-8")
-    # quoted mentions (e.g. domain-builder instructing pack authors to include
-    # the marker) do not count — only the bare sentence marks a pack instance
-    if not re.search(r'(?<!")Contract files live beside this one', text):
-        continue
-    skill_dir = pathlib.Path(f).parent
-    for line in text.splitlines():
-        m = SLOT_ROW.match(line)
-        if m:
-            check((skill_dir / m.group(1)).exists(),
-                  f"{f}: declares slot `{m.group(1)}` but the file is not beside SKILL.md")
-    if re.search(r"^\|[^|]+\|\s*`deliverables/`", text, re.M):
-        deliv = skill_dir / "deliverables"
-        check(deliv.is_dir() and any(deliv.iterdir()),
-              f"{f}: declares `deliverables/` but the directory is missing or empty")
+# (2b retired at 4f: sentence-marker pack detection is gone. Registry
+# conformance — Catalog load + §3b reviewer resolution + render --check
+# byte-exact — is the only pack detection. Slot completeness for active
+# packs is enforced by Catalog.load's DOMAIN_SLOT_MISSING fail-closed path.)
 
 # 3. Agents
 for f in sorted(glob.glob(str(ROOT / "agents/*.md"))):
