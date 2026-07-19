@@ -33,7 +33,8 @@ the predecessors.
 | 4a | CLOSED — ownership map, tripwire CLEAR, round-2 APPROVE (3 findings fixed) | `docs/spikes/phase-4/ownership-map.md` |
 | 4b | CLOSED — engine extracted per map (work-loop/1, no bump); code + security APPROVE (3 MINOR + 1 MEDIUM/2 LOW fixed, findings-scoped re-review APPROVE); skills byte-identical | `engine/work-loop/ENGINE.md`, `engine/work-loop/engine.json`, validate.py §1b, `scripts/tests/test_engine_manifest.py` |
 | 4c | CLOSED — domains/software-dev/ six slots per map (§16 R1–R4 exact sw phrasing in reviewers.md; agents/*.md stay in place, reviewers.md is the binding surface); descriptor active + rendered thin trigger byte-exact; loop-profile migrated; 24 behavioral/purity tests; code APPROVE (4 MINOR fixed) + security APPROVE (1 MEDIUM frontmatter-injection guard in render.py + 2 LOW fixed, findings-scoped re-review APPROVE) | `domains/software-dev/`, `scripts/tests/test_software_dev_pack.py`, validate.py §3b |
-| 4d–4f, 5 | not started — 4d next (knowledge-work pack per map) | — |
+| 4d | CLOSED — domains/knowledge-work/ six slots per map (A→G playbook + engine-phase correspondence in workflow.md with the PLAN approval stop bound at B, no plan reviewer declared; §16 R1–R4 exact kw phrasing in reviewers.md, prose format — no charter-table rows, fact-checker has no agents/ charter; loop-profile absorbs SKILL.md L47–49, Goal human-run ceiling mirrored in descriptor); descriptor active + rendered thin trigger byte-exact (description keeps "write a researched report" for trg-knowwork-01); six legacy files deleted from skills/knowledge-work/; 17 behavioral/purity tests; code APPROVE (1 MINOR fixed) + security APPROVE (1 LOW Unicode line-break guard in render.py fixed, findings-scoped re-review APPROVE) | `domains/knowledge-work/`, `scripts/tests/test_knowledge_work_pack.py` |
+| 4e–4f, 5 | not started — 4e next (domain-builder rewrite + synthetic pack) | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -59,6 +60,32 @@ minimal truth-fix (six-slot wording, sw row); full re-derivation stays 4f.
 Transient note: commits C2 (pack) and C3 (descriptor+trigger) briefly
 duplicate sw policy across old/new locations within the slice — revert unit is
 the whole 4c slice, not C2 alone.
+
+4d deferrals/flags for later slices: MARKER DECISION (map row 19c) — the last
+bare "Contract files live beside this one." instance retired at 4d with the
+kw SKILL.md replacement, earlier than the map's "survive to 4f" note; that
+note is internally in tension with map §3 L1–15 (the 4d-rendered thin trigger
+cannot carry policy per DP5). Decision: validate.py §2b is vacuous from 4d
+(green mechanically — it matches no file); the detection MECHANISM (validate.py
+§2b code + domain-builder SKILL.md L37 authoring rule) survives untouched
+until 4f's registry-conformance cutover. 4f still removes the mechanism, and
+must NOT treat "no marker instances" as the retirement already done. Pinned in
+test_no_bare_pack_marker_remains_but_the_mechanism_survives. Security INFO
+(pre-existing, fold into 4f): §2b silently skips a hand-authored legacy pack
+missing the exact marker sentence. render.py's field guard now also rejects
+U+0085/U+2028/U+2029 via shared UNSAFE_FIELD_CHARS (both trigger-description
+and manifest guards) — one-line Class C-surface edit flagged for
+platform-owner blessing (commit 300c7fb); 4e's domain-builder rewrite inherits
+this constraint. Eval trg-knowwork-01 keys on "write a researched report" in
+the kw trigger description — any future description edit must keep it.
+ENGINE.md's kw A→G correspondence table and domains/knowledge-work/workflow.md's
+table are row-identical after a code-review fix — 4f's deletion test can key on
+either. docs/domains.md got a minimal truth-fix (kw row, both-packs paragraph);
+docs/contracts/examples/domains.example.json still shows kw legacy — examples
+re-derivation stays 4f (evolution.example.json already matched the 4d glob).
+Transient note: commits C2 (pack) and C3 (descriptor+trigger) briefly
+duplicate kw policy across old/new locations within the slice — revert unit is
+the whole 4d slice, not C2 alone.
 
 ## Next: Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES
 
