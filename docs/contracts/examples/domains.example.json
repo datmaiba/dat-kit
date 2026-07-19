@@ -6,8 +6,8 @@
     {
       "domain_id": "knowledge-work",
       "contract_revision": "domain-pack/1",
-      "lifecycle": "legacy",
-      "pack_location": "skills/knowledge-work",
+      "lifecycle": "active",
+      "pack_location": "domains/knowledge-work",
       "trigger": {
         "name": "knowledge-work",
         "description": "Run the evidence-grounded research and writing workflow.",
@@ -21,8 +21,8 @@
     {
       "domain_id": "software-dev",
       "contract_revision": "domain-pack/1",
-      "lifecycle": "legacy",
-      "pack_location": "skills/build-loop",
+      "lifecycle": "active",
+      "pack_location": "domains/software-dev",
       "trigger": {
         "name": "build-loop",
         "description": "Execute an approved software plan through independent gates.",

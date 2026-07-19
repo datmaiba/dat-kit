@@ -378,7 +378,10 @@ def validate_domains(domains: dict[str, Any]) -> None:
         exact_keys(descriptor["trigger"], {"name", "description", "aliases"}, "trigger")
         assert descriptor["domain_id"] not in ids
         ids.add(descriptor["domain_id"])
-        assert descriptor["lifecycle"] == "legacy"
+        # re-derived at the Phase 4 cutover (4f): both example rows mirror the
+        # post-cutover registry state — active six-slot packs under domains/
+        assert descriptor["lifecycle"] == "active"
+        assert descriptor["pack_location"] == f"domains/{descriptor['domain_id']}"
         assert descriptor["loop_ceiling"] in {"Turn", "Goal", "Time", "Proactive"}
         canonical_relative_path(descriptor["pack_location"])
         canonical_relative_path(f"skills/{descriptor['trigger']['name']}/SKILL.md")
