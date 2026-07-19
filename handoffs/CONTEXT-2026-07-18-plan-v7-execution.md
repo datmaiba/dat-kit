@@ -35,7 +35,9 @@ the predecessors.
 | 4c | CLOSED — domains/software-dev/ six slots per map (§16 R1–R4 exact sw phrasing in reviewers.md; agents/*.md stay in place, reviewers.md is the binding surface); descriptor active + rendered thin trigger byte-exact; loop-profile migrated; 24 behavioral/purity tests; code APPROVE (4 MINOR fixed) + security APPROVE (1 MEDIUM frontmatter-injection guard in render.py + 2 LOW fixed, findings-scoped re-review APPROVE) | `domains/software-dev/`, `scripts/tests/test_software_dev_pack.py`, validate.py §3b |
 | 4d | CLOSED — domains/knowledge-work/ six slots per map (A→G playbook + engine-phase correspondence in workflow.md with the PLAN approval stop bound at B, no plan reviewer declared; §16 R1–R4 exact kw phrasing in reviewers.md, prose format — no charter-table rows, fact-checker has no agents/ charter; loop-profile absorbs SKILL.md L47–49, Goal human-run ceiling mirrored in descriptor); descriptor active + rendered thin trigger byte-exact (description keeps "write a researched report" for trg-knowwork-01); six legacy files deleted from skills/knowledge-work/; 17 behavioral/purity tests; code APPROVE (1 MINOR fixed) + security APPROVE (1 LOW Unicode line-break guard in render.py fixed, findings-scoped re-review APPROVE) | `domains/knowledge-work/`, `scripts/tests/test_knowledge_work_pack.py` |
 | 4e | CLOSED — domain-builder rewritten per map §10 (descriptor + six slots + rendered trigger + inherited evolution profile; scope boundary and capability ladder dedup to docs/loops.md as canonical; interview extended with descriptor + evolution questions and maps onto ENGINE.md's full declare-list; gate-validity semantics unchanged; registration step added with DP5 fresh-session evidence rule; 4c/4d constraints encoded: single-line descriptions incl. CR + U+0085/U+2028/U+2029, pinned eval phrases, §3b reviewer-row rule, alias collision); synthetic ledger-close pack FIXTURE-ONLY completes the engine lifecycle (Catalog → engine-revision check → six slots in DP1 order, files actually load, alias/destination collision + authority/governance + missing/stale trigger all fail closed, no dispatch edit — DP6); code APPROVE (1 MAJOR + 2 MINOR + 2 INFO fixed, findings-scoped re-review APPROVE) + security APPROVE (1 LOW charset pin fixed, findings-scoped re-review closed) | `skills/domain-builder/SKILL.md`, `scripts/tests/test_domain_builder_pack.py` |
-| 4f, 5 | not started — 4f next (cutover closure) | — |
+| 4f | CLOSED — cutover closure: engine deletion test (dynamic half; keyed on the kw A→G correspondence, pinned row-identical ENGINE.md ↔ workflow.md); sentence-marker detection retired SINGLE FIRE (validate.py §2b + domain-builder quoted note in one commit; marker test final form — sentence nowhere on operative surfaces, archival prefixes excluded); docs/loops.md L7 six-slot rewrite + docs/domains.md re-derived + domains.example.json active rows (phase-1a example validator re-derived same commit); templates flip DEFERRED to Phase 5 by platform-owner decision (live template is hash-pinned as the v1.16 record — see 4f flags); whole-cutover sequential reviews over b41f242..HEAD: code APPROVE (1 INFO) + security APPROVE (1 LOW fixed fe7ced8, findings-scoped re-review APPROVE; 1 INFO rolled) | `docs/spikes/phase-4/evidence.md` |
+| **Phase 4** | **CLOSED** — all six slices closed; plan §6 Exit criteria proven in the evidence bundle | `docs/spikes/phase-4/evidence.md` |
+| 5 | not started — release train; now also owns the deferred templates flip (see 4f flags) | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -110,7 +112,33 @@ commit. Still 4f: docs/loops.md L7 rewrite, docs/contracts examples
 re-derivation, §2b mechanism removal, engine deletion test, FU-1 marker
 hardening fold-in.
 
-## Next: Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES
+4f deferrals/flags → Phase 5: TEMPLATES FLIP DEFERRED (platform-owner
+decision 2026-07-19) — templates/common/AGENTS.md is hash-pinned as the
+v1.16 record in TWO places (snapshot `expected_content_hash` +
+platform.json 1.16 descriptor `static_template_hashes`); flipping the
+marker alone raises REGISTRY_SNAPSHOT_HASH_MISMATCH ×2 and fails 17 tests
+(verified live, then reverted — no residue, confirmed by
+`git diff --name-only b41f242..HEAD` containing no templates/ or
+registry/platform/snapshot paths). The correct flip is ONE atomic Phase 5
+registry change (steps 1–3): project-contract-2.0 snapshot + 2.0 descriptor
+static_template_hashes + adapters.json project_contract_revision rows +
+the template marker itself; until then greenfield scaffolds stay
+1.16-marked and migratable — never silently mixed. FU-1 (contract_check.py
+fence/anchor-aware marker matching) stays tracked: same surface as the
+flip, do them together. Security INFO (pre-existing, render.py): trigger
+`aliases` embed into the generated SKILL.md body WITHOUT the
+UNSAFE_FIELD_CHARS check the description gets — close the asymmetry in
+Phase 5, updating the 4e charset pin test in the same commit if the guard
+charset changes. Code-review INFO: test_engine_deletion.py hard-codes
+exactly the two cutover packs and needs a live git repo — registering a
+third pack must update that assertion. Class C blessings (DP2 edit,
+frontmatter guard, UNSAFE_FIELD_CHARS 300c7fb, engine stays class
+B/maintainer-policy) + the 4d security INFO (§2b silent-skip, moot):
+discharged in `docs/spikes/phase-4/evidence.md`. Review-range note:
+whole-cutover reviews ran b41f242..HEAD — d76c179 is the 4c CLOSE commit,
+so the dictated range would have dropped 4b/4c implementation from review.
+
+## Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES (all CLOSED)
 
 Prerequisite reading per session: plan §6 Phase 4 + §16 + this file only.
 One slice per session-budget (~50–80k each); each commits by semantic owner
