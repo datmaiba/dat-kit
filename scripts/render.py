@@ -37,6 +37,29 @@ def render_domain_trigger(catalog: Catalog, descriptor: dict[str, object]) -> by
     aliases = trigger["aliases"]
     if not isinstance(aliases, list):
         raise ValueError(f"descriptor {descriptor.get('domain_id')!r} aliases must be a list")
+    # Aliases and the other registry strings below embed into the generated
+    # body: they get the same content guard as the description, or registry
+    # data could smuggle lines into the rendered trigger (4f security INFO,
+    # closed at 5a). Registry validation is the first line of defense; the
+    # renderer still fails closed on its own.
+    body_fields = [
+        trigger.get("name"),
+        descriptor.get("domain_id"),
+        descriptor.get("required_engine_revision"),
+        descriptor.get("pack_location"),
+        *aliases,
+    ]
+    for field in body_fields:
+        if (
+            not isinstance(field, str)
+            or not field.strip()
+            or any(ch in field for ch in UNSAFE_FIELD_CHARS)
+        ):
+            raise ValueError(
+                f"descriptor {descriptor.get('domain_id')!r} has a body field that"
+                " is not a non-empty single line without tabs, newlines, or"
+                " Unicode line breaks"
+            )
     # The description is embedded in generated YAML frontmatter: a newline (legal
     # JSON) would terminate the `>-` block scalar and let registry data smuggle
     # frontmatter keys or instruction lines into the rendered trigger. Same

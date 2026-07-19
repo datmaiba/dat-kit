@@ -339,6 +339,40 @@ def test_unsafe_description_characters_fail_render(tmp_path, bad_char):
         render_domain_trigger(catalog, descriptor)
 
 
+@pytest.mark.parametrize("bad_char", list(UNSAFE_FIELD_CHARS))
+def test_unsafe_alias_characters_fail_render(tmp_path, bad_char):
+    # security INFO (4f, closed at 5a): aliases embed into the generated
+    # SKILL.md body exactly like the description embeds into frontmatter —
+    # the same UNSAFE_FIELD_CHARS guard applies to every registry field
+    # that reaches a generated file.
+    root = registry_fixture(tmp_path)
+    catalog = load_ok(root)
+    descriptor = json.loads(json.dumps(DESCRIPTOR))
+    descriptor["trigger"]["aliases"] = [f"a{bad_char}b"]
+    with pytest.raises(ValueError):
+        render_domain_trigger(catalog, descriptor)
+
+
+@pytest.mark.parametrize(
+    "field_path",
+    [("trigger", "name"), ("domain_id",), ("required_engine_revision",), ("pack_location",)],
+    ids=lambda item: "/".join(item),
+)
+def test_unsafe_body_field_characters_fail_render(tmp_path, field_path):
+    # Same guard for the remaining registry strings interpolated into the
+    # rendered body (registry validation is the first line; render must
+    # fail closed on its own).
+    root = registry_fixture(tmp_path)
+    catalog = load_ok(root)
+    descriptor = json.loads(json.dumps(DESCRIPTOR))
+    target = descriptor
+    for key in field_path[:-1]:
+        target = target[key]
+    target[field_path[-1]] = "a\u2028b"
+    with pytest.raises(ValueError):
+        render_domain_trigger(catalog, descriptor)
+
+
 def test_synthetic_description_does_not_reuse_pinned_eval_phrases():
     for phrase in PINNED_EVAL_PHRASES:
         assert phrase not in DESCRIPTOR["trigger"]["description"]
