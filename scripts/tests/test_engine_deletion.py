@@ -23,7 +23,7 @@ SCRIPTS = pathlib.Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
-from registry import Catalog  # noqa: E402
+from registry import Catalog, canonical_relative_path  # noqa: E402
 from render import expected_outputs  # noqa: E402
 from test_engine_manifest import FORBIDDEN, PHASES  # noqa: E402
 from test_registry_catalog import load_ok, registry_fixture, write_json  # noqa: E402
@@ -47,7 +47,10 @@ def fixture_without_packs(tmp_path: pathlib.Path) -> pathlib.Path:
     registry["domains"] = []
     write_json(domains_path, registry)
     for location in removed:
-        shutil.rmtree(root / location)
+        # guard parity with registry_fixture's copy path (security review,
+        # 4f LOW): registry-derived paths are canonicalized before they
+        # drive a destructive operation — root / "/abs" would discard root
+        shutil.rmtree(root / canonical_relative_path(location))
     return root
 
 
