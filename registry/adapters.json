@@ -49,7 +49,7 @@
           "ownership_class": "adapter",
           "materialization_action": "copy",
           "artifact_lifecycle": "scaffold_active",
-          "project_contract_revision": "dat-kit 1.16.0",
+          "project_contract_revision": "dat-kit 2.0",
           "expected_content_hash": "b415547a0d708b6c4230b51b86db9b3530ec6f79ff5b303e170b5a67ddf40014",
           "precondition": "target-absent"
         },
@@ -59,7 +59,7 @@
           "ownership_class": "adapter",
           "materialization_action": "copy",
           "artifact_lifecycle": "scaffold_active",
-          "project_contract_revision": "dat-kit 1.16.0",
+          "project_contract_revision": "dat-kit 2.0",
           "expected_content_hash": "0ba915f65b315dd2ccb0ab299a39bf1b75fddceefa9c168c4083c28a8f7d6483",
           "precondition": "target-absent"
         }
@@ -256,7 +256,7 @@
           "ownership_class": "adapter",
           "materialization_action": "copy",
           "artifact_lifecycle": "scaffold_active",
-          "project_contract_revision": "dat-kit 1.16.0",
+          "project_contract_revision": "dat-kit 2.0",
           "expected_content_hash": "f4c5adb7eb851d019e944441938ba4714b345057b5653df6c6bb4455d60e585e",
           "precondition": "target-absent"
         },

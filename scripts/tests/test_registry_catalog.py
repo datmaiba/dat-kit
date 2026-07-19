@@ -139,3 +139,59 @@ def test_catalog_results_are_defensive_copies():
     domains[0]["trigger"]["name"] = "mutated"
     assert catalog.domains()[0]["trigger"]["name"] == "knowledge-work"
 
+
+# --- Slice 5a: historical snapshots are records, not scaffold sources ------
+# Platform-owner decision D-5a-1 (2026-07-19): the immutable 1.16 snapshot
+# records what real 1.16 projects have on disk; only the canonical revision's
+# snapshot is a scaffold source and live-verified against template bytes.
+# Before this change, the atomic templates flip was impossible: two snapshots
+# listing the same targets raised REGISTRY_PATH_COLLISION, and the 1.16 rows
+# raised REGISTRY_SNAPSHOT_HASH_MISMATCH against the flipped live template.
+
+
+def test_fileplan_scaffold_rows_come_only_from_the_canonical_snapshot():
+    catalog = load_ok(ROOT)
+    plan = catalog.scaffold_file_plan("greenfield")
+    assert [item.target_relative_path for item in plan.entries] == [
+        ".claude/CLAUDE.md",
+        ".cursorrules",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs/agent-workflow.md",
+    ]
+    assert {item.project_contract_revision for item in plan.entries} == {"dat-kit 2.0"}
+
+
+def test_historical_snapshot_is_a_record_not_live_verified(tmp_path):
+    # The live template carries the 2.0 marker; the 1.16 snapshot's hashes
+    # intentionally no longer match it. Catalog.load must stay green and the
+    # 1.16 snapshot must stay loaded for migration recognition.
+    root = registry_fixture(tmp_path)
+    catalog = load_ok(root)
+    model = catalog.revision_model()
+    assert "dat-kit 1.16.0" in model["snapshots"]
+    assert "dat-kit 2.0" in model["snapshots"]
+
+
+def test_historical_snapshot_descriptor_disagreement_still_fails_closed(tmp_path):
+    # Internal consistency stays enforced for historical snapshots: the
+    # descriptor's static_template_hashes and the snapshot rows must agree.
+    root = registry_fixture(tmp_path)
+    snapshot_path = root / "registry/snapshots/project-contract-1.16.json"
+    value = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    value["files"][0]["expected_content_hash"] = "0" * 64
+    write_json(snapshot_path, value)
+    result = Catalog.load(root)
+    assert not isinstance(result, Catalog)
+    assert "REGISTRY_SNAPSHOT_HASH_MISMATCH" in codes(result)
+
+
+def test_canonical_snapshot_still_verifies_live_template_bytes(tmp_path):
+    root = registry_fixture(tmp_path)
+    (root / "templates/common/AGENTS.md").write_text(
+        "# tampered\n\n**Canonical contract revision:** dat-kit 2.0\n", encoding="utf-8"
+    )
+    result = Catalog.load(root)
+    assert not isinstance(result, Catalog)
+    assert "REGISTRY_SNAPSHOT_HASH_MISMATCH" in codes(result)
+

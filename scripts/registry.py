@@ -503,11 +503,22 @@ class _Builder:
                 continue
             targets: list[str] = []
             hashes = descriptor.get("static_template_hashes", {})
+            # Slice 5a (decision D-5a-1): only the canonical revision's
+            # snapshot is a scaffold source, so only it verifies against
+            # live template bytes. Historical snapshots are immutable
+            # records of what already-scaffolded projects have on disk;
+            # they verify descriptor<->snapshot consistency instead —
+            # live templates move on, the record must not.
+            is_canonical = descriptor["revision"] == platform.get("canonical_revision")
             for file_index, entry in enumerate(files):
                 entry_path = f"{relative}#/files/{file_index}"
                 if not self._validate_file_entry(entry, entry_path):
                     continue
                 targets.append(entry["target_relative_path"])
+                if not is_canonical:
+                    if hashes.get(entry["target_relative_path"]) != entry["expected_content_hash"]:
+                        self.add("REGISTRY_SNAPSHOT_HASH_MISMATCH", f"{path.rsplit('/', 1)[0]}/static_template_hashes", entry["target_relative_path"])
+                    continue
                 source = self.root / entry["source_template"]
                 if not source.is_file():
                     self.add("REGISTRY_SOURCE_MISSING", f"{entry_path}/source_template", entry["source_template"])
@@ -911,8 +922,13 @@ class Catalog:
         if mode not in {"greenfield", "add-missing", "inspect-brownfield", "migrate-approved"}:
             raise ValueError(f"unknown FilePlan mode {mode!r}")
         entries: list[FilePlanEntry] = []
-        for snapshot in self._snapshots.values():
-            entries.extend(FilePlanEntry.from_mapping(item) for item in snapshot["files"])
+        # Slice 5a (decision D-5a-1): scaffold rows come only from the
+        # canonical revision's snapshot. Historical snapshots stay loaded
+        # for migration recognition but never scaffold — flattening every
+        # snapshot here made two contract revisions collide on one target.
+        canonical_snapshot = self._snapshots.get(self._platform["canonical_revision"])
+        if canonical_snapshot is not None:
+            entries.extend(FilePlanEntry.from_mapping(item) for item in canonical_snapshot["files"])
         for adapter in self._children["adapters"]["adapters"]:
             entries.extend(FilePlanEntry.from_mapping(item) for item in adapter["project_artifacts"])
         entries.sort(key=lambda item: item.target_relative_path)

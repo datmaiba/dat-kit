@@ -21,8 +21,11 @@
       "revision": "dat-kit 2.0",
       "marker_rules": [{"path": "AGENTS.md", "required_text": "dat-kit 2.0"}],
       "required_pointer_paths": ["AGENTS.md", "CLAUDE.md"],
-      "static_template_hashes": {},
-      "snapshot_provenance": "registry/platform.json#/revision_descriptors/0",
+      "static_template_hashes": {
+        "AGENTS.md": "52a92fdafc39d83145dcca540039ec8e48f309a280a9b7cdd03a099fb96c908f",
+        "docs/agent-workflow.md": "9b0e1d235a59db64c1e414d624487d779fe8cdc33d4c7e408943edf4e266df53"
+      },
+      "snapshot_provenance": "registry/snapshots/project-contract-2.0.json",
       "support_removal_not_before": "dat-kit 3.0"
     },
     {

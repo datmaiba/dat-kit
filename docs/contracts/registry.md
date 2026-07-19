@@ -236,12 +236,19 @@ A file-backed `snapshot_provenance` resolves to a closed object with exactly
 `format_revision`, `snapshot_revision`, `project_contract_revision`, and
 `files`. Its format matches the bootstrap, its project revision matches the
 owning descriptor, and `files` is a sorted, portable-unique array of exact R5
-FilePlan entries. Every `copy` source exists and its canonical shipped UTF-8/LF
-SHA-256 equals both the entry hash and the descriptor's
-`static_template_hashes[target_relative_path]`. Repository attributes pin these
-text inputs to LF so the snapshot is identical on Windows and Linux. A
-fragment-valued provenance points to the owning registry record and is not a
-file snapshot.
+FilePlan entries. For the **canonical** revision's snapshot — the only
+scaffold source — every `copy` source exists and its canonical shipped
+UTF-8/LF SHA-256 equals both the entry hash and the descriptor's
+`static_template_hashes[target_relative_path]`. A **historical** revision's
+snapshot is an immutable record of what already-scaffolded projects have on
+disk: live templates move on, so its hashes are never compared against live
+template bytes; instead each entry hash must equal the owning descriptor's
+`static_template_hashes[target_relative_path]` (decision D-5a-1, 2026-07-19).
+Scaffold FilePlans draw snapshot rows from the canonical revision's snapshot
+only; historical snapshots serve recognition and migration. Repository
+attributes pin these text inputs to LF so the snapshot is identical on
+Windows and Linux. A fragment-valued provenance points to the owning registry
+record and is not a file snapshot.
 
 Detection precedes writes. Migration classifies exact/customized/missing state,
 preserves user-authored policy, displays the FilePlan, snapshots hashes, and
@@ -348,7 +355,7 @@ enforces the subset mechanically in both directions.
 |---|---|
 | `REGISTRY_SNAPSHOT_INVALID` | Snapshot unreadable, malformed, or hashing failed. |
 | `REGISTRY_SNAPSHOT_REVISION_MISMATCH` | Snapshot revision differs from its descriptor. |
-| `REGISTRY_SNAPSHOT_HASH_MISMATCH` | Snapshot/descriptor hash disagrees with template bytes. |
+| `REGISTRY_SNAPSHOT_HASH_MISMATCH` | Canonical snapshot/descriptor hash disagrees with live template bytes, or a historical snapshot disagrees with its descriptor's `static_template_hashes`. |
 | `REGISTRY_SOURCE_MISSING` | Referenced template/artifact file absent. |
 | `REGISTRY_SOURCE_HASH_MISMATCH` | Template bytes differ from declared hash. |
 | `REGISTRY_FILEPLAN_INVALID` | FilePlan entry enum/precondition/hash invariant fails. |
