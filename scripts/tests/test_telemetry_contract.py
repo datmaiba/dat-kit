@@ -28,6 +28,11 @@ def section(text: str, start: str, end: str) -> str:
     return text.split(start, 1)[1].split(end, 1)[0]
 
 
+def prose(text: str) -> str:
+    """Collapse Markdown line wrapping while preserving normative wording."""
+    return " ".join(text.split())
+
+
 def markdown_table(text: str) -> dict[str, str]:
     rows: dict[str, str] = {}
     for line in text.splitlines():
@@ -142,6 +147,9 @@ def test_payload_table_owns_closed_event_shapes() -> None:
     assert "introduced_task: UUIDv4 or null" in payloads["defect_recorded"]
     assert "kit_facing: bool" in payloads["lesson_candidate_recorded"]
     assert "source_record_ordinal: positive-integer" in payloads["scorecard_imported"]
+    assert "verdict: sourced/return_to_builder" in payloads["fact_check_recorded"]
+    assert "finding_count: non-negative-integer" in payloads["fact_check_recorded"]
+    assert "failure_classes: sorted-unique-fact-check-failure-array" in payloads["fact_check_recorded"]
 
 
 def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
@@ -166,6 +174,36 @@ def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
     assert "exactly one parent-child task pair" in lineage
     assert "same `event_type`" in lineage
     assert "forward, self, missing, or cyclic correction" in lineage
+    lineage_prose = prose(lineage)
+    assert "Immutable target fields are `schema_version`, `task_id`, `event_type`" in lineage_prose
+    assert "Replacement fields are `coverage`, `tokens`, `elapsed`, and `payload`" in lineage_prose
+    assert "Correction-evidence fields are `event_id`, `occurred_at`, `producer`, and `revisions`" in lineage_prose
+
+
+def test_partial_reason_precedence_import_set_and_defect_projection_are_closed() -> None:
+    text = contract_text()
+    coverage = section(text, "### T3.5.1 Coverage", "### T3.5.2 Tokens")
+    transfer = section(text, "## T3.10 Import, export, retention, and durable history", "## T3.11 Disable, downgrade, and compatibility")
+    assert (
+        "`telemetry_disabled` > `legacy_import` > `producer_failure` > "
+        "`unsupported_host_start` > `completion_only`"
+    ) in coverage
+    transfer_prose = prose(transfer)
+    assert "exactly one `scorecard_imported` and one `task_finished`" in transfer_prose
+    assert "mints one UUIDv4 task ID on the first import of the source-record identity" in transfer_prose
+    assert "reuses that task ID after an interrupted import" in transfer_prose
+    assert "source-record identity is path + ordinal + hash" in transfer_prose
+    assert "linked event identity is that source-record identity + event type" in transfer_prose
+    assert "terminal CRLF or CR to LF" in transfer_prose
+    assert "include that LF" in transfer_prose
+    projection = markdown_table(transfer)
+    assert projection["Defect projection field"] == "Normative value"
+    assert set(projection) == {
+        "Defect projection field",
+        "schema_version", "event_id", "task_id", "parent_task_id", "delegation_id",
+        "correction_of", "occurred_at", "defect_id", "introduced_task",
+        "approving_reviewers", "gate_that_should_have_caught_it", "evidence_ref",
+    }
 
 
 def test_attribution_privacy_storage_import_export_and_compatibility_are_bounded() -> None:
@@ -177,8 +215,8 @@ def test_attribution_privacy_storage_import_export_and_compatibility_are_bounded
         "Raw prompts", "tool request or response bodies", "environment values",
         "credentials", "secrets", "No telemetry field accepts free-form text",
         "`[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`", "No automatic TTL",
-        "verified export", "never rewrites existing benchmark bytes",
-        "path + ordinal + hash + event type", "`benchmark_exported` events are never export-eligible",
+            "verified export", "never rewrites existing benchmark bytes",
+            "source-record identity is path + ordinal + hash", "`benchmark_exported` events are never export-eligible",
         "must not block the work loop", "1.x", "schema freeze",
     ):
         assert requirement in text

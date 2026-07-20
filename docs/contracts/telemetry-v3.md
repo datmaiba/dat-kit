@@ -184,6 +184,13 @@ it carry the terminal `full` or degraded `partial` result and cannot use
 `in_progress`. Reports use that latest valid terminal coverage, never an
 earlier in-progress snapshot.
 
+When more than one terminal degradation cause applies, the single reason is
+selected by this strict precedence:
+`telemetry_disabled` > `legacy_import` > `producer_failure` > `unsupported_host_start` > `completion_only`.
+The missing-event list still exposes the complete loss; the reason identifies
+the highest-precedence cause and is never selected opportunistically to improve
+a coverage report.
+
 ### T3.5.2 Tokens
 
 `tokens` contains exactly `{total, attribution_status, reason}`.
@@ -247,7 +254,7 @@ payloads and types are fixed below.
 | `defect_recorded` | `{defect_id: stable-id, introduced_task: UUIDv4 or null, approving_reviewers: sorted-unique-stable-id-array, gate_that_should_have_caught_it: stable-id, evidence_ref: stable-ref}` |
 | `rework_recorded` | `{cause_event_id: UUIDv4, round: positive-integer, reason: gate_failure/review_finding/spec_correction/other, evidence_ref: stable-ref or null}` |
 | `lesson_candidate_recorded` | `{kit_facing: bool, root_cause_ref: stable-ref, candidate_ref: stable-ref}` |
-| `fact_check_recorded` | `{gate_id: stable-id, verdict: supported/unsupported/mixed/unverified, verdict_source: human/agent/automation, evidence_ref: stable-ref}` |
+| `fact_check_recorded` | `{gate_id: stable-id, verdict: sourced/return_to_builder, verdict_source: human/agent/automation, finding_count: non-negative-integer, failure_classes: sorted-unique-fact-check-failure-array, evidence_ref: stable-ref}` |
 | `scorecard_imported` | `{source_path: "benchmarks/scorecard.jsonl", source_record_ordinal: positive-integer, source_record_hash: lowercase-sha256, source_record_ref: stable-ref}` |
 | `benchmark_exported` | `{export_batch_id: UUIDv4, target_path: "benchmarks/telemetry-v3.jsonl" or "benchmarks/defects.jsonl", prior_hash: lowercase-sha256 or null, exported_event_ids: sorted-unique-UUIDv4-array}` |
 
@@ -255,6 +262,15 @@ payloads and types are fixed below.
 attempt for the task; it is not reconstructed from a later final result.
 Human-run gates use `verdict_source=human`; deterministic commands use
 `automation`; an AI reviewer or agent uses `agent`.
+
+For `fact_check_recorded`, `sourced` is the machine value for the
+knowledge-work charter's `SOURCED` verdict: `finding_count` is zero and
+`failure_classes` is empty. `return_to_builder` records the charter's numbered
+failure outcome: the count is positive and the array is non-empty. Its closed
+failure values are `unsupported_claim`, `weaker_than_claim`, `contradiction`,
+`unreliable_source`, `stale_source`, `inadequate_coverage`, and
+`prose_contradiction`. The `evidence_ref` points to the complete numbered
+finding record; telemetry never copies its prose.
 
 Exactly one original `task_started` exists for every normally observed task.
 Exactly one original `task_finished` also exists. The original start is the task's first
@@ -295,6 +311,18 @@ complete event with a new `event_id` and the same `event_type` as its target;
 it carries the corrected envelope and payload rather than a JSON patch. The
 target remains byte-for-byte present. A validator resolves the latest valid
 correction in append order but preserves the entire chain.
+
+Immutable target fields are `schema_version`, `task_id`, `event_type`,
+`source_class`, `lineage.parent_task_id`, and `lineage.delegation_id`; a
+correction must equal its target for all of them. Replacement fields are
+`coverage`, `tokens`, `elapsed`, and `payload`; the correction supplies their
+complete current values. Correction-evidence fields are `event_id`,
+`occurred_at`, `producer`, and `revisions`; they describe the correcting write
+and may differ from the target. `lineage.correction_of` names the immediate
+target. `privacy_class` may stay equal or tighten only in the order
+`public` -> `project` -> `local_private`; it may never loosen. Aggregation uses
+the immutable identity from the chain and the latest replacement values, so it
+never merges unspecified fields.
 
 The target must be an earlier event in the same corpus. A forward, self, missing, or cyclic correction is invalid. A correction never changes the identity or
 bytes of its target and never authorizes removal of the original.
@@ -361,13 +389,26 @@ never print its rejected secret-like value.
 ### T3.10.1 Legacy import
 
 A v2 scorecard import reads `benchmarks/scorecard.jsonl` without modifying it
-and emits new `scorecard_imported`-linked v3 events. The source record's
-one-based physical `source_record_ordinal`, canonical hash, and stable record
-reference provide provenance. Imported
-records use `source_class=legacy_import`; unavailable lifecycle, token, and
-revision facts remain explicitly unknown. Import is idempotent by source
-path + ordinal + hash + event type. Two byte-identical source lines at
-different ordinals remain two distinct historical records.
+and emits exactly one `scorecard_imported` and one `task_finished` for each
+valid source line, in that order, with the same task ID. The importer mints one
+UUIDv4 task ID on the first import of the source-record identity. If append is
+interrupted after either event, retry finds the existing event by source
+identity, reuses that task ID after an interrupted import, and emits only the
+missing member of the pair.
+
+The source-record identity is path + ordinal + hash. Each linked event identity
+is that source-record identity + event type. The ordinal is the one-based
+physical line number. To compute `source_record_hash`, take the exact
+UTF-8 bytes of that physical JSON record, normalize only its terminal CRLF or CR to LF, include that LF in the SHA-256 input, and perform no JSON
+reserialization or other normalization. The stable source reference is
+`benchmarks/scorecard.jsonl#line-<ordinal>`. Two byte-identical source lines at
+different ordinals remain distinct historical records.
+
+Both linked events use `source_class=legacy_import`, terminal partial coverage
+with reason `legacy_import`, and explicit unknowns for unavailable lifecycle,
+token, elapsed, and revision facts. `task_finished.payload.scorecard_ref` is
+`benchmarks/scorecard.jsonl`; `scorecard_imported` carries the exact ordinal,
+hash, and source reference.
 
 No import may normalize, reorder, truncate, or rewrite existing scorecard
 bytes. Historical schema-v1 and schema-v2 scorecard records remain valid in
@@ -375,10 +416,30 @@ their original file.
 
 ### T3.10.2 Export
 
-General export copies eligible validated events to
-`benchmarks/telemetry-v3.jsonl`. A `defect_recorded` event also projects the
-closed defect payload plus event/task lineage into
-`benchmarks/defects.jsonl`. Export is idempotent by `event_id`:
+General export copies the complete eligible validated event to
+`benchmarks/telemetry-v3.jsonl`. A `defect_recorded` event also appends this
+closed projection to `benchmarks/defects.jsonl`:
+
+| Defect projection field | Normative value |
+|---|---|
+| `schema_version` | integer literal `3` |
+| `event_id` | source defect event UUIDv4 |
+| `task_id` | source event task UUIDv4 |
+| `parent_task_id` | source lineage value, UUIDv4 or null |
+| `delegation_id` | source lineage value, UUIDv4 or null |
+| `correction_of` | source lineage value, UUIDv4 or null |
+| `occurred_at` | source event RFC 3339 UTC timestamp |
+| `defect_id` | source payload stable ID |
+| `introduced_task` | source payload UUIDv4 or null |
+| `approving_reviewers` | source payload sorted unique stable reviewer IDs |
+| `gate_that_should_have_caught_it` | source payload stable gate ID |
+| `evidence_ref` | source payload stable reference |
+
+The projection has no other fields. A corrected defect appends a new projection
+record with its new `event_id` and `correction_of`; it never rewrites the prior
+projection. Consumers resolve the correction chain by source event identity.
+
+Export is idempotent by `event_id`:
 
 - an existing identical event is a no-op;
 - the same ID with different canonical bytes fails with
