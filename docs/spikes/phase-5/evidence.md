@@ -371,3 +371,186 @@ diff.
    `project_artifact` at the same lifecycle. Registry semantics need one
    canonical definition per lifecycle state, enforced by a conformance
    check, not per-adapter prose. (Awaiting owner approval.)
+
+# Phase 5 evidence — external gates (Gate 1-4), owner machine, 2026-07-20
+
+Maintainer-run verification of the D-5c-C external gates (plan §6 steps 5,
+6, 7 external halves + step 1's real Actions run), executed by the owner on
+their own Windows machine after slice 5c closed at `c7d25e7`. This session
+guided each gate, diagnosed and fixed two CI-only defects Gate 1 surfaced,
+and independently reviewed the fix.
+
+## Gate 1 — push + real Actions run
+
+First real push of `feature/open-platform-v2` (PR #2) surfaced two failures
+never caught by sandbox verification (which only ever ran gates against an
+rsync'd copy, never a real git checkout):
+
+- `PROJECTION_BYTE_MISMATCH` on `skills/build-loop/SKILL.md` and
+  `skills/knowledge-work/SKILL.md`, Windows job only. Root cause:
+  `.gitattributes` did not pin these two generated projections to
+  `eol=lf`; a Windows Actions checkout (`core.autocrlf=true`, GH-hosted
+  default) normalized the committed LF bytes to CRLF, while
+  `render.py`'s `render_domain_trigger` always emits LF — `validate.py`'s
+  `check_outputs()` byte-compare (same function `render.py --check` uses)
+  failed on Windows only.
+- ShellCheck SC2015 on `scripts/init.sh` (then line 113): the classic
+  `A && B || C` non-if-then-else shape. Never caught before because
+  Actions had never run on this branch prior to this push.
+
+**Fix** (`ba77045`): `.gitattributes` gains `skills/**/SKILL.md text
+eol=lf`, matching the existing `registry/**`/`templates/**`/`*.py`/`*.sh`
+pins; `scripts/init.sh` rewritten to `if ! { [ -f ... ] && [ ! -L ... ];
+}; then ...; fi` — identical diagnostic string and exit code for all three
+cases (real file / missing / symlink), verified by extracting the logic
+into a standalone script and running all three.
+
+**Red-before-green**: `git clone -c core.autocrlf=true --quiet .
+/tmp/before` at the pre-fix commit reproduced the exact CI failure locally
+(both SKILL.md files came back CRLF, `validate.py` printed the identical 2
+diagnostics). Same clone simulation against `ba77045` came back green
+(LF-only, `validate.py` "✓ all checks green", pytest 275+3, `bash -n`
+clean).
+
+**Real Actions proof**: run
+[`29744500620`](https://github.com/datmaiba/dat-kit/actions/runs/29744500620)
+on commit `ba77045`, PR #2 — **Status: Success**, jobs `validate` (13s)
+and `windows-python` (53s) both green. Only 2 informational Node.js-20
+deprecation warnings, unrelated.
+
+**code-reviewer** (diff-scoped, `ba77045` only): **APPROVE**, 0 blocking
+findings. Confirmed: `skills/**/SKILL.md` glob correctly matches both
+affected files and no others; format freeze (registry R9) untouched (no
+`registry/` file in the diff); init.sh rewrite behavior-preserving for all
+three cases; no other un-suppressed SC2015 pattern in scope; no other
+byte-checked projection (`render.py`'s `expected_outputs()` — only the TSV
+manifest and `skills/*/SKILL.md`) left unpinned. 2 lesson candidates
+(below). security-reviewer: **skipped, reason stated** — line-ending pin +
+shell control-flow rewrite, no registry/migration/public-input/path-logic
+surface touched.
+
+## Gate 2 — Windows Git Bash clean-install smoke
+
+Fresh `git clone --branch feature/open-platform-v2` into
+`C:\tmp\dk-smoke\dat-kit` (real Windows Git Bash / MINGW64, not the
+sandbox), then in a separate empty project dir:
+
+- `bash .../scripts/init.sh --here --profile react` → 17 files created,
+  exit 0.
+- `grep "Canonical contract revision" AGENTS.md` → `dat-kit 2.0`.
+- `python3 .../scripts/contract_check.py --target .` → exit 0.
+- Rerun both: `init.sh` → **0 created, 17 skipped** (existing files never
+  overwritten; correctly named the one manual-merge case,
+  `docs/agent-working-rules.md`, for the react profile); `contract_check`
+  → exit 0 again. Idempotent.
+
+## Gate 3 — real v1.16 project migration (owner's blog project)
+
+Target: `D:\project\blog` (real project, git history, in active use —
+working tree had substantial unrelated uncommitted WIP). To avoid mixing
+migration changes with that WIP, verification ran against an **isolated
+clone** (`git clone` of the same repo to a scratch directory, committed
+history only) rather than the live working tree.
+
+- `contract_check.py --target . --migration-plan` on the real repo (dirty
+  tree, read-only) → plan S001-S005: `AGENTS.md` MIGRATE_REPLACE,
+  `.cursorrules` RETIRE_LEGACY → `.cursor/rules/dat-kit.mdc` ADD.
+- Manual inspection (direct file read, not user-relayed) of `AGENTS.md`
+  and `.cursorrules` confirmed both are byte-identical to the shipped
+  1.16-era template except the project-name substitution and the revision
+  line — a clean migration case, no custom content at risk.
+  `docs/agent-working-rules.md` (the real project-owned policy — full
+  laravel-react stack rules, gates, traps, ~140 lines) is correctly
+  **absent from the plan entirely** — the tool recognizes it as
+  project-owned and never touches it.
+- Pre-check on the isolated clone: `contract_check.py --target .` → exit
+  1, 2 diagnostics (`CONTRACT_MIGRATION_REQUIRED` for both files) —
+  matches the plan.
+- Applied the 3 steps (replace AGENTS.md from the 2.0 template with the
+  project name substituted, remove `.cursorrules`, add
+  `.cursor/rules/dat-kit.mdc` from the template) on the isolated clone
+  only.
+- Post-check: `contract_check.py --target .` → **exit 0**.
+- Preservation proof: `sha256sum docs/agent-working-rules.md` identical
+  before and after (`736ec0c6833ef74ad4daf05b392c9765d774b65e4381bde8780f2
+  8f777a87e69`). `git status --porcelain` on the isolated clone showed
+  exactly the 3 predicted changes and nothing else.
+- The owner's real `D:\project\blog` working tree was **never modified**;
+  the isolated clone was discarded after verification. The exact 4
+  commands to apply for real (whenever the owner is ready, ideally after
+  committing current WIP) are recorded for them.
+
+## Gate 4 — live host smokes
+
+**Claude Code** (`claude --plugin-dir D:\project\dat-kit`, fresh session):
+invoked `run the build loop` → loaded `dat-kit:build-loop`, correctly
+identified real repo state (`HEAD ba77045`, tree clean,
+`feature/open-platform-v2`), cited real evidence file paths
+(`docs/spikes/phase-5/evidence.md`, `plans/PLAN-v7-platform.md §6`), and
+correctly surfaced the open Gemini-quirk decision in the D-5c-* pattern
+rather than proceeding to build — proving both pack read (content outside
+`skills/`) and discipline (stopped at a real open decision instead of
+barreling ahead). Instructed to stand down (smoke test only); no files
+changed by that session.
+
+**Codex** (`codex exec "run the build loop"`, fresh session, plugin
+installed from a temporary local marketplace descriptor pointing
+`source: url` + `ref: feature/open-platform-v2` at the real GitHub repo —
+the default `codex plugin marketplace add <repo> --ref <branch>` was
+tried first but does not override the nested per-plugin source ref baked
+into the fetched `marketplace.json`, so a scratch marketplace file was
+authored instead, mirroring the proven working schema with the ref
+corrected): session transcript (`~/.codex/sessions/.../*.jsonl`, 232
+records) confirms it read all six domain-pack slot files
+(`domains/software-dev/{workflow,ground-truth,gates,reviewers,loop-profile}.md`,
+`deliverables/`) plus `engine/work-loop/{ENGINE.md,engine.json}`, and the
+installed plugin cache path correctly read `2.0.0`
+(`~/.codex/plugins/cache/dat-kit-branch/dat-kit/2.0.0`).
+
+**Side effect, reverted**: this Codex run (sandbox `workspace-write`,
+approval `never`) went beyond the smoke-test scope on its own initiative —
+it re-ran parts of Gates 1-2 itself, attempted (and failed, for reasons
+local to its own sandboxed subprocess: `EPERM` on
+`~/.claude/session-env`, then no visible OAuth) to invoke Claude Code
+itself, and **wrote** `handoffs/HANDOFF-2026-07-20-phase5-external-gates.md`
+plus one `benchmarks/scorecard.jsonl` append recording "Claude pack-read
+FAIL after 3 rounds". That claim is accurate only about Codex's own
+sandboxed attempt — it does not contradict this session's independent,
+real-terminal Claude Code evidence above. Both artifacts were uncommitted
+and were reverted/discarded (not a rewrite of committed history) to avoid
+a stale, confusing claim sitting in `handoffs/` (which build-loop reads
+first on resume) or the scorecard. Lesson candidate below.
+
+**Cursor / Gemini**: owner does not have Cursor installed — manual
+evidence checklist (`adapters/cursor/ADAPTER.md`) **not gathered this
+session**, left as a known gap, not silently assumed. Gemini CLI stays
+`repo_only`; its activation gates are a separate, not-yet-required track
+per its own ADAPTER.md — correctly out of scope here.
+
+## Gates re-verified after the CI fix
+
+pytest 275 passed 3 skipped; `validate.py` "✓ all checks green"; `render.py
+--check` exit 0 (all on the rsync'd sandbox copy at `ba77045`, plus the
+real Windows/Ubuntu Actions run above as the authoritative cross-platform
+proof).
+
+## Lesson candidates (external gates)
+
+1. `* text=auto` alone does not protect a byte-compared generated file on
+   Windows checkout — every `render.py` projection destination needs an
+   explicit `.gitattributes` `eol=lf` pin. Add a repo check that every
+   path in `expected_outputs()` is covered by such a pin, so a future new
+   projection can't silently reintroduce this class of bug.
+2. Sandbox rsync-copy verification cannot see `.gitattributes`/checkout
+   normalization bugs — a real `git clone -c core.autocrlf=true` (or
+   equivalent) belongs in pre-push verification, not just post-push
+   discovery via Actions.
+3. `codex exec` with default `sandbox: workspace-write` +
+   `approval: never` will treat an unscoped prompt like "run the build
+   loop" as full authorization to execute real work end-to-end (writing
+   handoffs, appending scorecards, attempting to shell out to other
+   tools) — a host-conformance smoke prompt for Codex must explicitly
+   restrict scope ("read-only, report three facts, do not modify files or
+   execute the plan" — the phrasing Codex itself later recommended for
+   re-testing Claude) or run under a read-only sandbox flag.
+(Awaiting owner approval before appending to lessons-learned.)

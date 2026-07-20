@@ -40,7 +40,8 @@ the predecessors.
 | 5a | CLOSED — atomic templates flip landed (2.0 snapshot + descriptor hashes + adapter rows + marker + tsv, D-5a-1 "historical = record" registry semantics with registry.md R6 amendment); FU-1 closed; 4f alias-embed security INFO closed; greenfield GREEN under v2 checker; 1.16 snapshot byte-identical; code + security APPROVE (0 actionable) | `docs/spikes/phase-5/evidence.md`, commits `d1e9d14..ede8670` |
 | 5b | CLOSED — format freeze (R9 statement + pin test, D-5b-B) + release_version 2.0.0 (D-5b-A, mirrored ×3); render byte-check no-op; suites 275+3; Linux clean-install smoke green (incl. idempotent rerun); clean + customized v1.16 fixtures migrated via --migration-plan → checker exit 0 with custom policy preserved; 3 approved 5a lessons appended; code APPROVE (1 MINOR, 1 INFO) + security APPROVE (0 findings) | `docs/spikes/phase-5/evidence.md` §5b, commits `6181816..024882b` |
 | 5c | CLOSED — step 9 live rollback rehearsal to v1.17.1 (D-5c-A: worktree tooling vs 2.0 + 1.16 project dirs; fail-closed named diagnostics, every byte preserved, forward-migratability intact, v1.17.1 validate green) + step 10 docs sweep (D-5c-B full README/HUONG_DAN rewrite with §9.4-dated per-host table; codex.md folded into adapters/codex/ADAPTER.md + load-bearing redirect stub; domains/loops verified already 0001-compliant, no edit); code APPROVE (0 actionable, 2 INFO) + security skip stated (pure docs + read-only rehearsal) | `docs/spikes/phase-5/evidence.md` §5c, commits `e751d5f..a6a1be6` |
-| 5 (rest) | OPEN — steps 6 (external), 8 RC bundle (per D-5c-C: only after external gates return), 11 migration guide + tag; external halves of 5 (Windows smoke) and 7 (real project) | — |
+| 5-ext | External gates verified on owner's machine 2026-07-20: Gate 1 push+Actions (real run `29744500620` PASS both jobs, after fixing 2 CI-only defects — CRLF/eol pin + SC2015 — code APPROVE 0 blocking, security skip stated), Gate 2 Windows Git Bash clean-install smoke (PASS, idempotent), Gate 3 real v1.16 migration (owner's blog project, isolated-clone test, exit 0, project-owned policy byte-identical before/after), Gate 4 live host smokes (Claude Code + Codex both confirmed real pack read outside `skills/`; Codex smoke over-executed and wrote 2 files — reverted, uncommitted, lesson logged). Cursor manual checklist not gathered (not installed) — known gap, not assumed. Gemini stays `repo_only`, correctly out of scope | `docs/spikes/phase-5/evidence.md` § External gates, commit pending |
+| 5 (rest) | OPEN — step 8 RC bundle (per D-5c-C: external gates above now satisfy the trigger, modulo the Cursor gap — owner decision needed on whether to proceed without it), step 11 migration guide + tag | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -192,6 +193,19 @@ contradiction needs a conformance check, not per-adapter prose) awaits
 owner approval in evidence §5c. Docs sweep is DONE — steps 9 + 10 closed;
 README/HUONG_DAN/ADAPTER.md are now the 2.0 truth surfaces; keep future
 edits consistent with `registry/adapters.json` official_facts dates.
+
+5-ext deferrals/flags → RC bundle: D-5c-C's external-gate list is now
+satisfied for Claude Code, Codex, Actions, Windows smoke, and one real
+v1.16 project — EXCEPT the Cursor manual evidence checklist
+(`adapters/cursor/ADAPTER.md`), which the owner does not currently have
+the software to run. Before opening RC1, the owner must decide: (a) gather
+Cursor evidence when available and then open RC1, or (b) open RC1 with
+Cursor documented as an explicit known gap (not a silent assumption) and
+close it before the `v2.0.0` tag. Gemini CLI is correctly NOT part of this
+gate — it stays `repo_only` behind its own four-gate activation track. 3
+lesson candidates from the external-gate session (`.gitattributes`/render
+projection coverage, sandbox-vs-real-checkout verification gap, Codex
+smoke-prompt scope) await owner approval in evidence § External gates.
 
 ## Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES (all CLOSED)
 
