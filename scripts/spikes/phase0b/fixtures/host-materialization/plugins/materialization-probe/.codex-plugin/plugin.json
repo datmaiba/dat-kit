@@ -1,0 +1,18 @@
+{
+  "name": "materialization-probe",
+  "version": "0.1.0",
+  "description": "Disposable Phase 0B plugin-root materialization probe",
+  "author": {
+    "name": "dat-kit maintainers"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Materialization Probe",
+    "shortDescription": "Verify plugin-root file materialization.",
+    "longDescription": "Reads a sentinel bundled outside skills and reports the missing-file failure class.",
+    "developerName": "dat-kit maintainers",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": ["Run the materialization probe."]
+  }
+}

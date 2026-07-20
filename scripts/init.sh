@@ -65,6 +65,73 @@ copy_if_missing() { # $1 src, $2 dst
   else mkdir -p "$(dirname "$2")"; cp "$1" "$2"; echo "  + ${2#"$TARGET"/}"; CREATED=$((CREATED+1)); fi
 }
 
+validate_manifest_path() { # $1 canonical relative POSIX path
+  local value="$1" part
+  local -a manifest_parts=()
+  [ -n "$value" ] || return 1
+  # Allowlist (not denylist): a manifest path may contain only these
+  # characters. Everything else — shell metacharacters, backslashes,
+  # controls, spaces, quotes — is rejected before any file is written.
+  case "$value" in
+    /*) return 1 ;;
+    *[!A-Za-z0-9._/-]*) return 1 ;;
+  esac
+  IFS='/' read -r -a manifest_parts <<< "$value"
+  for part in "${manifest_parts[@]}"; do
+    [ -n "$part" ] && [ "$part" != "." ] && [ "$part" != ".." ] || return 1
+    case "$part" in *' '|*.) return 1 ;; esac
+  done
+}
+
+materialize_manifest() { # validates every row before publishing any file
+  local manifest="$DIR/templates/common/.dat-kit-files.tsv"
+  local header source target ownership action revision lifecycle extra target_key prior_key
+  local -a sources=() targets=() ownerships=() actions=() revisions=() lifecycles=()
+  [ -f "$manifest" ] || { echo "✗ SCAFFOLD_MANIFEST_MISSING: $manifest"; exit 1; }
+  IFS= read -r header < "$manifest"
+  case "$header" in
+    '# GENERATED FROM REGISTRY — DO NOT EDIT; source_revision='*) ;;
+    *) echo "✗ SCAFFOLD_MANIFEST_INVALID: bad provenance header"; exit 1 ;;
+  esac
+  while IFS=$'\t' read -r source target ownership action revision lifecycle extra; do
+    [ -n "$source$target$ownership$action$revision$lifecycle$extra" ] || continue
+    if [ -n "$extra" ] || ! validate_manifest_path "$source" || ! validate_manifest_path "$target"; then
+      echo "✗ SCAFFOLD_MANIFEST_INVALID: malformed row"; exit 1
+    fi
+    case "$ownership" in dat-kit|adapter|user) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: ownership"; exit 1 ;; esac
+    case "$action" in copy|render-pointer|preserve|RETIRE_LEGACY) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: action"; exit 1 ;; esac
+    case "$lifecycle" in repo_only|migration_ready|scaffold_active|retired) ;; *) echo "✗ SCAFFOLD_MANIFEST_INVALID: lifecycle"; exit 1 ;; esac
+    # render-pointer is defined as "render pointer semantics", not "byte-copy
+    # the template" — Bash cannot render, so an active render-pointer row must
+    # fail closed here, during validation, before anything is published.
+    if [ "$lifecycle" = "scaffold_active" ] && [ "$action" = "render-pointer" ]; then
+      echo "✗ SCAFFOLD_ACTION_UNIMPLEMENTED: active render-pointer rows require the Python renderer"; exit 1
+    fi
+    [[ "$revision" =~ ^dat-kit\ [0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
+      echo "✗ SCAFFOLD_MANIFEST_INVALID: revision"; exit 1;
+    }
+    if ! { [ -f "$DIR/$source" ] && [ ! -L "$DIR/$source" ]; }; then
+      echo "✗ SCAFFOLD_MANIFEST_INVALID: missing or linked source $source"; exit 1
+    fi
+    target_key="$(printf '%s' "$target" | tr '[:upper:]' '[:lower:]')"
+    for prior_key in "${targets[@]}"; do
+      [ "$target_key" != "$(printf '%s' "$prior_key" | tr '[:upper:]' '[:lower:]')" ] || {
+        echo "✗ SCAFFOLD_MANIFEST_INVALID: duplicate target $target"; exit 1;
+      }
+    done
+    sources+=("$source"); targets+=("$target"); ownerships+=("$ownership")
+    actions+=("$action"); revisions+=("$revision"); lifecycles+=("$lifecycle")
+  done < <(tail -n +2 "$manifest")
+  local index
+  for index in "${!sources[@]}"; do
+    [ "${lifecycles[$index]}" = "scaffold_active" ] || continue
+    case "${actions[$index]}" in
+      copy) copy_if_missing "$DIR/${sources[$index]}" "$TARGET/${targets[$index]}" ;;
+      *) echo "✗ SCAFFOLD_MANIFEST_INVALID: active non-materializing action"; exit 1 ;;
+    esac
+  done
+}
+
 fill_name() { # $1 file — replace placeholders in place (portable, no sed -i)
   local tmp; tmp="$(mktemp)"
   # escape sed-special chars in user input (\, &, and the | delimiter)
@@ -82,12 +149,7 @@ copy_if_missing "$TPL/common/CONTEXT.md" "$TARGET/CONTEXT.md"
 [ -e "$TARGET/CONTEXT.md" ] && fill_name "$TARGET/CONTEXT.md"
 AGENTS_EXISTED=false
 [ -e "$TARGET/AGENTS.md" ] && AGENTS_EXISTED=true
-copy_if_missing "$TPL/common/AGENTS.md" "$TARGET/AGENTS.md"
-# Keep this list synchronized with contract_check.py:POINTERS; pytest enforces it.
-copy_if_missing "$TPL/common/CLAUDE.md" "$TARGET/CLAUDE.md"
-copy_if_missing "$TPL/common/.claude/CLAUDE.md" "$TARGET/.claude/CLAUDE.md"
-copy_if_missing "$TPL/common/.cursorrules" "$TARGET/.cursorrules"
-copy_if_missing "$TPL/common/docs/agent-workflow.md" "$TARGET/docs/agent-workflow.md"
+materialize_manifest
 [ -e "$TARGET/lessons-learned/lessons-learned.md" ] && fill_name "$TARGET/lessons-learned/lessons-learned.md"
 if ! $AGENTS_EXISTED; then fill_name "$TARGET/AGENTS.md"; fi
 

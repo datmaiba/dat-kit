@@ -5,3 +5,6 @@ node_modules/
 __pycache__/
 .pytest_cache/
 .codex/config.toml
+.worktrees/
+.envrc
+phase1b-smoke/

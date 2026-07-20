@@ -1,7 +1,7 @@
 # knowledge-work — loop profile (advisory)
 
-> Advisory only — documents which loop each task fits; drives nothing at runtime. See `docs/loops.md`.
-> **Domain ceiling: Goal (human-run).** The load-bearing gate G2 (source–claim fidelity) needs a reader to close, so no task here unlocks Time or Proactive automation. This is the capability ladder working as intended.
+> Advisory only — documents which loop each task fits; drives nothing at runtime. The operative surface is the work-loop engine composed with this pack (loaded by the generated `knowledge-work` trigger). See `docs/loops.md`.
+> **Domain ceiling: Goal (human-run)** — mirrored in the descriptor's `loop_ceiling`. The gate that carries this domain's real quality — *does the cited source actually support the claim?* (G2) — cannot be closed mechanically; it needs a reader. So knowledge-work runs at **Turn** (drafts, brainstorming) or **Goal** (verified deliverables, reviewer-gated) and **never unlocks Time or Proactive automation.** That is the correct outcome of the capability ladder, not a limitation to route around.
 
 ## Per-task loops
 

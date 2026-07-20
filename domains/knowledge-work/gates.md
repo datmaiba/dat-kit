@@ -1,6 +1,6 @@
 # knowledge-work — gates
 
-Done-criteria for a knowledge-work deliverable. Each gate carries its worked cases and the way it can be gamed (per `domain-builder`'s validity rule). A gate marked **human-run** cannot be closed mechanically and caps the task at Goal.
+Done-criteria for a knowledge-work deliverable. Each gate carries its worked cases and the way it can be gamed (per the gate-validity rule, `docs/contracts/domain-pack.md` DP3.3). A gate marked **human-run** cannot be closed mechanically and caps the task at Goal.
 
 > Seeded from the Phase 0 paper validity check, which the practitioner (a dev who does research/writing) signed off. Verdict: valid, non-gameable gates exist for this domain; the load-bearing one is human-run.
 

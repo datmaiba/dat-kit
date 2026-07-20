@@ -1,0 +1,20 @@
+{
+  "name": "phase0b-probe",
+  "interface": {
+    "displayName": "Phase 0B Probe"
+  },
+  "plugins": [
+    {
+      "name": "materialization-probe",
+      "source": {
+        "source": "local",
+        "path": "./plugins/materialization-probe"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # build-loop — loop profile (advisory)
 
-> Advisory only. This documents which of dat-kit's four loops each build-loop task fits, and why. It drives nothing at runtime; `SKILL.md` remains the operative skill. See `docs/loops.md` for the model.
+> Advisory only. This documents which of dat-kit's four loops each build-loop task fits, and why. It drives nothing at runtime; the operative surface is the work-loop engine composed with this pack (loaded by the generated `build-loop` trigger). See `docs/loops.md` for the model.
 >
 > Domain: **software-dev.** build-loop *is* this domain's working loop. Its gate is the independent-reviewer chain (`qa-agent` → PHASE DONE, `code-reviewer` → APPROVE, `security-reviewer` when relevant) — a measurable, validated, but **human-/reviewer-anchored** gate, which is why this domain tops out at **Goal**.
 
@@ -13,7 +13,7 @@
 | Autopilot (multi-phase, hands-off) | **Goal** | user | all phases pass their inner review loop; stops early only for high-severity questions (secrets, destructive ops, spec deviation, cost, public contracts) |
 | Delegated build (orchestrator + builder subagents) | **Goal** | user | each dispatched task clears two-stage review (spec compliance → code quality) |
 | Resume an interrupted build | **Turn → Goal** | user | newest `handoffs/` file read; resumes the phase's Goal loop |
-| Plan review before the approval gate | **Turn** (inside a Goal run) | build-loop step 3 | `plan-reviewer` returns; user approves at the gate |
+| Plan review before the approval gate | **Turn** (inside a Goal run) | the PLAN phase | `plan-reviewer` returns; user approves at the gate |
 
 ## Loop ceiling for software-dev
 

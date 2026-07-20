@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import errno
+import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -15,23 +16,43 @@ import sys
 import tempfile
 from typing import Iterable
 
+from registry import Catalog, resolve_json_pointer
+
 ROOT = Path(__file__).resolve().parent.parent
-CONTRACT_REVISION = "dat-kit 1.16.0"
-SUPPORTED_CONTRACT_REVISIONS = (CONTRACT_REVISION,)
+# Fallbacks apply only when the registry itself fails to load; every load
+# failure is already reported as its own diagnostic.
+_FALLBACK_CANONICAL = "dat-kit 2.0"
+_FALLBACK_RECOGNIZED = ("dat-kit 2.0", "dat-kit 1.16.0")
 JSON_SCHEMA_VERSION = 1
+MAX_TARGET_READ_BYTES = 10 * 1024 * 1024  # brownfield DoS guard (security review, Phase 3)
 WORKING_RULES_MARKER = "<!-- dat-kit:working-rules -->"
 WORKING_RULES_SENTINEL = "This document is part of the canonical `AGENTS.md` contract."
 
-POINTERS = {
-    "claude-code": ("CLAUDE.md", ".claude/CLAUDE.md"),
-    "cursor": (".cursorrules",),
-    "codex": (),
-}
+_CATALOG_RESULT = Catalog.load(ROOT)
+_CATALOG = _CATALOG_RESULT if isinstance(_CATALOG_RESULT, Catalog) else None
+_CATALOG_DIAGNOSTICS = () if _CATALOG is not None else _CATALOG_RESULT
+_REVISION_MODEL = _CATALOG.revision_model() if _CATALOG is not None else None
+CONTRACT_REVISION = (
+    _REVISION_MODEL["canonical_revision"] if _REVISION_MODEL is not None else _FALLBACK_CANONICAL
+)
+GREEN_REVISIONS = tuple(
+    _REVISION_MODEL["green_revisions"] if _REVISION_MODEL is not None else (_FALLBACK_CANONICAL,)
+)
+MIGRATABLE_REVISIONS = tuple(
+    _REVISION_MODEL["migratable_source_revisions"] if _REVISION_MODEL is not None else ()
+)
+# Recognized = may appear in a project without making AGENTS.md a competing
+# contract. Recognition is NOT green (§2 invariant 6).
+SUPPORTED_CONTRACT_REVISIONS = (
+    GREEN_REVISIONS + MIGRATABLE_REVISIONS if _REVISION_MODEL is not None else _FALLBACK_RECOGNIZED
+)
+POINTERS = _CATALOG.pointer_inventory() if _CATALOG is not None else {}
 RUNTIMES = tuple(POINTERS) + ("other",)
 POINTER_TEMPLATES = {
-    "CLAUDE.md": "templates/common/CLAUDE.md",
-    ".claude/CLAUDE.md": "templates/common/.claude/CLAUDE.md",
-    ".cursorrules": "templates/common/.cursorrules",
+    artifact["target_relative_path"]: artifact["source_template"]
+    for adapter in (_CATALOG.adapters() if _CATALOG is not None else ())
+    for artifact in adapter["project_artifacts"]
+    if artifact["artifact_lifecycle"] == "scaffold_active"
 }
 CANONICAL_STATIC = {
     **POINTER_TEMPLATES,
@@ -52,12 +73,43 @@ KNOWN_DAT_KIT_AGENT_MARKERS = (
     "single canonical instruction entrypoint",
 )
 
+_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+_INLINE_CODE = re.compile(r"`[^`\n]+`")
+
+
+def _marker_scan_text(text: str) -> str:
+    """Text with fenced code blocks and inline code spans removed (FU-1).
+
+    Revision markers quoted inside a code fence or inline code span are
+    documentation ABOUT a marker, not a marker: a migration guide that
+    fences the old 1.16 header must not read as mixed-revision. Prose
+    mentions still count (pinned by test_mixed_markers_are_partial) —
+    only code regions are excluded. An unclosed fence runs to the end of
+    the document, matching CommonMark and failing on the safe side.
+    """
+    lines: list[str] = []
+    fence: str | None = None
+    for line in text.split("\n"):
+        if fence is None:
+            match = _FENCE_OPEN.match(line)
+            if match is not None:
+                fence = match.group(1)
+                continue
+            lines.append(line)
+        else:
+            stripped = line.strip()
+            if stripped.startswith(fence) and not stripped.strip(fence[0]):
+                fence = None
+    return _INLINE_CODE.sub("``", "\n".join(lines))
+
 ACTIONS = {
     "EXTRACT_THEN_REPLACE",
     "MERGE_REQUIRED",
     "INSPECT_REMOVE",
     "RENAME_REQUIRED",
     "BLOCKED_UNSAFE",
+    "MIGRATE_REPLACE",
+    "RETIRE_LEGACY",
 }
 
 
@@ -148,11 +200,12 @@ def normalized(path: Path) -> str:
 
 
 def package_version(root: Path = ROOT) -> str:
-    data = json.loads((root / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
-    value = data.get("version")
-    if not isinstance(value, str) or not value:
-        raise ValueError(".claude-plugin/plugin.json has no version")
-    return value
+    if root.resolve() == ROOT.resolve() and _CATALOG is not None:
+        return _CATALOG.release_version
+    loaded = Catalog.load(root)
+    if isinstance(loaded, Catalog):
+        return loaded.release_version
+    raise ValueError("registry Catalog is unavailable")
 
 
 def exact_path(root: Path, relative: str, report: Report) -> Path | None:
@@ -434,6 +487,19 @@ def _read_target(inspected: InspectedTargetPath, relative: str, report: Report) 
         flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
         descriptor = os.open(path, flags)
         opened = os.fstat(descriptor)
+        if opened.st_size > MAX_TARGET_READ_BYTES:
+            os.close(descriptor)
+            descriptor = None
+            report.add(
+                "CONTRACT_CONTENT_INVALID",
+                f"{relative}: file exceeds the {MAX_TARGET_READ_BYTES // (1024 * 1024)} MiB inspection limit",
+                path=relative,
+                classification="unsafe-path",
+                summary="target file too large to inspect safely",
+                evidence=("oversize",),
+                action="BLOCKED_UNSAFE",
+            )
+            return None
         after = path.lstat()
         if (
             not stat.S_ISREG(opened.st_mode)
@@ -795,26 +861,22 @@ def check_pointer(path: Path, template: Path, label: str, report: Report) -> Non
 
 
 def manifest_versions(report: Report) -> None:
-    sources = (
-        (".claude-plugin/plugin.json", lambda d: d.get("version")),
-        (".codex-plugin/plugin.json", lambda d: d.get("version")),
-        (".claude-plugin/marketplace.json", lambda d: d.get("plugins", [{}])[0].get("version")),
-    )
-    try:
-        expected = package_version()
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        report.add("MANIFEST_INVALID", f".claude-plugin/plugin.json: {exc}")
+    if _CATALOG is None:
+        for item in _CATALOG_DIAGNOSTICS:
+            report.add(item.code, f"{item.path}: {item.message}")
         return
-    for rel, getter in sources:
+    for target in _CATALOG.version_targets():
         try:
-            value = getter(json.loads((ROOT / rel).read_text(encoding="utf-8")))
-        except (OSError, ValueError, IndexError) as exc:
-            report.add("MANIFEST_INVALID", f"{rel}: {exc}")
+            document = json.loads((ROOT / target.path).read_text(encoding="utf-8"))
+            value = resolve_json_pointer(document, target.locator)
+        except (OSError, ValueError, IndexError, json.JSONDecodeError) as exc:
+            report.add("MANIFEST_INVALID", f"{target.path}: {exc}")
             continue
-        if value != expected:
-            # Preserve the published v1 diagnostic identifier even though the
-            # compared value is now explicitly the package version.
-            report.add("CONTRACT_REVISION_MISMATCH", f"{rel}: {value!r}, expected {expected!r}")
+        if value != target.expected_version:
+            report.add(
+                "CONTRACT_REVISION_MISMATCH",
+                f"{target.path}: {value!r}, expected {target.expected_version!r}",
+            )
 
 
 def check_repo(root: Path = ROOT) -> Report:
@@ -863,7 +925,11 @@ def check_repo(root: Path = ROOT) -> Report:
     except (OSError, ValueError) as exc:
         report.add("ADAPTER_INVALID", f"hooks.json: {exc}")
     agents = root / "templates/common/AGENTS.md"
-    if agents.exists() and CONTRACT_REVISION not in normalized(agents):
+    if agents.exists() and not any(
+        revision in normalized(agents) for revision in SUPPORTED_CONTRACT_REVISIONS
+    ):
+        # Templates must implement a recognized revision. They flip from the
+        # migratable source to the canonical revision at the Phase 4 cutover.
         report.add("CONTRACT_REVISION_MISMATCH", "templates/common/AGENTS.md revision is stale")
     manifest_versions(report)
     return report
@@ -940,6 +1006,196 @@ def _runtime_evidence(root: Path, relative: str, text: str) -> tuple[str, ...]:
     return tuple(evidence)
 
 
+def _hash_normalized(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _hash_static_target(relative: str, text: str, project_name: str | None) -> str:
+    """Hash a rendered static file in its descriptor-owned template form."""
+    if relative == "AGENTS.md" and project_name is not None:
+        rendered_title = f"# Agent contract — {project_name}\n"
+        if text.startswith(rendered_title):
+            text = "# Agent contract — {{PROJECT_NAME}}\n" + text[len(rendered_title):]
+    return _hash_normalized(text)
+
+
+def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], report: Report) -> str:
+    """Project-contract revision state machine (plan §3.6, contract R8).
+
+    Returns one of: green | migration-source | partial | unsupported |
+    unclassified. Recognition never certifies currency; only a green revision
+    produces no revision diagnostic. Read-only: never mutates the target.
+    """
+    if _REVISION_MODEL is None:
+        return "unclassified"  # registry load failure already reported
+    text_cache: dict[str, str | None] = {}
+
+    def read(relative: str) -> str | None:
+        if relative not in text_cache:
+            inspected = paths.get(relative)
+            if inspected is None or not inspected.exists:
+                text_cache[relative] = None
+            else:
+                text_cache[relative] = _read_target(inspected, relative, report)
+        return text_cache[relative]
+
+    matched: dict[str, dict[str, object]] = {}
+    scan_cache: dict[str, str | None] = {}
+
+    def scan(relative: str) -> str | None:
+        # FU-1: marker matching is fence/inline-code-aware.
+        if relative not in scan_cache:
+            text = read(relative)
+            scan_cache[relative] = None if text is None else _marker_scan_text(text)
+        return scan_cache[relative]
+
+    for descriptor in _REVISION_MODEL["revision_descriptors"]:
+        rules = descriptor["marker_rules"]
+        texts = [scan(rule["path"]) for rule in rules]
+        if texts and all(
+            text is not None and rule["required_text"] in text
+            for rule, text in zip(rules, texts)
+        ):
+            matched[descriptor["revision"]] = descriptor
+
+    green = [revision for revision in matched if revision in GREEN_REVISIONS]
+    sources = [revision for revision in matched if revision in MIGRATABLE_REVISIONS]
+
+    if green and sources:
+        report.add(
+            "CONTRACT_PARTIAL_MIGRATION",
+            f"AGENTS.md carries mixed revision markers: {', '.join(sorted(matched))}",
+            path="AGENTS.md",
+            classification="mixed-revision",
+            summary="disk state mixes contract revisions",
+            evidence=tuple(sorted(matched)),
+            action="MERGE_REQUIRED",
+        )
+        return "partial"
+
+    if green:
+        descriptor = matched[green[0]]
+        missing = [
+            relative
+            for relative in descriptor["required_pointer_paths"]
+            if paths.get(relative) is None or not paths[relative].exists
+        ]
+        if missing:
+            report.add(
+                "CONTRACT_PARTIAL_MIGRATION",
+                f"green marker present but required pointers missing: {', '.join(missing)}",
+                path=missing[0],
+                classification="partial-install",
+                summary="green revision with an incomplete pointer set",
+                evidence=tuple(missing),
+                action="MERGE_REQUIRED",
+            )
+            return "partial"
+        return "green"
+
+    if sources:
+        revision = sources[0]
+        descriptor = matched[revision]
+        customized: list[str] = []
+        untouched: list[str] = []
+        agents_text = read("AGENTS.md") or ""
+        agents_title = re.match(r"\A# Agent contract — ([^\n]+)\n", agents_text)
+        project_name = agents_title.group(1) if agents_title is not None else None
+        target_root_name = paths["AGENTS.md"].path.parent.name if paths.get("AGENTS.md") else None
+        if project_name != target_root_name:
+            project_name = None
+        # Descriptor hashes own the pristine bytes. Rendered fields are
+        # neutralized only when they match independent target metadata; every
+        # other divergence is user customization and fails closed to merge.
+        for relative, expected in sorted(descriptor["static_template_hashes"].items()):
+            text = read(relative)
+            if text is None:
+                continue
+            target_hash = _hash_static_target(relative, text, project_name)
+            (untouched if target_hash == expected else customized).append(relative)
+        agents_action = "MERGE_REQUIRED" if "AGENTS.md" in customized else "MIGRATE_REPLACE"
+        report.add(
+            "CONTRACT_MIGRATION_REQUIRED",
+            f"recognized migration source {revision}: run the migration plan; "
+            "recognition prevents data loss, it does not certify currency",
+            path="AGENTS.md",
+            classification="migration-source",
+            summary=f"project is on migratable revision {revision}",
+            evidence=tuple(f"untouched:{item}" for item in untouched),
+            action=agents_action,
+        )
+        legacy_pointer = ".cursorrules"
+        if legacy_pointer in untouched:
+            report.add(
+                "CONTRACT_MIGRATION_REQUIRED",
+                ".cursorrules is a retired-generation pointer: replace with the "
+                ".cursor/rules pointer only inside an approved migration plan",
+                path=legacy_pointer,
+                classification="retire-legacy",
+                summary="typed RETIRE_LEGACY pointer recognized",
+                evidence=("hash-match",),
+                action="RETIRE_LEGACY",
+            )
+        for relative in customized:
+            report.add(
+                "CONTRACT_MIGRATION_CONFLICT",
+                f"{relative}: customized since {revision}; preserved — approved "
+                "migration must merge, never overwrite",
+                path=relative,
+                classification="customized-source",
+                summary="customized file conflicts with migration",
+                evidence=("hash-mismatch",),
+                action="MERGE_REQUIRED",
+            )
+        return "migration-source"
+
+    agents_text = scan("AGENTS.md")
+    if agents_text is not None and any(
+        marker in agents_text for marker in KNOWN_DAT_KIT_AGENT_MARKERS
+    ):
+        version_like = re.search(r"dat-kit \d+[\w.\-]*", agents_text)
+        if version_like:
+            report.add(
+                "CONTRACT_UNSUPPORTED_REVISION",
+                f"unrecognized revision {version_like.group(0)!r}: unsupported-with-"
+                "guidance; migrate manually, no automatic mutation",
+                path="AGENTS.md",
+                classification="unsupported-revision",
+                summary="unknown dat-kit revision",
+                evidence=(version_like.group(0),),
+                action="MERGE_REQUIRED",
+            )
+            return "unsupported"
+        report.add(
+            "CONTRACT_PARTIAL_MIGRATION",
+            "recognizable dat-kit contract without a revision marker: ambiguous; "
+            "no automatic mutation",
+            path="AGENTS.md",
+            classification="ambiguous-no-marker",
+            summary="dat-kit files present without a revision marker",
+            evidence=("marker-missing",),
+            action="MERGE_REQUIRED",
+        )
+        return "partial"
+
+    if any(
+        (inspected := paths.get(legacy)) is not None and inspected.exists for legacy in LEGACY
+    ):
+        report.add(
+            "CONTRACT_UNSUPPORTED_REVISION",
+            "pre-marker dat-kit install recognized: unsupported-with-guidance; "
+            "see docs/codex.md, no automatic mutation",
+            path=LEGACY[0],
+            classification="pre-marker",
+            summary="pre-marker dat-kit generation detected",
+            evidence=("legacy-artifact",),
+            action="MERGE_REQUIRED",
+        )
+        return "unsupported"
+
+    return "unclassified"
+
+
 def check_target(target: Path) -> Report:
     report = Report()
     established = _target_root(target, report)
@@ -983,11 +1239,12 @@ def check_target(target: Path) -> Report:
     agents = paths.get("AGENTS.md")
     if agents is not None and agents.exists:
         text = _read_target(agents, "AGENTS.md", report)
-        if text is not None and (
-            "single canonical instruction entrypoint" not in text
-            or not any(revision in text for revision in SUPPORTED_CONTRACT_REVISIONS)
+        scanned = None if text is None else _marker_scan_text(text)  # FU-1
+        if scanned is not None and (
+            "single canonical instruction entrypoint" not in scanned
+            or not any(revision in scanned for revision in SUPPORTED_CONTRACT_REVISIONS)
         ):
-            recognizable = any(marker in text for marker in KNOWN_DAT_KIT_AGENT_MARKERS)
+            recognizable = any(marker in scanned for marker in KNOWN_DAT_KIT_AGENT_MARKERS)
             report.add(
                 "COMPETING_AGENTS",
                 "AGENTS.md is not the current dat-kit canonical contract",
@@ -997,6 +1254,8 @@ def check_target(target: Path) -> Report:
                 evidence=(("canonical-marker",) if recognizable else ()),
                 action="MERGE_REQUIRED",
             )
+
+    report.revision_state = _classify_target_revision(paths, report)
 
     for relative, template_relative in CANONICAL_STATIC.items():
         inspected = paths.get(relative)
@@ -1087,6 +1346,8 @@ def _action_instruction(action: str) -> str:
         "INSPECT_REMOVE": "INSPECT_RUNTIME_ADAPTER",
         "RENAME_REQUIRED": "RENAME_PATH",
         "BLOCKED_UNSAFE": "RESOLVE_UNSAFE_PATH",
+        "MIGRATE_REPLACE": "MIGRATE_FROM_SOURCE_REVISION",
+        "RETIRE_LEGACY": "REMOVE_LEGACY_POINTER",
     }[action]
 
 
@@ -1128,6 +1389,11 @@ def migration_plan(report: Report) -> dict[str, object]:
         if action == "EXTRACT_THEN_REPLACE":
             terminal = add_step("REPLACE_FROM_TEMPLATE", [path], [first], True)
             step_ids.append(terminal)
+        elif action == "RETIRE_LEGACY":
+            # .cursor/rules pointer is added only inside this approved plan —
+            # never by greenfield scaffolding (plan §6 Phase 3).
+            terminal = add_step("ADD_RULES_POINTER", [".cursor/rules/dat-kit.mdc"], [first], True)
+            step_ids.append(terminal)
         terminal_ids.append(terminal)
         groups.append(
             {
@@ -1138,7 +1404,11 @@ def migration_plan(report: Report) -> dict[str, object]:
                 "manual_review": True,
             }
         )
-        if action in {"EXTRACT_THEN_REPLACE", "MERGE_REQUIRED"}:
+        if action in {"MIGRATE_REPLACE", "RETIRE_LEGACY"}:
+            method = "BYTE_SNAPSHOT"
+            destination = None
+            reason = "SOURCE_REVISION" if action == "MIGRATE_REPLACE" else "LEGACY_POINTER"
+        elif action in {"EXTRACT_THEN_REPLACE", "MERGE_REQUIRED"}:
             method = "POLICY_INVENTORY"
             destination = "docs/agent-working-rules.md"
             reason = "POLICY_DESTINATION" if diagnostics[0].classification != "competing-contract" else "UNKNOWN_CONTENT"
@@ -1172,6 +1442,9 @@ def target_json(report: Report, *, mode: str, plan: dict[str, object] | None) ->
         "ok": not report.diagnostics,
         "package_version": package_version(),
         "contract_revision": CONTRACT_REVISION,
+        "green_revisions": list(GREEN_REVISIONS),
+        "migratable_source_revisions": list(MIGRATABLE_REVISIONS),
+        "revision_state": getattr(report, "revision_state", "unclassified"),
         "supported_contract_revisions": list(SUPPORTED_CONTRACT_REVISIONS),
         "diagnostics": [item.as_json() for item in report.diagnostics],
         "migration_plan": plan,

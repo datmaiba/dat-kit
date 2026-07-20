@@ -36,6 +36,19 @@ fixture before trusting the final green run.
 - Whenever a skill description changes, add or update its positive trigger case
   in `benchmarks/skill-evals.jsonl`.
 
+## Token discipline
+
+- Grep before Read; Read targeted line ranges of large files, never whole files
+  by default.
+- Never re-read a file just edited or already summarized in this session.
+- Resume from the newest `handoffs/` file instead of re-deriving state from the
+  tree.
+- Reviewer subagents run sequentially (never in parallel), read only the diff
+  plus touched files, cap their reports, and re-review findings-scoped — per
+  the scope-discipline blocks in `agents/*.md`.
+- A session executing a plan phase loads only that phase's section plus the
+  standing-discipline section — not the whole plan.
+
 ## Traps
 
 - Git line endings differ across Windows and Linux; compare normalized text.

@@ -7,6 +7,8 @@ Exit 0 = all green; exit 1 = findings printed.
 """
 import json, re, sys, glob, pathlib
 from contract_check import check_repo, validate_scorecard
+from registry import Catalog
+from render import check_outputs, expected_outputs
 
 try:
     import yaml
@@ -57,31 +59,59 @@ def exact_path(relative):
     return current
 
 
-# 1. Manifests
-plugin = json.load(open(ROOT / ".claude-plugin/plugin.json"))
-market = json.load(open(ROOT / ".claude-plugin/marketplace.json"))
-codex_plugin = json.load(open(ROOT / ".codex-plugin/plugin.json"))
-codex_market = json.load(open(ROOT / ".agents/plugins/marketplace.json"))
-check(plugin["name"] == "dat-kit", "plugin.json: unexpected name")
-check(re.match(r"^\d+\.\d+\.\d+", plugin.get("version", "")), "plugin.json: version must be semver")
-check(plugin["version"] == market["plugins"][0]["version"],
-      f"version mismatch: plugin.json {plugin['version']} vs marketplace.json {market['plugins'][0]['version']}")
-check(market["plugins"][0]["source"] == "./", "marketplace.json: source must be './'")
-check(plugin.get("hooks") == "./hooks.json", "plugin.json: hooks must be declared explicitly (auto-discovery unreliable in dev mode)")
-check(codex_plugin.get("name") == plugin["name"], "Codex plugin name must match Claude plugin name")
-check(codex_plugin.get("version") == plugin["version"], "Codex plugin version must match Claude plugin version")
-check(codex_plugin.get("skills") == "./skills/", "Codex plugin must expose the shared skills directory")
-check("hooks" not in codex_plugin, "Codex plugin must not reuse Claude's SessionStart hook")
-codex_entry = codex_market.get("plugins", [{}])[0]
-check(codex_entry.get("name") == plugin["name"], "Codex marketplace plugin name must match manifest")
-check(codex_entry.get("source", {}).get("source") == "url", "Codex marketplace must use a root-repo URL source")
-check(codex_entry.get("source", {}).get("url") == plugin["repository"], "Codex marketplace URL must match repository")
-check(codex_entry.get("policy") == {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
-      "Codex marketplace policy must be AVAILABLE / ON_INSTALL")
-check(codex_entry.get("category") == "Productivity", "Codex marketplace category must be Productivity")
+# 1. Registry Catalog and the only two committed projections.
+catalog_result = Catalog.load(ROOT)
+catalog = catalog_result if isinstance(catalog_result, Catalog) else None
+if catalog is None:
+    for diagnostic in catalog_result:
+        findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
+else:
+    # Governed-inventory sweep runs at validation time, not inside
+    # Catalog.load (a stray untracked file must not brick every consumer).
+    for diagnostic in catalog.validate_governed_inventory():
+        findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
+    for diagnostic in check_outputs(ROOT, expected_outputs(catalog)):
+        findings.append(f"{diagnostic.code}: {diagnostic.path}: {diagnostic.message}")
+
+# 1b. Engine revision entry — every registered domain's `required_engine_revision`
+# must resolve to a committed engine manifest whose declared revision matches, and
+# the engine policy file the manifest names must exist. A mismatch is the
+# composition stop (DOMAIN_ENGINE_REVISION_MISMATCH) enforced at validation time.
+if catalog is not None:
+    for domain in catalog.domains():
+        required = domain.get("required_engine_revision", "")
+        if not re.fullmatch(r"[a-z][a-z0-9-]*/[0-9]+", required or ""):
+            findings.append(f"{domain.get('domain_id')}: malformed required_engine_revision {required!r}")
+            continue
+        engine_id = required.split("/")[0]
+        manifest_path = ROOT / "engine" / engine_id / "engine.json"
+        check(manifest_path.is_file(),
+              f"{domain.get('domain_id')}: requires engine {required!r} but engine/{engine_id}/engine.json is missing")
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            findings.append(f"engine/{engine_id}/engine.json: invalid JSON: {e}")
+            continue
+        if not isinstance(manifest, dict):
+            findings.append(f"engine/{engine_id}/engine.json: manifest must be a JSON object")
+            continue
+        check(manifest.get("engine_revision") == required,
+              f"DOMAIN_ENGINE_REVISION_MISMATCH: {domain.get('domain_id')} requires {required!r} "
+              f"but engine/{engine_id}/engine.json declares {manifest.get('engine_revision')!r}")
+        # The policy path comes from data: require a repo-relative path with no
+        # parent escapes (ROOT / "/abs" discards ROOT; ".." walks out of it).
+        policy = manifest.get("policy", "")
+        policy_parts = pathlib.PurePosixPath(policy).parts if isinstance(policy, str) and policy else ()
+        policy_ok = bool(policy_parts) and not pathlib.PurePosixPath(policy).is_absolute() and ".." not in policy_parts
+        check(policy_ok, f"engine/{engine_id}/engine.json: policy must be a repo-relative path, got {policy!r}")
+        check(not policy_ok or (ROOT / policy).is_file(),
+              f"engine/{engine_id}/engine.json: declared policy file missing: {policy!r}")
 
 # 2. Skills
-for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
+skill_files = sorted(path for path in (ROOT / "skills").rglob("SKILL.md") if path.is_file())
+for f in skill_files:
     fm, text = frontmatter(f)
     if not fm:
         continue
@@ -89,29 +119,10 @@ for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
     check(len(fm.get("description", "")) < 1024, f"{f}: description {len(fm.get('description',''))} chars (limit 1024)")
     check(text.count("\n") < 500, f"{f}: body {text.count(chr(10))} lines (keep under 500)")
 
-# 2b. Pack-contract completeness — a Domain Pack's SKILL.md declares its slot
-# files in the five-slot table and states "Contract files live beside this one."
-# (that sentence is the pack-instance marker; domain-builder's SKILL.md carries
-# the same table as a *definition* and must not be checked). Every declared slot
-# file must exist beside the SKILL.md, and deliverables/ must hold >=1 template.
-# Guards against a pack shipping (or being authored) with dangling slot refs.
-SLOT_ROW = re.compile(r"^\|[^|]+\|\s*`([a-z0-9_.-]+\.md)`")
-for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
-    text = pathlib.Path(f).read_text(encoding="utf-8")
-    # quoted mentions (e.g. domain-builder instructing pack authors to include
-    # the marker) do not count — only the bare sentence marks a pack instance
-    if not re.search(r'(?<!")Contract files live beside this one', text):
-        continue
-    skill_dir = pathlib.Path(f).parent
-    for line in text.splitlines():
-        m = SLOT_ROW.match(line)
-        if m:
-            check((skill_dir / m.group(1)).exists(),
-                  f"{f}: declares slot `{m.group(1)}` but the file is not beside SKILL.md")
-    if re.search(r"^\|[^|]+\|\s*`deliverables/`", text, re.M):
-        deliv = skill_dir / "deliverables"
-        check(deliv.is_dir() and any(deliv.iterdir()),
-              f"{f}: declares `deliverables/` but the directory is missing or empty")
+# (2b retired at 4f: sentence-marker pack detection is gone. Registry
+# conformance — Catalog load + §3b reviewer resolution + render --check
+# byte-exact — is the only pack detection. Slot completeness for active
+# packs is enforced by Catalog.load's DOMAIN_SLOT_MISSING fail-closed path.)
 
 # 3. Agents
 for f in sorted(glob.glob(str(ROOT / "agents/*.md"))):
@@ -123,15 +134,32 @@ for f in sorted(glob.glob(str(ROOT / "agents/*.md"))):
     for key in ("name", "description", "tools"):
         check(key in fm, f"{f}: frontmatter missing '{key}'")
 
-# 3b. Agent-existence gate — the review team table in build-loop is the single source of truth
-build_loop = ROOT / "skills/build-loop/SKILL.md"
-for line in build_loop.read_text(encoding="utf-8").splitlines():
-    if line.startswith("| `"):
-        m = re.search(r"`([^`]+)`", line)
-        if m:
-            name = m.group(1)
-            check((ROOT / f"agents/{name}.md").exists(),
-                  f"build-loop references agent '{name}' but agents/{name}.md does not exist")
+# 3b. Reviewer-agent tables: legacy triggers own them inside SKILL.md; active
+# packs own them in <pack_location>/reviewers.md (the binding surface — the
+# rendered trigger carries no policy). Every `name` in a table row must
+# resolve to a committed agents/<name>.md charter.
+if catalog is not None:
+    for domain in catalog.domains():
+        trigger_path = ROOT / "skills" / domain["trigger"]["name"] / "SKILL.md"
+        check(trigger_path.is_file(), f"registered domain trigger is missing: {trigger_path.relative_to(ROOT)}")
+        if domain["lifecycle"] == "active":
+            table_path = ROOT / domain["pack_location"] / "reviewers.md"
+        else:
+            table_path = trigger_path
+        if not table_path.is_file():
+            continue
+        for line in table_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("| `"):
+                match = re.search(r"`([^`]+)`", line)
+                if match:
+                    name = match.group(1)
+                    # Only well-formed single-segment ids resolve to charters;
+                    # anything else (verdict vocabulary, a traversal like
+                    # `../x`) must never reach the filesystem probe.
+                    if not re.fullmatch(r"[a-z][a-z0-9-]*", name):
+                        continue
+                    check((ROOT / f"agents/{name}.md").exists(),
+                          f"{table_path}: references missing agents/{name}.md")
 
 # 4. Hooks
 hooks = json.load(open(ROOT / "hooks.json"))
@@ -163,7 +191,7 @@ if handoff_skill.is_file():
 BANNED = re.compile(r"datmba3|freighttracker|meoanca|30kft|yuranga|job.hunt", re.I)
 for f in glob.glob(str(ROOT / "**/*"), recursive=True):
     p = pathlib.Path(f)
-    if p.is_dir() or ".git/" in f or p.suffix not in {".md", ".json", ".sh", ".txt", ".tpl", ".py", ".yml", ".yaml"}:
+    if p.is_dir() or ".git/" in f or p.suffix not in {".md", ".json", ".sh", ".txt", ".tpl", ".py", ".yml", ".yaml", ".mdc", ".toml", ".tsv"}:
         continue
     if p.name == "validate.py":  # the gate itself names the patterns
         continue
@@ -177,7 +205,7 @@ for f in glob.glob(str(ROOT / "**/*"), recursive=True):
 # Catches the common failure of editing a description and silently breaking a
 # skill's triggering, or two skills fighting over the same trigger.
 skill_desc = {}
-for f in sorted(glob.glob(str(ROOT / "skills/*/SKILL.md"))):
+for f in skill_files:
     fm, _ = frontmatter(f)
     if fm and fm.get("name"):
         skill_desc[fm["name"]] = fm.get("description", "") or ""

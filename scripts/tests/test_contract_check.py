@@ -15,12 +15,35 @@ import contract_check as cc
 
 def scaffold_contract(target: Path) -> None:
     shutil.copytree(ROOT / "templates/common", target, dirs_exist_ok=True)
-    (target / "AGENTS.md").write_text(
-        (target / "AGENTS.md").read_text(encoding="utf-8").replace("{{PROJECT_NAME}}", "demo"),
-        encoding="utf-8",
-    )
+    project_name = target.name
+    for relative in (
+        "AGENTS.md",
+        "CONTEXT.md",
+        "lessons-learned/lessons-learned.md",
+    ):
+        path = target / relative
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("{{PROJECT_NAME}}", project_name),
+            encoding="utf-8",
+        )
     rules = target / "docs/agent-working-rules.md"
     rules.write_text("This document is part of the canonical `AGENTS.md` contract.\n", encoding="utf-8")
+
+
+def scaffold_v116_contract(target: Path) -> None:
+    # Frozen v1.16 project state. Since the slice-5a templates flip the live
+    # templates scaffold "dat-kit 2.0"; real 1.16 projects still carry the
+    # 1.16 marker line, which this fixture reconstructs byte-exactly (only
+    # the marker line ever differed between the 1.16 and 2.0 templates).
+    scaffold_contract(target)
+    agents = target / "AGENTS.md"
+    agents.write_text(
+        agents.read_text(encoding="utf-8").replace(
+            "**Canonical contract revision:** dat-kit 2.0",
+            "**Canonical contract revision:** dat-kit 1.16.0",
+        ),
+        encoding="utf-8",
+    )
 
 
 def codes(report):
@@ -40,9 +63,63 @@ def test_empty_brownfield_is_compatible(tmp_path):
     assert not cc.check_target(tmp_path).items
 
 
-def test_canonical_brownfield_is_compatible(tmp_path):
+def test_greenfield_scaffold_is_green_under_v2(tmp_path):
+    # Slice 5a exit proof: after the atomic templates flip a fresh scaffold
+    # carries the 2.0 marker and the full 2.0 pointer set — GREEN, no
+    # migration gate, no conflicts.
     scaffold_contract(tmp_path)
-    assert not cc.check_target(tmp_path).items
+    report = cc.check_target(tmp_path)
+    assert report.revision_state == "green"
+    assert "CONTRACT_MIGRATION_REQUIRED" not in codes(report)
+    assert not report.items
+
+
+def test_marker_inside_a_code_fence_does_not_count(tmp_path):
+    # FU-1 (phase-3 evidence): a fenced example quoting the old revision
+    # header is documentation ABOUT a marker, not a marker — it must not
+    # make a green project read as mixed-revision.
+    scaffold_contract(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        agents.read_text(encoding="utf-8")
+        + "\n## Migration example\n\n```markdown\n"
+        "**Canonical contract revision:** dat-kit 1.16.0\n```\n",
+        encoding="utf-8",
+    )
+    report = cc.check_target(tmp_path)
+    assert report.revision_state == "green"
+    assert "CONTRACT_PARTIAL_MIGRATION" not in codes(report)
+
+
+def test_marker_in_inline_code_does_not_count(tmp_path):
+    # FU-1: same rule for inline code spans. Prose mentions still count —
+    # that boundary is pinned by test_mixed_markers_are_partial in
+    # test_revision_states.py.
+    scaffold_contract(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        agents.read_text(encoding="utf-8")
+        + "\nMigrate any `dat-kit 1.16.0` project before enabling gates.\n",
+        encoding="utf-8",
+    )
+    report = cc.check_target(tmp_path)
+    assert report.revision_state == "green"
+    assert "CONTRACT_PARTIAL_MIGRATION" not in codes(report)
+
+
+def test_recognized_v116_is_migration_source_never_green(tmp_path):
+    # v2 state machine (plan §3.6): recognition prevents data loss, it does
+    # not certify currency — a clean 1.16 scaffold is nonzero, without
+    # conflicts, and its legacy pointer gets typed RETIRE_LEGACY semantics.
+    scaffold_v116_contract(tmp_path)
+    report = cc.check_target(tmp_path)
+    assert "CONTRACT_MIGRATION_REQUIRED" in codes(report)
+    assert "CONTRACT_MIGRATION_CONFLICT" not in codes(report)
+    assert report.revision_state == "migration-source"
+    retire = [
+        item for item in report.diagnostics if item.action == "RETIRE_LEGACY"
+    ]
+    assert [item.path for item in retire] == [".cursorrules"]
 
 
 @pytest.mark.parametrize(
@@ -392,8 +469,8 @@ def test_registry_separates_package_and_contract_versions():
     data = cc.registry_json()
     manifest = json.loads((ROOT / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
     assert data["package_version"] == manifest["version"]
-    assert data["contract_revision"] == "dat-kit 1.16.0"
-    assert data["supported_contract_revisions"] == ["dat-kit 1.16.0"]
+    assert data["contract_revision"] == "dat-kit 2.0"
+    assert data["supported_contract_revisions"] == ["dat-kit 2.0", "dat-kit 1.16.0"]
 
 
 def test_typed_pointer_diagnostics_preserve_legacy_items(tmp_path):
@@ -643,7 +720,16 @@ def test_cli_registry_json():
     assert data["supported_contract_revisions"] == list(cc.SUPPORTED_CONTRACT_REVISIONS)
 
 
-def test_init_pointer_copy_list_matches_registry():
+def test_init_consumes_generated_pointer_manifest_without_host_tuple():
     script = (SCRIPTS / "init.sh").read_text(encoding="utf-8")
+    manifest = (ROOT / "templates/common/.dat-kit-files.tsv").read_text(encoding="utf-8")
+    assert "materialize_manifest" in script
     for pointer in {path for paths in cc.POINTERS.values() for path in paths}:
-        assert f'TARGET/{pointer}' in script
+        assert f"\t{pointer}\t" in manifest
+        assert f'TARGET/{pointer}' not in script
+
+
+def test_ci_runs_for_version_tag_pushes():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "branches: [master, main]" in workflow
+    assert 'tags: ["v*"]' in workflow

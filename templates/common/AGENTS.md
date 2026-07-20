@@ -1,6 +1,6 @@
 # Agent contract — {{PROJECT_NAME}}
 
-**Canonical contract revision:** dat-kit 1.16.0
+**Canonical contract revision:** dat-kit 2.0
 
 This is the single canonical instruction entrypoint for every agent runtime in
 this repository. Compatibility files such as `CLAUDE.md`,

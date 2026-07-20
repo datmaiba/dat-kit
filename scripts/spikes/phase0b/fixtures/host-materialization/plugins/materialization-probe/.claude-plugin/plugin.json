@@ -1,0 +1,8 @@
+{
+  "name": "materialization-probe",
+  "version": "0.1.0",
+  "description": "Disposable Phase 0B plugin-root materialization probe",
+  "author": {
+    "name": "dat-kit maintainers"
+  }
+}
