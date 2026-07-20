@@ -416,6 +416,17 @@ retire with their source owner. A rollback reverts descriptor, implementation,
 projection, and fixtures as one slice; it never hand-edits a projection or
 restores duplicate policy.
 
+**Format freeze — dat-kit 2.0.0 release train (D-5b-B, 2026-07-20).** The
+registry format and the project-contract format are frozen for the 2.0.0
+release: `format_revision` is `1` across the bootstrap, every child, and every
+snapshot; the canonical project-contract revision is `dat-kit 2.0`;
+`green_revisions` is exactly `["dat-kit 2.0"]` and
+`migratable_source_revisions` is exactly `["dat-kit 1.16.0"]`. Any change to
+these values after the freeze is a format change under this section and reopens
+the release train. The freeze is mechanically pinned by
+`scripts/tests/test_format_freeze.py`; amending it requires updating that pin
+test and this statement in the same commit.
+
 ## R10. Review-only Python protocol sketch
 
 This non-executable sketch contains no semantics beyond R1–R9:
