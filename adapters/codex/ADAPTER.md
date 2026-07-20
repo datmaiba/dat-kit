@@ -79,7 +79,10 @@ python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan --
 
 The plan exits non-zero while drift remains and never changes the target.
 Review and approve it separately, then apply its steps and rerun the checker
-until exit 0.
+until exit 0. See [`docs/releases/migration-2.0.md`](../../docs/releases/migration-2.0.md) for a
+full walkthrough with proven-transcript examples and the exact fail-closed
+diagnostics (`CONTRACT_MIGRATION_REQUIRED`, `COMPETING_AGENTS`,
+`BROWNFIELD_CONTRACT_CONFLICT`) you may see.
 
 ### Contract file ownership (migration planner classification)
 

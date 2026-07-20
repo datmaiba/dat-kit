@@ -84,7 +84,7 @@ For an existing repository, `bash scripts/init.sh --here` first runs a read-only
 python "<DAT_KIT_ROOT>/scripts/contract_check.py" --target . --migration-plan
 ```
 
-Migration application remains manual and separately approved; the plan preserves project-owned policy (`AGENTS.md` customizations, `docs/agent-working-rules.md`) by semantic merge with a provenance heading — never byte-replacement.
+Migration application remains manual and separately approved; the plan preserves project-owned policy (`AGENTS.md` customizations, `docs/agent-working-rules.md`) by semantic merge with a provenance heading — never byte-replacement. See [`docs/releases/migration-2.0.md`](docs/releases/migration-2.0.md) for the full 1.16→2.0 walkthrough, including the failure diagnostics you'll see and the rollback path.
 
 ## Philosophy
 
