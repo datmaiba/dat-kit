@@ -38,7 +38,8 @@ the predecessors.
 | 4f | CLOSED — cutover closure: engine deletion test (dynamic half; keyed on the kw A→G correspondence, pinned row-identical ENGINE.md ↔ workflow.md); sentence-marker detection retired SINGLE FIRE (validate.py §2b + domain-builder quoted note in one commit; marker test final form — sentence nowhere on operative surfaces, archival prefixes excluded); docs/loops.md L7 six-slot rewrite + docs/domains.md re-derived + domains.example.json active rows (phase-1a example validator re-derived same commit); templates flip DEFERRED to Phase 5 by platform-owner decision (live template is hash-pinned as the v1.16 record — see 4f flags); whole-cutover sequential reviews over b41f242..HEAD: code APPROVE (1 INFO) + security APPROVE (1 LOW fixed fe7ced8, findings-scoped re-review APPROVE; 1 INFO rolled) | `docs/spikes/phase-4/evidence.md` |
 | **Phase 4** | **CLOSED** — all six slices closed; plan §6 Exit criteria proven in the evidence bundle | `docs/spikes/phase-4/evidence.md` |
 | 5a | CLOSED — atomic templates flip landed (2.0 snapshot + descriptor hashes + adapter rows + marker + tsv, D-5a-1 "historical = record" registry semantics with registry.md R6 amendment); FU-1 closed; 4f alias-embed security INFO closed; greenfield GREEN under v2 checker; 1.16 snapshot byte-identical; code + security APPROVE (0 actionable) | `docs/spikes/phase-5/evidence.md`, commits `d1e9d14..ede8670` |
-| 5 (rest) | OPEN — steps 2–11: version bump, format freeze, RC bundle, host smokes, real-project migration, rollback rehearsal, docs sweep, tag | — |
+| 5b | CLOSED — format freeze (R9 statement + pin test, D-5b-B) + release_version 2.0.0 (D-5b-A, mirrored ×3); render byte-check no-op; suites 275+3; Linux clean-install smoke green (incl. idempotent rerun); clean + customized v1.16 fixtures migrated via --migration-plan → checker exit 0 with custom policy preserved; 3 approved 5a lessons appended; code APPROVE (1 MINOR, 1 INFO) + security APPROVE (0 findings) | `docs/spikes/phase-5/evidence.md` §5b, commits `6181816..024882b` |
+| 5 (rest) | OPEN — steps 6 (external), 8 RC bundle, 9 rollback rehearsal, 10 docs sweep, 11 migration guide + tag; external halves of 5 (Windows smoke) and 7 (real project) | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -157,6 +158,22 @@ Three lesson candidates await owner approval in the 5a evidence §last.
 Still with later slices: release_version bump (platform.json still
 "1.17.1"), format freeze, RC bundle, rollback rehearsal, docs sweep
 (README/HUONG_DAN still describe 1.16 scaffolds where applicable), tag.
+
+5b deferrals/flags → later Phase 5 slices: 5a lesson candidates RESOLVED
+(all 3 approved + appended, `6181816`). Format freeze is BINDING from 5b
+(registry.md R9 + `scripts/tests/test_format_freeze.py`): any
+format_revision bump, canonical-revision change, or green/migratable list
+edit before the v2.0.0 tag reopens the release train and must update BOTH
+the R9 statement and the pin test in one commit. release_version is
+"2.0.0" everywhere (platform.json + 3 mirrors) — the rollback rehearsal
+(step 9) must prove reverting to v1.17.1 tooling against this state.
+Code-review INFO rolled: freeze coupling is docs→test only (deleting the
+pin test is not mechanically caught). Migration-apply is proven by live
+fixture transcripts in evidence §5b, not by a pin test — mechanizing it is
+an optional later-slice candidate. Docs sweep (step 10) now also owns the
+stale "1.17.1" citations in README/HUONG_DAN/docs/codex.md. External
+halves still open: Windows Git Bash clean-install smoke (step 5), one real
+v1.16 project migration (step 7), live host smokes (step 6).
 
 ## Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES (all CLOSED)
 

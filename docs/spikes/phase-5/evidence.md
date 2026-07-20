@@ -127,3 +127,118 @@ immutability story); Option C (halt the slice).
    bypass must require editing an equal-or-higher-trust, independently
    gated artifact, AND the relaxed artifact must have no data-flow into
    privileged outputs. Both were shown here; require both next time.
+
+---
+
+# Phase 5 evidence — slice 5b: format freeze + 2.0.0 bump + suites + smokes + fixture migrations
+
+Branch `feature/open-platform-v2`. Baseline `86091ac` (5a close) + `c1ffaf0`
+(session-order doc, owner-committed — accepted as a benign deviation from the
+dictated HEAD; history beneath matched exactly). Slice range
+`c1ffaf0..024882b` + this evidence commit. Executed 2026-07-20 (Windows
+Cowork sandbox; suites run on an rsync'd local copy of the exact tree per the
+5a machine-quirk protocol).
+
+## Decisions (owner-confirmed at session start, one batch)
+
+- **Scope**: plan §6 steps 1–5 + 7 repo-side confirmed as proposed; OUT: RC
+  bundle (8), rollback (9), docs sweep (10), tag (11), live host smokes (6).
+- **D-5b-A — straight bump to 2.0.0** (no rc suffix). Rationale: Phase 5
+  Exit requires "RC artifact equals tagged artifact"; an rc-suffixed version
+  string would force a post-RC diff. RC1/RC2 (step 8) are evidence bundles,
+  not version strings.
+- **D-5b-B — freeze = docs statement + pin test, coupled.** R9 freeze block
+  in `docs/contracts/registry.md` + `scripts/tests/test_format_freeze.py`;
+  amending either requires the other in the same commit (docs→test coupling
+  enforced by the anchor test).
+- **5a lesson candidates: all 3 approved** and appended first
+  (`6181816`).
+
+## 5b deliverables
+
+1. **Lessons harvest** — `6181816`: snapshot dual-role deadlock,
+   subtractive-normalizer invariant, trust-domain equivalence test.
+2. **Step 1 tail + step 2** — `291dd78`: R9 format-freeze statement
+   (format_revision 1 everywhere; canonical `dat-kit 2.0`; green/migratable
+   lists frozen) + `release_version` 1.17.1→2.0.0 in platform.json with all
+   three version_targets mirrored (marketplace.json, .claude-plugin
+   plugin.json, .codex-plugin plugin.json).
+3. **Tests** — `024882b`: `test_format_freeze.py` (4 tests: format_revision
+   pin across bootstrap/children/snapshots, contract-revision state pin,
+   child-revision/bootstrap-row equality, docs-anchor coupling) +
+   `test_registry_catalog.py` release_version expectation → 2.0.0.
+
+## Proofs
+
+- **Gates (committed tree `024882b`)**: pytest → **275 passed, 3 skipped**
+  (baseline 271+3; +4 freeze tests, 0 removed). `validate.py` → "✓ all
+  checks green" (incl. version-mirror equality at 2.0.0 and the skill-eval
+  corpus check — the step-4 skill-eval suite). `render.py --check` → exit 0:
+  the step-3 byte-check is the required NO-OP (version strings reach no
+  rendered projection).
+- **Red-before-green (new gate only)**: on a disposable copy, mutating
+  `registry/domains.json` `format_revision`→2 failed
+  `test_format_revision_is_frozen_at_1_everywhere`; stripping the R9 anchor
+  failed `test_freeze_statement_anchored_in_registry_contract`; clean tree
+  → 4 passed.
+- **Step 5 Linux clean-install smoke (live)**: empty dir → `init.sh --here
+  --profile react` exit 0 → `contract_check.py --target` exit 0 → AGENTS.md
+  carries "**Canonical contract revision:** dat-kit 2.0"; rerun of init.sh
+  exit 0 + recheck exit 0 (idempotent). **Windows Git Bash smoke = EXTERNAL
+  gate for the maintainer** (hosts absent in sandbox).
+- **Step 7 repo-side — v1.16 fixture migrations** (via
+  `contract_check.py --migration-plan`, steps applied as dictated,
+  byte-snapshots kept):
+  - *Clean* (`scaffold_v116_contract`): pre-check exit 1
+    (CONTRACT_MIGRATION_REQUIRED ×2); plan S001–S005; applied
+    MIGRATE_REPLACE AGENTS.md (2.0 template), RETIRE .cursorrules, ADD
+    `.cursor/rules/dat-kit.mdc` (copy, hash-pinned adapter row); post-check
+    **exit 0**.
+  - *Customized* (same + hash-pinned `docs/agent-workflow.md` customized +
+    user spec content): pre-check exit 1 adds CONTRACT_MIGRATION_CONFLICT +
+    PARTIAL_INSTALL_MISMATCH; plan adds S005 MERGE_CANONICAL_POLICY with
+    PRESERVATION destination `docs/agent-working-rules.md`; applied merge —
+    canonical workflow bytes restored, custom policy appended to the
+    user-owned destination with a provenance heading; post-check **exit 0**;
+    custom policy text and user spec content verified present after
+    migration. **"One real v1.16 project" half stays EXTERNAL** with the
+    maintainer.
+
+## Review (per §16: sequential, diff-scoped, ≤30-line reports)
+
+- code-reviewer over `c1ffaf0..024882b`: **APPROVE** — 1 MINOR
+  (`test_child_revisions_match_bootstrap_rows` re-implements Catalog's
+  REGISTRY_CHILD_REVISION_MISMATCH check and slightly overreaches the
+  D-5b-B freeze charter; intentional pin redundancy, kept), 1 INFO
+  (coupling is docs→test only: deleting the pin test while docs stay is not
+  mechanically caught — future hardening candidate).
+- security-reviewer (fired: registry data touched): **APPROVE** — 0
+  findings. Invariants confirmed: UNSAFE_FIELD_CHARS pin, `_marker_scan_text`,
+  1.16 snapshot, eval phrases all untouched; "2.0.0" flows only into the
+  version-mirror equality check, no rendered surface.
+- No fix rounds; no findings-scoped re-review needed.
+
+## Auto-decisions logged this slice (low severity)
+
+1. HEAD `c1ffaf0` (session-order doc) accepted as benign vs. the dictated
+   `86091ac`; history beneath verified identical.
+2. No end-to-end migration-apply pin test added (beyond the dictated
+   deliverable; the applied transcripts above are the evidence) — candidate
+   for a later slice if the owner wants it mechanized.
+3. Customized-fixture merge wrote the preserved policy under a provenance
+   heading in `docs/agent-working-rules.md` (the plan's stated PRESERVATION
+   destination).
+
+## Known limitations / rolled forward
+
+- Remaining Phase 5: RC bundle (8), rollback rehearsal to v1.17.1 (9), docs
+  sweep (10 — README/HUONG_DAN/codex.md still cite 1.17.1/1.16 where
+  applicable), migration guide + tag (11), live host smokes (6).
+- External gates unchanged: push + real Actions runs (Ubuntu + Windows),
+  Windows Git Bash clean-install smoke, real v1.16 project migration, live
+  host smokes per ADAPTER.md.
+- Code-review INFO to roll: one-way freeze coupling (see review above).
+
+## Lesson candidates (5b)
+
+None — the slice applied existing lessons; reviewers proposed none.
