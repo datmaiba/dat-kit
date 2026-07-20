@@ -4,6 +4,30 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-21 — A scorecard line can pass the run it describes and still fail the gate that reads it back
+
+- **What happened**: the RC1 scorecard append (`5154f3f`, `benchmarks/scorecard.jsonl` line 23) recorded `"agent_runtime": "cowork"`, a value `validate_scorecard()`'s `RUNTIMES` tuple (`tuple(POINTERS) + ("other",)`, `scripts/contract_check.py:50`) does not accept. Every prior Cowork session on this branch had correctly used `"other"`. `validate.py` was green on the commit that was reviewed (`dc3fe81`, 22 lines) and only went red one commit later when the RC1 handoff commit appended line 23 — so the RC bundle's "gates green" claim was true of the tree it cited and false of HEAD by the time step 11 started.
+- **Root cause**: the scorecard skill's HARVEST step writes the append and reports success from the write succeeding, not from re-running `validate.py` afterward — so a malformed enum value can land, get committed, and sit undetected until the next session's independent gate run.
+- **Rule**: any HARVEST step that appends to a file `validate.py` checks must re-run `validate.py` (or the specific check) after the append, in the same phase, before declaring the phase's gates green — a write succeeding is not the same claim as the write being valid. This is the append-only sibling of "a green gate proves nothing until you've seen it fail": here the miss was a green gate not re-run after its own precondition changed.
+
+---
+
+### 2026-07-21 — An evidence bundle that lists planned and completed files under one heading breaks its own citation contract
+
+- **What happened**: RC1 code review found the evidence bundle's diff-scope statement mixed files it had already touched with files it only planned to touch, under a single undifferentiated list — a reader could not tell proof from intent by looking at the list alone.
+- **Root cause**: the diff-scope statement was drafted from the session order's plan and never regenerated from the actual `git diff` at commit time, so "planned" and "done" silently merged.
+- **Rule**: an evidence artifact's diff-scope statement must be generated from the real diff at commit time, never copied from the plan that preceded it. If a planned-but-not-done item needs mentioning, label it explicitly as such in its own line.
+
+---
+
+### 2026-07-21 — A self-referential review pointer inside a document cannot cite the commit that reviewed it
+
+- **What happened**: RC1 code review found §10 of the bundle pointing to "see §10" for its own review record — scaffolding that survived into a release artifact, and structurally incapable of citing the RC commit hash since the document can't contain its own future hash.
+- **Root cause**: the review-record placeholder was drafted before the commit existed and never replaced with a real pointer once it did.
+- **Rule**: a review verdict belongs in a commit message or a follow-up appendix that can cite the reviewed commit's hash — never a self-reference inside the document being reviewed. Replace draft placeholders with real pointers in the same commit that closes the review round.
+
+---
+
 ### 2026-07-20 — `* text=auto` let a Windows checkout rewrite a byte-compared generated file
 
 - **What happened**: the first real push of `feature/open-platform-v2` failed the Windows Actions job with `PROJECTION_BYTE_MISMATCH` on `skills/build-loop/SKILL.md` and `skills/knowledge-work/SKILL.md`. `.gitattributes` pinned `registry/**`, `templates/**`, `*.py` and `*.sh` to `eol=lf` but not the generated skill projections, so a `core.autocrlf=true` checkout (the GitHub-hosted Windows default) normalized their committed LF bytes to CRLF while `render.py` always emits LF — `validate.py`'s byte-compare failed on Windows only. Fixed in `ba77045` by adding `skills/**/SKILL.md text eol=lf`.
