@@ -111,12 +111,14 @@ not edited to match. 13 is correct; all 13 are verified below.
 | 10 | `AGENTS.md` remains the only generated-project policy owner; initial adapters are thin and lifecycle-governed | **PASS** | All four adapters declare `policy_prohibition.canonical_owner: "AGENTS.md"` with forbidden categories (re-read at RC time). Lifecycles are the typed four-state machine: `claude-code` `scaffold_active`, `cursor` `migration_ready`, `codex` `repo_only`, `gemini-cli` `repo_only`. Adapter artifacts are pointers (`.claude/CLAUDE.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/dat-kit.mdc`) with `ownership_class: adapter`, never policy. Conformance: `test_adapter_conformance.py`; Phase 2 bundle `docs/spikes/phase-2/evidence.md`. |
 | 11 | v1.16 recognized only as a migration source, never green; clean + customized fixtures + one real project pass without silent mutation; `.cursorrules` has typed `RETIRE_LEGACY` semantics | **PASS** | Registry (re-read): `green_revisions: ["dat-kit 2.0"]`, `migratable_source_revisions: ["dat-kit 1.16.0"]` — 1.16 is never green. Fixtures: clean + customized v1.16 migrated via `--migration-plan` → checker exit 0 with custom policy preserved (evidence §5b). **Real project**: Gate 3, owner's blog project via isolated clone — plan S001–S005, applied, `contract_check` exit 0, and `docs/agent-working-rules.md` sha256 **identical before and after** (`736ec0c6…87e69`); the real working tree never touched. `RETIRE_LEGACY` is a typed action in `MATERIALIZATION_ACTIONS` (`scripts/registry.py:35`) and `contract_check.py:112,1122-1124,1337,1379` maps `.cursorrules` → `REMOVE_LEGACY_POINTER`; `test_contract_migration.py`. |
 | 12 | Governed roots have no orphan product paths; `explain-evolution` works as the manual improvement path | **PASS** | Orphan check is not merely tested but **executed on every run**: `validate.py:71` calls `catalog.validate_governed_inventory()` (`registry.py:913`), which emits `EVOLUTION_ORPHAN_PATH` / `EVOLUTION_OWNERSHIP_AMBIGUOUS`; `validate.py` is green at RC time, so the live tree has zero orphans. Negative case pinned by `test_new_governed_product_path_without_component_is_orphaned`. `explain-evolution` **run live at RC time** (§2 above), returning full governance for a real governed path — not asserted. |
-| 13 | Full release train, rollback, RC evidence, and tag complete | **CLOSED — step 11** | Release train steps 1–10 complete: freeze + bump (§5b), render/byte-check (§3), suites (§2), Windows + Linux clean-install smokes (Gate 2, §5b), host smokes (Gate 4), fixture + real-project migration (§5b, Gate 3), **RC evidence = this document**, rollback rehearsal (§5c Deliverable 1, transcript runs A–E). Step 11 closed it: migration guide (`docs/releases/migration-2.0.md`), release notes (`docs/releases/v2.0.0.md`), `release/1.x` own-branch gate re-verification, and the `v2.0.0` annotated tag. Receipt: `docs/spikes/phase-5/evidence.md` § Step 11. |
+| 13 | Full release train, rollback, RC evidence, and tag complete | **OPEN at this commit — every prerequisite done; closes at the tag** | Release train steps 1–10 complete: freeze + bump (§5b), render/byte-check (§3), suites (§2), Windows + Linux clean-install smokes (Gate 2, §5b), host smokes (Gate 4), fixture + real-project migration (§5b, Gate 3), **RC evidence = this document**, rollback rehearsal (§5c Deliverable 1, transcript runs A–E). Step 11 added the last prerequisites: migration guide (`docs/releases/migration-2.0.md`), release notes (`docs/releases/v2.0.0.md`), and `release/1.x` own-branch gate re-verification — see `docs/spikes/phase-5/evidence.md` § Step 11. The `v2.0.0` annotated tag is the single remaining act; it cannot be receipted from inside the tree it tags, so **closure with real hashes is recorded in a post-tag commit**, not here. |
 
 **Result at RC time: 12 PASS · 1 OPEN-by-design (item 13, the tag) · 0 STOP.**
 No §13.1 item failed verification, and no item was closed on assumption.
-**Updated at step 11 closure: 13 PASS · 0 OPEN · 0 STOP** — see the item 13 row
-above and `docs/spikes/phase-5/evidence.md` § Step 11.
+**At the step-11 pre-tag commit: still 12 PASS · 1 OPEN · 0 STOP** — item 13's
+every prerequisite is now receipted, but the tag itself is the act that closes
+it, and it cannot be cited from inside the tree it tags. The post-tag commit
+records **13 PASS · 0 OPEN · 0 STOP** with the real tag and commit hashes.
 
 ## 5. Fixtures and results (cited)
 
@@ -261,8 +263,9 @@ Rehearsed live at 5c (evidence §5c Deliverable 1), not theorized:
 
 ## 11. RC verdict and what step 11 still needs
 
-**RC1 status: CLOSED via step 11.** Owner gave go on this bundle 2026-07-21;
-step 11 (separate session) closed all five remaining items:
+**RC1 status: discharged by step 11.** Owner gave go on this bundle
+2026-07-21; step 11 (separate session) resolved all five remaining items — four
+closed in-tree, the fifth (the tag) closed by the tag itself:
 
 1. Owner **go/no-go on this bundle** — ✅ go, 2026-07-21.
 2. Cursor gap — ✅ **formally accepted** as a shipped known limitation (D-11-A),
@@ -272,9 +275,11 @@ step 11 (separate session) closed all five remaining items:
 4. **`release/1.x` gates re-verified on its own branch** — ✅ isolated worktree
    at `ee4b982`, pytest 88 passed/3 skipped, `validate.py` exit 0 (D-11-B).
    Receipt: `docs/spikes/phase-5/evidence.md` § Step 11.
-5. **Tag from the approved RC commit** — ✅ annotated `v2.0.0`, tagged tree =
-   the RC-approved tree plus release documentation and the D-11-F correction
-   (D-11-D). All 13 §13.1 items now PASS.
+5. **Tag from the approved RC commit** — the annotated `v2.0.0` tag is cut on
+   the step-11 pre-tag commit; tagged tree = the RC-approved tree plus release
+   documentation and the D-11-F correction (D-11-D, the reading recorded
+   explicitly rather than resolved silently). Hashes are recorded in the
+   post-tag commit, which is where §13.1 item 13 reads CLOSED.
 
 One item surfaced during step 11 that RC1 could not have caught: **D-11-F**, a
 scorecard `agent_runtime` value invalid at the time this bundle was written

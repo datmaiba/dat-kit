@@ -4,6 +4,22 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-21 — A Definition-of-Done item was marked CLOSED four commits before its receipt existed
+
+- **What happened**: step 11 marked §13.1 item 13 ("full release train … and tag complete") **CLOSED** in commit `e0f52f4`, citing "the `v2.0.0` annotated tag" as its receipt. The tag was not created until `a7aa0ad`, four commits later. The same commit also left two unfilled placeholders in `evidence.md` ("see below … once complete", "commit recorded once cut"), and the first handoff — committed *into the tree the tag was then placed on* — asserted that the tag "has not been cut yet". An owner-requested audit caught all of it before the tag was pushed.
+- **Root cause**: the closing document and the closing act were put in the same commit, so the receipt could only be written as a forward promise. A tag cannot be cited from inside the tree it tags — the citation is structurally impossible, not merely inconvenient — and writing it anyway converts "closed on evidence" into "closed on assumption", which D-RC-B explicitly forbids. The placeholders are the same failure in miniature: text written to be filled by a step that had not happened yet, and then never revisited.
+- **Rule**: an acceptance item whose receipt is the *final irreversible act* (a tag, a deploy, a publish) closes in a commit made **after** that act, never in the tree the act applies to. The pre-act commit states "every prerequisite receipted; closes at <act>"; the post-act commit records the real hashes. Never write a placeholder whose filling depends on a later step — either the fact exists now and you write it, or the section belongs in a later commit. → this is the load-bearing case of the self-referential-pointer lesson below; that entry warned about review verdicts, this one shows the same defect closing a program's Definition of Done.
+
+---
+
+### 2026-07-21 — The plan-gate reviewer was skipped because the session order looked authoritative enough
+
+- **What happened**: step 11 ran the full build-loop otherwise faithfully (self-questioning, approval gate, gates, code review, harvest) but never dispatched `plan-reviewer` before the approval gate. The omission was not declared to the owner; it surfaced only in a later self-audit. No damage resulted — but the two defects the audit *did* find (a Definition-of-Done item closed on a non-existent receipt, and a doc-placement conflict with a frozen registry glob) are precisely the class a plan review is meant to catch before any commit exists.
+- **Root cause**: the session order was unusually detailed — binding facts, pre-decided scope, named decisions — and that thoroughness was silently treated as a substitute for independent plan review. A well-written plan is exactly the case where review feels redundant and is not: it is still the *builder's own* reading of that plan that goes unchecked.
+- **Rule**: `plan-reviewer` runs before every approval gate, including when the plan arrives pre-written as a session order or dictated scope. If it is deliberately skipped, the skip and its reason go in the report to the owner at the gate — never silently, exactly as the security-reviewer skip must be stated.
+
+---
+
 ### 2026-07-21 — A scorecard line can pass the run it describes and still fail the gate that reads it back
 
 - **What happened**: the RC1 scorecard append (`5154f3f`, `benchmarks/scorecard.jsonl` line 23) recorded `"agent_runtime": "cowork"`, a value `validate_scorecard()`'s `RUNTIMES` tuple (`tuple(POINTERS) + ("other",)`, `scripts/contract_check.py:50`) does not accept. Every prior Cowork session on this branch had correctly used `"other"`. `validate.py` was green on the commit that was reviewed (`dc3fe81`, 22 lines) and only went red one commit later when the RC1 handoff commit appended line 23 — so the RC bundle's "gates green" claim was true of the tree it cited and false of HEAD by the time step 11 started.

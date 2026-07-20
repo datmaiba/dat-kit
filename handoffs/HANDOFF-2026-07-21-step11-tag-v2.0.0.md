@@ -28,12 +28,18 @@ not resolved this session (out of step-11 scope).
 
 ## Git state
 
-Branch `feature/open-platform-v2`. HEAD at handoff: `54dafce`. Tree clean.
-Commits this session, in order: `8143a32` (lessons) → `d97c218` (D-11-F fix)
-→ `fe985a4` (migration guide) → `e7820c9` (release notes) → `e0f52f4`
-(release/1.x evidence + §13.1 closure) → `238d7fb` (review fix-up) →
-`54dafce` (scorecard). **The `v2.0.0` tag has not been cut yet as of this
-handoff** — it is the immediate next action.
+Branch `feature/open-platform-v2`. Tree clean. Commits this session, in order:
+`8143a32` (lessons) → `d97c218` (D-11-F fix) → `fe985a4` (migration guide) →
+`e7820c9` (release notes) → `e0f52f4` (release/1.x evidence + step-11
+evidence) → `238d7fb` (review fix-up) → `54dafce` (scorecard) → `a7aa0ad`
+(first handoff) → an audit fix-up commit (this file's corrections, F1–F5
+below) which is **the commit the `v2.0.0` tag is cut on** → a post-tag commit
+recording the tag hash and §13.1 item 13 closure.
+
+**This file lives inside the tagged tree, so it states no hash it cannot
+contain.** The tag's own hash and the tagged commit's hash are recorded in the
+post-tag commit and in `docs/spikes/phase-5/evidence.md` § Step 11 as amended
+there — verify mechanically with `git rev-list -n1 v2.0.0`.
 
 ## State
 
@@ -50,25 +56,34 @@ handoff** — it is the immediate next action.
 6. `release/1.x` gates re-verified in an isolated worktree at its own HEAD
    `ee4b982`: pytest 88 passed/3 skipped, `validate.py` exit 0 (`e0f52f4`).
 7. `docs/spikes/phase-5/evidence.md` § Step 11 + `docs/spikes/phase-5/rc1-bundle.md`
-   §4 row 13 / §11 updated — §13.1 now reads **13 PASS / 0 OPEN / 0 STOP**
-   (`e0f52f4`).
+   §4 row 13 / §11 updated with step-11 decisions, proofs, and item-13 status
+   (`e0f52f4`, corrected by the audit fix-up).
 8. code-reviewer APPROVE (1 MINOR, fixed in `238d7fb`); security-reviewer
    SKIPPED, stated reason (docs + one data-line correction, no
-   registry/migration/path surface touched).
+   registry/migration/path surface touched). Verdict recorded in
+   `evidence.md` § Step 11 → Review.
 9. Scorecard line for step 11 appended and re-validated post-append
    (`54dafce`).
+10. **Owner-requested self-audit of this session** found five defects, all
+    fixed in the audit fix-up commit this tag sits on: (F1) §13.1 item 13 was
+    marked CLOSED citing the tag as receipt four commits *before* the tag
+    existed — closing on assumption, which D-RC-B forbids; (F2) the first
+    handoff, inside the tagged tree, asserted the tag "has not been cut yet";
+    (F3) two unfilled placeholders survived into `evidence.md`
+    ("see below … once complete", "commit recorded once cut") — the exact
+    defect the 2026-07-21 self-referential-pointer lesson warns about;
+    (F4) the README roadmap still listed migration guide and tag as
+    "remaining" and left v2.0.0 unticked, inside the tree being tagged as
+    v2.0.0; (F5) `plan-reviewer` was never dispatched (build-loop step 3),
+    an undeclared process deviation.
 
-**IN PROGRESS:** none — all step-11 deliverables are committed. Only the tag
-itself remains.
+**IN PROGRESS:** none — all step-11 deliverables are committed and the audit
+findings are fixed.
 
-**NOT STARTED (this session):**
-1. Cut the annotated `v2.0.0` tag on HEAD `54dafce` (D-11-D: the tag reads
-   "RC artifact equals tagged artifact" as the RC-approved tree plus release
-   documentation and the D-11-F correction — not the literal RC commit
-   `5154f3f`, which is red on `validate.py`).
-2. Push the tag + branch (explicitly **not this session** per the session
+**NOT STARTED:**
+1. Push the tag + branch (explicitly **not this session** per the session
    order's "After the tag" section).
-3. Verify the Actions run on the tagged commit is green.
+2. Verify the Actions run on the tagged commit is green.
 
 ## Decisions in effect
 
@@ -126,14 +141,16 @@ None reported.
 
 ## Next steps
 
-1. Cut the tag: `git tag -a v2.0.0 -m "<summary — three-layer architecture, six-slot Domain Packs, registry-driven adapters, AGENTS.md sole policy owner; see docs/releases/v2.0.0.md>" 54dafce` (or current HEAD if it has moved — confirm `git log -1` first).
-2. Confirm `git tag -v v2.0.0` / `git show v2.0.0 --stat` looks right before
-   anything is pushed.
-3. **Do not push** in this session — per the session order, push + Actions
-   verification is explicitly deferred to "after the tag (not this session)".
-4. Hand the push instructions to the owner, or open a fresh session scoped
-   only to "push the tag, verify Actions green" when ready.
-5. Post-tag housekeeping (v2.0.x, not blocking): Cursor checklist (if the
+1. `git push origin feature/open-platform-v2 && git push origin v2.0.0` —
+   the tag and branch are committed locally and verified, but **deliberately
+   not pushed** by the session that cut them, per the session order's "After
+   the tag" section.
+2. Verify the GitHub Actions run on the tagged commit is green (both
+   `validate` and `windows-python` jobs, as in run `29744500620`). Until this
+   passes, the tag is local-only and still correctable; **once pushed, it is
+   public and must never be moved** — corrections ship as a new version
+   (`docs/spikes/phase-0b/revert-map.md` row 5).
+3. Post-tag housekeeping (v2.0.x, not blocking): Cursor checklist (if the
    owner wants D-11-A revisited), Gemini `repo_only` registry quirk under the
    R9 amendment procedure, the two RC1 §6 mechanization gaps (software-dev
    descriptor↔loop-profile test pin; `.gitattributes`/`expected_outputs()`

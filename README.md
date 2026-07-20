@@ -106,7 +106,7 @@ Templates split into `common/` (discipline, applies everywhere) and `profiles/<s
 - [x] v1.16.0 — Shared-agent migration: `AGENTS.md` becomes the sole canonical contract; runtime files become pointers
 - [x] v1.17.0 — Contract migration recovery: typed diagnostics + deterministic read-only migration planner; package versions decoupled from contract revision
 - [x] v1.17.1 — Scorecard maintenance correction (append-only history, exact attribution or explicit unknown)
-- [ ] **v2.0.0 — open platform (this branch)**: work-loop engine extracted; six-slot Domain Packs (`software-dev`, `knowledge-work`); registry-driven generated triggers + scaffold; host-adapter lifecycle with dated official facts; contract revision `dat-kit 2.0` with fail-closed 1.16 migration; format frozen (registry contract R9) — remaining: external host smokes, RC evidence bundle, migration guide, tag
+- [x] **v2.0.0 — open platform**: work-loop engine extracted; six-slot Domain Packs (`software-dev`, `knowledge-work`); registry-driven generated triggers + scaffold; host-adapter lifecycle with dated official facts; contract revision `dat-kit 2.0` with fail-closed 1.16 migration; format frozen (registry contract R9). See [release notes](docs/releases/v2.0.0.md) and the [1.16→2.0 migration guide](docs/releases/migration-2.0.md). Ships with two named known limitations (Cursor live-evidence checklist, Gemini `repo_only` registry inconsistency) — both documented in the release notes.
 - [ ] v2.1.0 — telemetry v3 (deferred by ADR 0001)
 - [ ] v2.2.0 — governed self-evolution (deferred by ADR 0001)
 

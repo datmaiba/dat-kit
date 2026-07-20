@@ -737,13 +737,41 @@ checkout).
 
 ### Review (per §16: sequential, diff-scoped, ≤30-line reports)
 
-Recorded after code-reviewer runs — see below this section once complete.
+- code-reviewer over `71a1fcd..238d7fb` (diff-scoped: 8 files, 412 insertions):
+  **APPROVE** — 0 CRITICAL, 0 MAJOR, 1 MINOR, 1 INFO. The MINOR:
+  `docs/releases/migration-2.0.md` generalized `COMPETING_AGENTS` with an
+  uncited "or vice versa", which rehearsal run E contradicts (the reverse
+  direction produces `CONTRACT_MIGRATION_REQUIRED`). **Fixed** in `238d7fb`.
+  The INFO: the reviewer's environment had no shell, so it could not execute
+  the gate commands and verified scope/`RUNTIMES` membership statically —
+  the gate runs recorded above are the builder's, re-run independently after
+  the fix-up. Every release-notes and migration-guide claim was traced to its
+  receipt (evidence §5b deliverables, §Deliverable 1 runs B/D/E, Gate 3
+  sha256 `736ec0c…87e69`, rc1-bundle §6) and resolved.
+- security-reviewer: **SKIPPED**, reason stated on the actual diff — docs plus
+  a single `benchmarks/scorecard.jsonl` data-line correction; no auth, user
+  input, upload, path-handling, public endpoint, or registry/migration code
+  surface is touched. Per §16 the skip is stated, never silent.
+- One fix round (`238d7fb`); no findings-scoped re-review needed (single
+  MINOR, prose precision, verified in place).
 
-### §13.1 item 13 — closure
+### §13.1 item 13 — status at this commit
 
-**CLOSED.** Receipt: the `v2.0.0` annotated tag (commit recorded once cut,
-below), plus this section. All 13 §13.1 items now read **13/13 PASS** — the
-program's Definition of Done.
+**OPEN — closes at the tag, which is the final act of the release train.**
+
+Every prerequisite of item 13 ("full release train, rollback, RC evidence, and
+tag complete") is now complete and receipted: release train steps 1–10 (§5b,
+§5c, §3, §2, Gates 1–4), rollback rehearsal (§5c Deliverable 1, runs A–E), RC
+evidence (`rc1-bundle.md`, owner go 2026-07-21), migration guide, release
+notes, and `release/1.x` own-branch gate verification (above). **The only
+remaining act is the `v2.0.0` annotated tag itself.**
+
+This item is deliberately NOT marked CLOSED here. A document cannot cite the
+hash of a tag placed on the commit that contains that document — closing it
+in-tree would be closing on a receipt that does not yet exist, which is
+exactly what D-RC-B forbids and what the 2026-07-21 lesson on self-referential
+pointers warns about. Closure with real hashes is recorded in a **post-tag
+commit**, outside the tagged tree.
 
 ### Known limitations shipped (unchanged from RC1, both now user-facing)
 
