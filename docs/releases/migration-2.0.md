@@ -103,8 +103,11 @@ These are the real diagnostics from proven runs, not a theoretical list.
 - **`COMPETING_AGENTS`** — the current-revision checker finds an `AGENTS.md`
   it does not recognize as its own canonical contract (for example, running
   **1.17.1-era tooling** against a **2.0-scaffolded** project). This is the
-  fail-closed signal that you're pointing old tooling at a newer project, or
-  vice versa. Verified in the rollback rehearsal: v1.17.1 `contract_check.py`
+  fail-closed signal that you're pointing tooling at a project whose contract
+  it doesn't own — proven here for old tooling against a newer project; a 2.0
+  checker against an unmigrated 1.16 project instead produces
+  `CONTRACT_MIGRATION_REQUIRED` (see above), not this diagnostic. Verified in
+  the rollback rehearsal: v1.17.1 `contract_check.py`
   against a 2.0 project produced `COMPETING_AGENTS: AGENTS.md is not the
   current dat-kit canonical contract` — no traceback, and the target
   directory was untouched.
