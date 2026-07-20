@@ -4,6 +4,30 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-20 — A snapshot doubling as recognition record AND live-template proof deadlocked the revision flip
+
+- **What happened**: the 5a templates flip could not go green under pre-5a registry semantics — the immutable 1.16 snapshot and the new 2.0 snapshot listed the same target paths (`REGISTRY_PATH_COLLISION`) and both pointed at the same `templates/common/` files, of which only one revision's bytes can live-hash (`REGISTRY_SNAPSHOT_HASH_MISMATCH` ×2). No arrangement of hashes could avoid it; the builder had to stop for decision D-5a-1.
+- **Root cause**: one shipped artifact carried two roles at once — historical recognition record and live scaffold source verified against current template bytes. Any second revision necessarily breaks whichever role is preserved.
+- **Rule**: split the roles before any revision cutover (D-5a-1 / registry.md R6): only the CANONICAL revision's snapshot scaffolds and is live-verified; historical snapshots are immutable records checked for descriptor↔snapshot consistency only. A future flip authors a new canonical snapshot and demotes the old one — never edits a historical snapshot.
+
+---
+
+### 2026-07-20 — A pre-match sanitizer must be strictly subtractive, or it can forge the match it guards
+
+- **What happened**: FU-1 made contract-marker matching fence/inline-code-aware by stripping fenced blocks and inline code spans before the scan (`_marker_scan_text`). Security review confirmed the helper can only HIDE a marker (failing safe toward non-green), never forge one — and flagged that replacing spans with `""` instead of a same-width neutral placeholder could FUSE adjacent fragments into a brand-new match.
+- **Root cause**: the false-green guarantee rested on an unstated property of the normalizer — that it never emits new substrings — which nothing pinned; a plausible "simplification" would have silently destroyed it.
+- **Rule**: a sanitizer that runs before recognition may only remove or neutralize text in place — it must never emit new substrings or join previously separated text. State the invariant next to the code and re-verify it in review whenever the normalizer changes.
+
+---
+
+### 2026-07-20 — Relaxing a redundant integrity check requires the trust-domain equivalence test — both halves
+
+- **What happened**: D-5a-1 relaxed live hash-verification of historical snapshots. Security review approved only after showing (1) bypassing recognition requires editing `platform.json` — an equal-trust, independently gated artifact — and (2) historical snapshots have no data-flow into FilePlans or classification, so a tampered record cannot reach a privileged output.
+- **Root cause**: "the check is redundant" is an argument about one path; without both properties proven, a relaxation can open an unexamined tamper path through the artifact that was demoted.
+- **Rule**: before relaxing any redundant integrity check, prove BOTH: bypass requires editing an equal-or-higher-trust, independently gated artifact, AND the relaxed artifact has no data-flow into privileged outputs. Either half alone is insufficient.
+
+---
+
 ### 2026-07-18 — One review round burned 284k tokens (~65% of a session) by ignoring three existing rules
 
 - **What happened**: during plan-v7 execution, three reviewer subagents (code 122k, security 94k, QA 68k) ran in PARALLEL, each re-read nearly the whole repo (registry.py ~900 lines, all contracts, tests), and the read-only reviewers ran their own PoCs. Token exhaustion hit two machines/accounts (Claude Fable 5 Pro, Codex 5.6) before phases could finish.
