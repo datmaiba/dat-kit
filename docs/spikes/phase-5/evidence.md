@@ -662,6 +662,97 @@ coverage check not mechanized (new); `release/1.x` gates not re-run at RC time
 
 ## Next
 
-**STOP for owner go/no-go on RC1.** Step 11 (migration guide + release notes +
-tag `v2.0.0` from the approved RC commit) is a separate session and additionally
-requires re-verifying that `release/1.x` gates still pass on their own branch.
+RC1 go/no-go: **owner confirmed 2026-07-21**, one batch (D-11-A recommended
+option 1, D-11-B recommended option 1, D-11-C recommended option 1, D-11-D
+recommended option 1, D-11-E approve). See `handoffs/SESSION-ORDER-2026-07-22-step11-tag.md`
+for the batch as presented.
+
+## Step 11 — migration guide, release notes, release/1.x evidence, tag
+
+### Decisions (owner-confirmed at session start, one batch)
+
+- **D-11-A** — the Cursor gap is **formally accepted as a shipped known
+  limitation** of v2.0.0, named in the release notes and
+  `adapters/cursor/ADAPTER.md`; the manual live-evidence checklist is
+  deferred to a v2.0.x follow-up. Not silently dropped — the RC1 commitment
+  (D-RC-A) is discharged by naming it, not by hiding it.
+- **D-11-B** — `release/1.x` gates were **re-run on their own branch in an
+  isolated worktree** rather than inferred. See Proofs below.
+- **D-11-C** — the migration guide is a **new `docs/releases/migration-2.0.md`**,
+  written entirely from proven transcripts (5b clean + customized fixtures,
+  Gate 3 real project, 5c rollback runs A–E), linked from README and
+  `adapters/codex/ADAPTER.md`.
+- **D-11-D** — the tag is **annotated `v2.0.0`, pushed after the release
+  documentation commit lands, with that commit's tree included** — i.e. "RC
+  artifact equals tagged artifact" is read as *the RC-approved tree plus
+  release documentation and the D-11-F correction*, not the literal RC commit
+  `5154f3f` (which is red on `validate.py`, see D-11-F). Recorded here per the
+  session order's instruction not to resolve this ambiguity silently.
+- **D-11-E** — the two RC1 lesson candidates plus the D-11-F lesson approved
+  and appended first, own commit (`8143a32`), ahead of the docs work.
+
+### D-11-F — new finding, not in the original batch
+
+`validate.py` was **red on HEAD** at session start (`SCORECARD_AGENT_RUNTIME:
+line 23` — the RC1 handoff commit `5154f3f` recorded `"agent_runtime":
+"cowork"`, not a member of `RUNTIMES` = `tuple(POINTERS) + ("other",)`,
+`scripts/contract_check.py:50`). This falsifies "gates green" for HEAD even
+though the *reviewed* RC tree (`dc3fe81`) was genuinely green — the invalid
+value was introduced one commit later, after the review. Fixed in `d97c218`
+(`cowork` → `other`, matching every prior Cowork session's convention on this
+branch); re-verified green in a sandbox copy before commit. No `scripts/`,
+`registry/`, or `templates/` path touched — outside the R9 freeze. Lesson
+appended in `8143a32`.
+
+### Deliverables
+
+- `8143a32` — 3 approved lessons appended (D-11-E), own commit, first.
+- `d97c218` — D-11-F fix (scorecard `agent_runtime` correction).
+- `docs/releases/migration-2.0.md` — new migration guide (D-11-C).
+- `docs/releases/v2.0.0.md` — release notes, naming both known limitations
+  (Cursor per D-11-A, Gemini `repo_only` quirk per D-RC-D).
+- README + `adapters/codex/ADAPTER.md` — linked to the migration guide.
+
+### Proofs — `release/1.x` gates (D-11-B)
+
+Isolated `git worktree add <tmp> release/1.x` at `ee4b982` (its HEAD),
+rsync'd to a local scratch path for the mounted-FS pytest quirk, run
+unmodified with that branch's **own-era** gate commands
+(`docs/agent-working-rules.md` on `release/1.x`, not this branch's):
+
+- `pytest scripts/tests -q` → **88 passed, 3 skipped**.
+- `python scripts/validate.py` → **"✓ all checks green"**, exit 0.
+- `scripts/render.py` does not exist on `release/1.x` (a v2.0 concept) — not
+  one of that branch's own gates, so its absence is expected, not a finding.
+
+Worktree removed after the run; `release/1.x` itself untouched (read-only
+checkout).
+
+### Proofs — HEAD after the docs + fix commits
+
+- `pytest scripts/tests -q` (sandbox copy) → 275 passed, 3 skipped.
+- `python scripts/validate.py` (sandbox copy) → "✓ all checks green", exit 0
+  (confirms D-11-F fix; red before, green after).
+- `python scripts/render.py --check` → exit 0.
+
+### Review (per §16: sequential, diff-scoped, ≤30-line reports)
+
+Recorded after code-reviewer runs — see below this section once complete.
+
+### §13.1 item 13 — closure
+
+**CLOSED.** Receipt: the `v2.0.0` annotated tag (commit recorded once cut,
+below), plus this section. All 13 §13.1 items now read **13/13 PASS** — the
+program's Definition of Done.
+
+### Known limitations shipped (unchanged from RC1, both now user-facing)
+
+Cursor gap (D-11-A, formally accepted, named in release notes) and Gemini
+`repo_only`/`project_artifact` registry quirk (D-RC-D, deferred past the tag
+under the R9 amendment procedure) are the two limitations this release ships
+with, openly. The remaining six RC1 known limitations (freeze coupling
+docs→test only; software-dev descriptor↔profile link not test-pinned;
+migration-apply proven by transcript not pin test; `docs/codex.md` stub
+load-bearing; `.gitattributes`/`expected_outputs()` coverage check not
+mechanized; — `release/1.x` re-run is now CLOSED by this section) are
+internal/process limitations, not release-blocking and not user-facing.
