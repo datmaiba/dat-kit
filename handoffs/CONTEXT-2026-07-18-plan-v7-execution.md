@@ -37,7 +37,8 @@ the predecessors.
 | 4e | CLOSED — domain-builder rewritten per map §10 (descriptor + six slots + rendered trigger + inherited evolution profile; scope boundary and capability ladder dedup to docs/loops.md as canonical; interview extended with descriptor + evolution questions and maps onto ENGINE.md's full declare-list; gate-validity semantics unchanged; registration step added with DP5 fresh-session evidence rule; 4c/4d constraints encoded: single-line descriptions incl. CR + U+0085/U+2028/U+2029, pinned eval phrases, §3b reviewer-row rule, alias collision); synthetic ledger-close pack FIXTURE-ONLY completes the engine lifecycle (Catalog → engine-revision check → six slots in DP1 order, files actually load, alias/destination collision + authority/governance + missing/stale trigger all fail closed, no dispatch edit — DP6); code APPROVE (1 MAJOR + 2 MINOR + 2 INFO fixed, findings-scoped re-review APPROVE) + security APPROVE (1 LOW charset pin fixed, findings-scoped re-review closed) | `skills/domain-builder/SKILL.md`, `scripts/tests/test_domain_builder_pack.py` |
 | 4f | CLOSED — cutover closure: engine deletion test (dynamic half; keyed on the kw A→G correspondence, pinned row-identical ENGINE.md ↔ workflow.md); sentence-marker detection retired SINGLE FIRE (validate.py §2b + domain-builder quoted note in one commit; marker test final form — sentence nowhere on operative surfaces, archival prefixes excluded); docs/loops.md L7 six-slot rewrite + docs/domains.md re-derived + domains.example.json active rows (phase-1a example validator re-derived same commit); templates flip DEFERRED to Phase 5 by platform-owner decision (live template is hash-pinned as the v1.16 record — see 4f flags); whole-cutover sequential reviews over b41f242..HEAD: code APPROVE (1 INFO) + security APPROVE (1 LOW fixed fe7ced8, findings-scoped re-review APPROVE; 1 INFO rolled) | `docs/spikes/phase-4/evidence.md` |
 | **Phase 4** | **CLOSED** — all six slices closed; plan §6 Exit criteria proven in the evidence bundle | `docs/spikes/phase-4/evidence.md` |
-| 5 | not started — release train; now also owns the deferred templates flip (see 4f flags) | — |
+| 5a | CLOSED — atomic templates flip landed (2.0 snapshot + descriptor hashes + adapter rows + marker + tsv, D-5a-1 "historical = record" registry semantics with registry.md R6 amendment); FU-1 closed; 4f alias-embed security INFO closed; greenfield GREEN under v2 checker; 1.16 snapshot byte-identical; code + security APPROVE (0 actionable) | `docs/spikes/phase-5/evidence.md`, commits `d1e9d14..ede8670` |
+| 5 (rest) | OPEN — steps 2–11: version bump, format freeze, RC bundle, host smokes, real-project migration, rollback rehearsal, docs sweep, tag | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -137,6 +138,25 @@ B/maintainer-policy) + the 4d security INFO (§2b silent-skip, moot):
 discharged in `docs/spikes/phase-4/evidence.md`. Review-range note:
 whole-cutover reviews ran b41f242..HEAD — d76c179 is the 4c CLOSE commit,
 so the dictated range would have dropped 4b/4c implementation from review.
+
+5a deferrals/flags → later Phase 5 slices: D-5a-1 (2026-07-19) changed
+registry semantics — historical snapshots verify descriptor↔snapshot
+consistency only and never scaffold; `scaffold_file_plan` draws snapshot
+rows from the CANONICAL revision's snapshot only (registry.md R6 amended,
+Class C blessed via the decision). Any future revision cutover authors a
+new canonical snapshot and demotes the old one to historical — never edits
+a historical snapshot. `scaffold_v116_contract` (test_contract_check.py) is
+now the frozen 1.16 fixture; `scaffold_contract` scaffolds the CURRENT
+templates (green v2). init.sh rerun is now truly idempotent
+(test_canonical_rerun_is_readonly_and_idempotent). Marker matching is
+fence/inline-code-aware (FU-1) — prose mentions still count, pinned by
+test_mixed_markers_are_partial; keep `_marker_scan_text` strictly
+subtractive (must never emit new substrings — false-green guarantee).
+render.py guards ALL body fields with the unchanged UNSAFE_FIELD_CHARS pin.
+Three lesson candidates await owner approval in the 5a evidence §last.
+Still with later slices: release_version bump (platform.json still
+"1.17.1"), format freeze, RC bundle, rollback rehearsal, docs sweep
+(README/HUONG_DAN still describe 1.16 scaffolds where applicable), tag.
 
 ## Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES (all CLOSED)
 
