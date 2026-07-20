@@ -404,11 +404,15 @@ reserialization or other normalization. The stable source reference is
 `benchmarks/scorecard.jsonl#line-<ordinal>`. Two byte-identical source lines at
 different ordinals remain distinct historical records.
 
-Both linked events use `source_class=legacy_import`, terminal partial coverage
-with reason `legacy_import`, and explicit unknowns for unavailable lifecycle,
-token, elapsed, and revision facts. `task_finished.payload.scorecard_ref` is
-`benchmarks/scorecard.jsonl`; `scorecard_imported` carries the exact ordinal,
-hash, and source reference.
+Both linked events use `source_class=legacy_import` and explicit unknowns for
+unavailable lifecycle, token, elapsed, and revision facts. The non-terminal
+`scorecard_imported` uses `status=partial`, reason `in_progress`, and the exact
+required event types still absent at that append position. The linked
+`task_finished` uses terminal `status=partial`; its reason is selected by the
+T3.5.1 precedence, so an ordinary import uses `legacy_import` while a disabled
+scorecard import covered by T3.11 uses `telemetry_disabled`.
+`task_finished.payload.scorecard_ref` is `benchmarks/scorecard.jsonl`;
+`scorecard_imported` carries the exact ordinal, hash, and source reference.
 
 No import may normalize, reorder, truncate, or rewrite existing scorecard
 bytes. Historical schema-v1 and schema-v2 scorecard records remain valid in

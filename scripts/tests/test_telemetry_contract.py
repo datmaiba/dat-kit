@@ -196,6 +196,10 @@ def test_partial_reason_precedence_import_set_and_defect_projection_are_closed()
     assert "linked event identity is that source-record identity + event type" in transfer_prose
     assert "terminal CRLF or CR to LF" in transfer_prose
     assert "include that LF" in transfer_prose
+    assert "non-terminal `scorecard_imported` uses `status=partial`, reason `in_progress`" in transfer_prose
+    assert "reason is selected by the T3.5.1 precedence" in transfer_prose
+    assert "ordinary import uses `legacy_import`" in transfer_prose
+    assert "disabled scorecard import covered by T3.11 uses `telemetry_disabled`" in transfer_prose
     projection = markdown_table(transfer)
     assert projection["Defect projection field"] == "Normative value"
     assert set(projection) == {
