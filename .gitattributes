@@ -4,3 +4,4 @@
 *.tsv text eol=lf
 registry/** text eol=lf
 templates/** text eol=lf
+skills/**/SKILL.md text eol=lf

@@ -110,9 +110,9 @@ materialize_manifest() { # validates every row before publishing any file
     [[ "$revision" =~ ^dat-kit\ [0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || {
       echo "✗ SCAFFOLD_MANIFEST_INVALID: revision"; exit 1;
     }
-    [ -f "$DIR/$source" ] && [ ! -L "$DIR/$source" ] || {
-      echo "✗ SCAFFOLD_MANIFEST_INVALID: missing or linked source $source"; exit 1;
-    }
+    if ! { [ -f "$DIR/$source" ] && [ ! -L "$DIR/$source" ]; }; then
+      echo "✗ SCAFFOLD_MANIFEST_INVALID: missing or linked source $source"; exit 1
+    fi
     target_key="$(printf '%s' "$target" | tr '[:upper:]' '[:lower:]')"
     for prior_key in "${targets[@]}"; do
       [ "$target_key" != "$(printf '%s' "$prior_key" | tr '[:upper:]' '[:lower:]')" ] || {
