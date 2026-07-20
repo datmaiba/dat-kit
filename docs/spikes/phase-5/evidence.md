@@ -907,3 +907,26 @@ this evidence is independently reviewed and the full repository gates pass.
   pre-tag status. Security review was not repeated because this receipt-only
   diff touches none of its trigger surfaces; the corrected classifier itself
   retains the prior **APPROVE** recorded above.
+
+## RC2 post-tag closure
+
+**Status:** `v2.0.0` released; Phase 5 exit and §13.1 item 13 are closed.
+
+| Receipt | Value |
+|---|---|
+| Annotated tag | `v2.0.0` |
+| Tag object | `2ea7e2fe5e6e354e421740a6d1263c4b429868ac` |
+| Tagged commit | `c018a31dea6b54fd01af87ab193a2c566c791e05` |
+| Remote peeled tag | `c018a31dea6b54fd01af87ab193a2c566c791e05` |
+| Actions run | `29775514954` |
+| Actions event / branch | `push` / `v2.0.0` |
+| Actions `headSha` | `c018a31dea6b54fd01af87ab193a2c566c791e05` |
+| Linux job | `validate` — `success` |
+| Windows job | `windows-python` — `success` |
+
+The remote tag object and peeled commit match the reviewed local tag exactly.
+The Actions run completed successfully on the tagged commit, not merely on a
+nearby branch head. The stale pre-correction tag object `9bb07fe` and commit
+`1ec1a15` remain historical evidence only and no longer identify the release.
+
+**Final §13.1 result: 13 PASS · 0 OPEN · 0 STOP.**

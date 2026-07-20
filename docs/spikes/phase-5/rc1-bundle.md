@@ -12,12 +12,11 @@ and the earlier phase bundles remain the primary evidence. Where this document
 states a result, it is either (a) a citation, or (b) a check re-run at RC time
 and labelled as such. Nothing here is restated as a fresh claim.
 
-> **RC2 correction status (2026-07-21):** the post-tag migration-safety audit
-> reopened release exit. This RC1 bundle remains historical evidence, but its
-> migration and tag conclusions do not certify the corrected tree. See
-> `docs/spikes/phase-5/evidence.md` → “Phase 5 RC2 correction — migration policy
-> preservation” for the repository-side fix and the two external gates that
-> must pass before `v2.0.0` is recut or pushed.
+> **RC2 correction status (2026-07-21): COMPLETE.** This RC1 bundle remains
+> historical evidence; its original migration and tag receipts are superseded
+> by the RC2 closure in `docs/spikes/phase-5/evidence.md`. The corrected
+> annotated tag object is `2ea7e2f`, its commit is `c018a31`, and Actions run
+> `29775514954` passed on that exact SHA.
 
 RC1 is an **evidence bundle, not a version string**: `release_version` is
 `2.0.0` with no `-rc` suffix, by decision D-5b-A, because Phase 5 Exit requires
@@ -116,9 +115,9 @@ not edited to match. 13 is correct; all 13 are verified below.
 | 8 | Software-dev AND knowledge-work are active six-slot Domain Packs; both triggers generated and behaviorally load their packs | **PASS** | Registry (re-read at RC time): both descriptors `lifecycle: active`, `pack_location` `domains/software-dev` / `domains/knowledge-work`, triggers `build-loop` / `knowledge-work`. Six slots present on disk in both packs. Mechanical: `test_software_dev_pack.py` (12 tests) + `test_knowledge_work_pack.py` (15), incl. `test_trigger_is_generated_and_resolves_every_named_file`. **Behavioral, live**: Gate 4 — Claude Code loaded `dat-kit:build-loop` and read pack content outside `skills/`; Codex session JSONL confirms it read all six software-dev slot files + `engine/work-loop/{ENGINE.md,engine.json}` (evidence § External gates → Gate 4). |
 | 9 | Every domain descriptor declares a `loop_ceiling` consistent with its loop-profile; ceiling changes are Class C | **PASS (with INFO)** | Both descriptors declare `loop_ceiling: "Goal"` (re-read at RC time). Profiles agree: `domains/knowledge-work/loop-profile.md:4` ("Domain ceiling: Goal (human-run) — mirrored in the descriptor's `loop_ceiling`") and `domains/software-dev/loop-profile.md:20` ("**Goal.** No build-loop task safely unlocks Time or Proactive yet"; §heading at :18). `loop_ceiling` is a required member of `DOMAIN_KEYS` (`scripts/registry.py:233`), so an absent/unknown field fails closed. Class C governance: PLAN-v7 §8 + §13.1. **INFO:** the descriptor↔profile *link* is test-pinned for knowledge-work only — `test_knowledge_work_pack.py:49,163,164,169` asserts both `descriptor["loop_ceiling"] == "Goal"` and the profile's mirroring sentence. `test_software_dev_pack.py:63` pins the profile's ceiling sentence but **no test anywhere asserts the software-dev descriptor's `loop_ceiling` value**, so the two halves are not tied together for that domain; the agreement was verified by reading both artifacts at RC time. See Known limitations §6. |
 | 10 | `AGENTS.md` remains the only generated-project policy owner; initial adapters are thin and lifecycle-governed | **PASS** | All four adapters declare `policy_prohibition.canonical_owner: "AGENTS.md"` with forbidden categories (re-read at RC time). Lifecycles are the typed four-state machine: `claude-code` `scaffold_active`, `cursor` `migration_ready`, `codex` `repo_only`, `gemini-cli` `repo_only`. Adapter artifacts are pointers (`.claude/CLAUDE.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/dat-kit.mdc`) with `ownership_class: adapter`, never policy. Conformance: `test_adapter_conformance.py`; Phase 2 bundle `docs/spikes/phase-2/evidence.md`. |
-| 11 | v1.16 recognized only as a migration source, never green; clean + customized fixtures + one real project pass without silent mutation; `.cursorrules` has typed `RETIRE_LEGACY` semantics | **PASS** | Registry (re-read): `green_revisions: ["dat-kit 2.0"]`, `migratable_source_revisions: ["dat-kit 1.16.0"]` — 1.16 is never green. Fixtures: clean + customized v1.16 migrated via `--migration-plan` → checker exit 0 with custom policy preserved (evidence §5b). **Real project**: Gate 3, owner's blog project via isolated clone — plan S001–S005, applied, `contract_check` exit 0, and `docs/agent-working-rules.md` sha256 **identical before and after** (`736ec0c6…87e69`); the real working tree never touched. `RETIRE_LEGACY` is a typed action in `MATERIALIZATION_ACTIONS` (`scripts/registry.py:35`) and `contract_check.py:112,1122-1124,1337,1379` maps `.cursorrules` → `REMOVE_LEGACY_POINTER`; `test_contract_migration.py`. |
+| 11 | v1.16 recognized only as a migration source, never green; clean + customized fixtures + one real project pass without silent mutation; `.cursorrules` has typed `RETIRE_LEGACY` semantics | **PASS (RC2)** | Corrected clean and customized applications both reached `green`; customized policy remained present. An isolated real-project clone deliberately classified a project-name/directory-name mismatch as `MERGE_REQUIRED`, then reached `green` after manual application while `docs/agent-working-rules.md` remained byte-identical (`393e8dd2…20a85`). See `evidence.md` → “RC2 pre-tag migration application receipts”. `RETIRE_LEGACY` remains mapped to `REMOVE_LEGACY_POINTER` and the new Cursor pointer matched its template. |
 | 12 | Governed roots have no orphan product paths; `explain-evolution` works as the manual improvement path | **PASS** | Orphan check is not merely tested but **executed on every run**: `validate.py:71` calls `catalog.validate_governed_inventory()` (`registry.py:913`), which emits `EVOLUTION_ORPHAN_PATH` / `EVOLUTION_OWNERSHIP_AMBIGUOUS`; `validate.py` is green at RC time, so the live tree has zero orphans. Negative case pinned by `test_new_governed_product_path_without_component_is_orphaned`. `explain-evolution` **run live at RC time** (§2 above), returning full governance for a real governed path — not asserted. |
-| 13 | Full release train, rollback, RC evidence, and tag complete | **CLOSED** — annotated tag `v2.0.0` (tag object `9bb07fe`) on commit `1ec1a15`; verify `git rev-list -n1 v2.0.0`. Recorded post-tag; see `evidence.md` § Step 11 | Release train steps 1–10 complete: freeze + bump (§5b), render/byte-check (§3), suites (§2), Windows + Linux clean-install smokes (Gate 2, §5b), host smokes (Gate 4), fixture + real-project migration (§5b, Gate 3), **RC evidence = this document**, rollback rehearsal (§5c Deliverable 1, transcript runs A–E). Step 11 added the last prerequisites: migration guide (`docs/releases/migration-2.0.md`), release notes (`docs/releases/v2.0.0.md`), and `release/1.x` own-branch gate re-verification — see `docs/spikes/phase-5/evidence.md` § Step 11. The `v2.0.0` annotated tag is the single remaining act; it cannot be receipted from inside the tree it tags, so **closure with real hashes is recorded in a post-tag commit**, not here. |
+| 13 | Full release train, rollback, RC evidence, and tag complete | **CLOSED (RC2)** — annotated tag `v2.0.0` (tag object `2ea7e2f`) on commit `c018a31`; remote peeled tag matches that commit. | Release train, rollback, RC evidence, corrected migration applications, and final pre-tag review are complete. GitHub Actions run `29775514954` used `headSha=c018a31dea6b54fd01af87ab193a2c566c791e05`; both `validate` and `windows-python` concluded `success`. Full receipt: `docs/spikes/phase-5/evidence.md` → “RC2 post-tag closure”. |
 
 **Result at RC time: 12 PASS · 1 OPEN-by-design (item 13, the tag) · 0 STOP.**
 No §13.1 item failed verification, and no item was closed on assumption.
@@ -126,7 +125,7 @@ No §13.1 item failed verification, and no item was closed on assumption.
 every prerequisite was receipted, but the tag itself is the act that closes it,
 and it cannot be cited from inside the tree it tags.
 **Final, recorded post-tag: 13 PASS · 0 OPEN · 0 STOP** — annotated tag
-`v2.0.0` (object `9bb07fe`) on commit `1ec1a15`.
+`v2.0.0` (object `2ea7e2f`) on commit `c018a31`.
 
 ## 5. Fixtures and results (cited)
 
@@ -134,7 +133,7 @@ and it cannot be cited from inside the tree it tags.
 |---|---|---|
 | Clean v1.16 fixture migration | plan → apply → `contract_check` exit 0 | evidence §5b |
 | Customized v1.16 fixture migration | exit 0, custom policy preserved | evidence §5b |
-| Real v1.16 project (owner's blog, isolated clone) | exit 0; project-owned policy sha256-identical | § External gates → Gate 3 |
+| Real v1.16 project (isolated clone) | RC2 fail-closed merge, then exit 0; project-owned policy SHA-256-identical | evidence → RC2 pre-tag receipts |
 | Linux clean-install smoke | 17 created, exit 0, idempotent rerun | evidence §5b |
 | Windows Git Bash clean-install smoke | 17 created, exit 0; rerun 0 created / 17 skipped | § External gates → Gate 2 |
 | Rollback to v1.17.1 tooling (runs A–E) | fail-closed with named diagnostics; every byte preserved | evidence §5c |
@@ -283,11 +282,10 @@ closed in-tree, the fifth (the tag) closed by the tag itself:
 4. **`release/1.x` gates re-verified on its own branch** — ✅ isolated worktree
    at `ee4b982`, pytest 88 passed/3 skipped, `validate.py` exit 0 (D-11-B).
    Receipt: `docs/spikes/phase-5/evidence.md` § Step 11.
-5. **Tag from the approved RC commit** — the annotated `v2.0.0` tag is cut on
-   the step-11 pre-tag commit; tagged tree = the RC-approved tree plus release
-   documentation and the D-11-F correction (D-11-D, the reading recorded
-   explicitly rather than resolved silently). Hashes are recorded in the
-   post-tag commit, which is where §13.1 item 13 reads CLOSED.
+5. **Tag from the approved RC2 commit** — the annotated `v2.0.0` tag is cut on
+   `c018a31`, after corrected migration receipts and final review. Its object
+   `2ea7e2f`, peeled commit, and exact-SHA Actions success are recorded in the
+   RC2 post-tag closure, where §13.1 item 13 reads CLOSED.
 
 One item surfaced during step 11 that RC1 could not have caught: **D-11-F**, a
 scorecard `agent_runtime` value invalid at the time this bundle was written
