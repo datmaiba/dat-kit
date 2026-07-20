@@ -553,4 +553,115 @@ proof).
    restrict scope ("read-only, report three facts, do not modify files or
    execute the plan" — the phrasing Codex itself later recommended for
    re-testing Claude) or run under a read-only sandbox flag.
-(Awaiting owner approval before appending to lessons-learned.)
+(RESOLVED — all 3 approved by the owner 2026-07-21 under D-RC-C and appended in
+`bdf2a00`, together with the 5c candidate.)
+
+# Phase 5 evidence — step 8: RC1 evidence bundle
+
+Executed 2026-07-21 (Windows Cowork sandbox; suites on an rsync'd local copy per
+the 5a machine-quirk protocol; edits + git in the mounted repo). Baseline
+`ab6abb0` (owner-committed RC session-order doc) on the dictated `222cac6` —
+the same benign session-order deviation pattern as 5b (`c1ffaf0`) and 5c
+(`b14d648`); history beneath verified identical.
+
+**The bundle itself is `docs/spikes/phase-5/rc1-bundle.md`.** This section is
+the slice receipt; the bundle is the deliverable and is not restated here.
+
+## Decisions (owner-confirmed at session start, one batch)
+
+- **D-RC-A** — open RC1 now with the **Cursor manual evidence checklist as a
+  named known limitation**, to be closed before the `v2.0.0` tag.
+- **D-RC-B** — verify **every** §13.1 item against a named artifact/test/evidence
+  citation; an unprovable item is a STOP.
+- **D-RC-C** — approve **all four** pending lesson candidates (3 from 5-ext, 1
+  from 5c) and append them first, in their own commit.
+- **D-RC-D** — the Gemini `repo_only`-vs-declared-`project_artifact` quirk stays
+  a **documented known limitation**, fixed after the tag under the R9
+  freeze-amendment procedure.
+
+## Deliverables
+
+- `bdf2a00` — 4 approved lessons appended (D-RC-C), own commit, first.
+- `802e21c` — RC1 evidence bundle: §9.3 shape (commit + registry revisions,
+  commands + exit codes, fixtures, projection check, fact-check sources + dates,
+  known limitations, reviewer + decision references, rollback notes) plus the
+  §13.1 Definition-of-Done matrix.
+- Review fix-up commit — six MINOR code-review findings fixed, two INFO gaps
+  promoted to known limitations, review verdict recorded in the bundle §10, and
+  this evidence section.
+
+## §13.1 result (per D-RC-B)
+
+**12 PASS · 1 OPEN-by-design · 0 STOP** over the 13 checkbox items at
+`plans/PLAN-v7-platform.md:880-905`. The single open item is #13 ("full release
+train, rollback, RC evidence, and tag complete") — open only in the part RC1
+structurally cannot close: the `v2.0.0` tag and the migration guide/release
+notes, both step 11. No item was closed on assumption.
+
+Note: the session order says "14-item"; §13.1 contains 13. Recorded in the
+bundle, order document not edited.
+
+## Proofs (gates at RC time)
+
+pytest → **275 passed, 3 skipped** (278 collected; unchanged — the RC adds no
+code and no tests); `validate.py` → "✓ all checks green"; `render.py --check` →
+exit 0; `registry.py explain-evolution domains/software-dev/workflow.md` → exit
+0, governed, class B (run live rather than asserted, for §13.1 item 12).
+Authoritative cross-platform proof remains Actions run `29744500620` on
+`ba77045`. Format freeze respected: no `registry/`, `templates/`, or `scripts/`
+path in the diff.
+
+## Review (per §16: sequential, diff-scoped, ≤30-line report)
+
+- **code-reviewer** over `222cac6..802e21c`: **APPROVE** — 0 blocking, 0 MAJOR;
+  6 MINOR (all fixed in the follow-up commit) + INFO. It independently resolved
+  every spot-checked citation: all 16 named tests exist with matching per-file
+  counts, every `file:line` reference exact, quoted strings verbatim, §13.1 row
+  texts matching the plan in order. Confirmed no fabricated citation, no
+  restated claim, item 13 not disguised, item 9's asymmetry real, freeze clean.
+- **security-reviewer: SKIPPED, stated reason** — the RC diff is
+  evidence/lessons documentation only; no registry data, migration code, path
+  handling, auth, or public-input surface is touched, so the §16 trigger does
+  not fire. The §13.1 pass forced **zero code changes**, so this skip is
+  evaluated on the actual diff, not inherited from the session order's advance
+  note.
+
+## Auto-decisions logged this slice (low severity)
+
+1. HEAD `ab6abb0` (owner session-order doc) accepted as benign vs. the dictated
+   `222cac6`; history beneath verified identical.
+2. Sandbox scratch path moved from `/tmp/kit` to `/tmp/rc1` — the documented
+   path existed owned by another uid and was not writable. Protocol otherwise
+   unchanged.
+3. The six MINOR review findings were fixed rather than rolled forward: in a
+   document whose entire value is citation exactness, an off-by-two line
+   reference is a defect in the deliverable, not a nit.
+4. `<RC_COMMIT>` resolved to the bundle commit `802e21c` with the RC tree
+   defined as the following fix-up commit, rather than rewriting history to make
+   a document contain its own hash.
+
+## Known limitations / rolled forward
+
+Eight, enumerated in the bundle §6: Cursor gap (D-RC-A); Gemini registry quirk
+(D-RC-D); freeze coupling docs→test only (5b); software-dev descriptor↔profile
+link not test-pinned (new); migration-apply proven by transcript not pin test
+(5b); `docs/codex.md` stub load-bearing (5c); `.gitattributes`/`expected_outputs()`
+coverage check not mechanized (new); `release/1.x` gates not re-run at RC time
+(new — carried into step 11).
+
+## Lesson candidates (RC1, from code review — awaiting owner approval)
+
+1. An evidence bundle that lists files it *plans* to touch alongside files it
+   *has* touched breaks its own citation contract. The diff-scope statement in
+   an evidence artifact must be generated from the actual diff at commit time,
+   not copied from the session order's plan.
+2. A self-referential review pointer ("see §10" inside §10) is scaffolding that
+   survives into a release artifact. A review verdict belongs in a commit or
+   appendix that can cite the RC commit hash, since the RC document itself
+   cannot contain its own hash.
+
+## Next
+
+**STOP for owner go/no-go on RC1.** Step 11 (migration guide + release notes +
+tag `v2.0.0` from the approved RC commit) is a separate session and additionally
+requires re-verifying that `release/1.x` gates still pass on their own branch.

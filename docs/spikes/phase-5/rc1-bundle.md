@@ -2,7 +2,7 @@
 
 **Plan reference:** PLAN-v7 §6 Phase 5 step 8 · shape per §9.3 · acceptance
 criteria per §13.1 · reviews per §16.
-**RC commit:** `<RC_COMMIT>` (this commit) on `feature/open-platform-v2`.
+**RC commit:** `802e21c` (the bundle commit; RC tree = the fix-up commit that follows it) on `feature/open-platform-v2`.
 **Prepared:** 2026-07-21, Windows Cowork sandbox (suites on an rsync'd local
 copy per the 5a machine-quirk protocol; edits + git in the mounted repo).
 
@@ -34,7 +34,7 @@ freeze), D-5c-A/B/C (rollback rehearsal, docs sweep, RC-after-external-gates).
 | Item | Value |
 |---|---|
 | Branch | `feature/open-platform-v2` |
-| RC commit | `<RC_COMMIT>` |
+| RC commit | `802e21c` (bundle) + the review fix-up commit that follows |
 | Baseline for this session | `ab6abb0` (session order) on `222cac6` (external-gate evidence) |
 | Commits since `v1.17.1` | 62 |
 | `format_revision` | `1` (FROZEN — registry.md R9) |
@@ -48,11 +48,17 @@ freeze), D-5c-A/B/C (rollback rehearsal, docs sweep, RC-after-external-gates).
 | `unsupported_revisions` | `["pre-marker", "unknown"]` |
 | `release_version` | `2.0.0` (platform.json + 3 mirrored targets) |
 
-Format-freeze compliance for the RC diff itself: this session touched only
-`lessons-learned/lessons-learned.md`, this file, `docs/spikes/phase-5/evidence.md`,
-and handoff/scorecard artifacts. **No `registry/`, `templates/`, or `scripts/`
-path is in the diff**, so R9 is not engaged and the release train is not
-reopened.
+Format-freeze compliance for the RC diff itself. The RC diff is `222cac6..802e21c`,
+exactly two commits and exactly two files:
+
+- `bdf2a00` — `lessons-learned/lessons-learned.md` (4 approved entries appended)
+- `802e21c` — `docs/spikes/phase-5/rc1-bundle.md` (this file, new)
+
+**No `registry/`, `templates/`, or `scripts/` path is in the diff**, so R9 is
+not engaged and the release train is not reopened. (The review verdict in §10,
+the evidence pointer, and the scorecard land in a following commit — they are
+review/harvest output about this RC, not part of the reviewed artifact, and they
+touch no frozen surface either.)
 
 ## 2. Commands and exit codes (re-run at RC time)
 
@@ -85,9 +91,11 @@ checkout defect Gate 1 surfaced.
 
 ## 4. §13.1 — v2.0.0 Definition of Done matrix (per D-RC-B)
 
-**Item-count note:** the session order refers to a "14-item" checklist; §13.1 as
-written contains **13** checkbox items. Recorded as a discrepancy in the order
-document, not silently reconciled. All 13 are verified below.
+**Item-count note:** `handoffs/SESSION-ORDER-2026-07-21-rc-bundle.md:110` refers
+to a "14-item" checklist; `plans/PLAN-v7-platform.md:880-905` as written contains
+exactly **13** checkbox items (confirmed independently by code review, row texts
+matching in order). The discrepancy is recorded **here** — the order document was
+not edited to match. 13 is correct; all 13 are verified below.
 
 | # | §13.1 item | Status | Receipt |
 |---|---|---|---|
@@ -99,7 +107,7 @@ document, not silently reconciled. All 13 are verified below.
 | 6 | Greenfield Bash initialization consumes the generated sanitized manifest | **PASS** | `scripts/init.sh:86 materialize_manifest()` reads `templates/common/.dat-kit-files.tsv` — the exact `MANIFEST_PATH` emitted by `render.py:22` / `render_scaffold_manifest()` — and validates **every row** through the allowlist `validate_manifest_path()` before publishing any file. Live: Gate 2 Windows Git Bash clean install, 17 files created, exit 0 (evidence § External gates → Gate 2); Linux equivalent evidence §5b step 5. |
 | 7 | A synthetic Host Adapter requires no validator or shell edit; a synthetic non-software Domain Pack composes through the engine | **PASS** | Adapter: `test_synthetic_adapter_template_reaches_manifest_without_shell_edit`; domain: `test_synthetic_registry_only_domain_renders_without_python_change` (both `test_registry_render.py`). Non-software pack composition: the **ledger-close** (bookkeeping) fixture, `test_end_to_end_dry_run_catalog_engine_check_six_slots_in_dp1_order` + `test_engine_revision_mismatch_is_the_composition_stop` (`test_domain_builder_pack.py`). Fixture-only by the 4e decision — nothing committed to `registry/` or `domains/`. |
 | 8 | Software-dev AND knowledge-work are active six-slot Domain Packs; both triggers generated and behaviorally load their packs | **PASS** | Registry (re-read at RC time): both descriptors `lifecycle: active`, `pack_location` `domains/software-dev` / `domains/knowledge-work`, triggers `build-loop` / `knowledge-work`. Six slots present on disk in both packs. Mechanical: `test_software_dev_pack.py` (12 tests) + `test_knowledge_work_pack.py` (15), incl. `test_trigger_is_generated_and_resolves_every_named_file`. **Behavioral, live**: Gate 4 — Claude Code loaded `dat-kit:build-loop` and read pack content outside `skills/`; Codex session JSONL confirms it read all six software-dev slot files + `engine/work-loop/{ENGINE.md,engine.json}` (evidence § External gates → Gate 4). |
-| 9 | Every domain descriptor declares a `loop_ceiling` consistent with its loop-profile; ceiling changes are Class C | **PASS (with INFO)** | Both descriptors declare `loop_ceiling: "Goal"` (re-read at RC time). Profiles agree: `domains/knowledge-work/loop-profile.md:4` ("Domain ceiling: Goal (human-run) — mirrored in the descriptor's `loop_ceiling`") and `domains/software-dev/loop-profile.md:18` ("**Goal.** No build-loop task safely unlocks Time or Proactive yet"). `loop_ceiling` is a required member of `DOMAIN_KEYS` (`scripts/registry.py:233`), so an absent/unknown field fails closed. Class C governance: PLAN-v7 §8 + §13.1. **INFO:** the descriptor↔profile agreement is *test-pinned for knowledge-work only* (`test_knowledge_work_pack.py:49,164,169`); the software-dev half was verified by reading both artifacts at RC time, not by an assertion. See Known limitations §6. |
+| 9 | Every domain descriptor declares a `loop_ceiling` consistent with its loop-profile; ceiling changes are Class C | **PASS (with INFO)** | Both descriptors declare `loop_ceiling: "Goal"` (re-read at RC time). Profiles agree: `domains/knowledge-work/loop-profile.md:4` ("Domain ceiling: Goal (human-run) — mirrored in the descriptor's `loop_ceiling`") and `domains/software-dev/loop-profile.md:20` ("**Goal.** No build-loop task safely unlocks Time or Proactive yet"; §heading at :18). `loop_ceiling` is a required member of `DOMAIN_KEYS` (`scripts/registry.py:233`), so an absent/unknown field fails closed. Class C governance: PLAN-v7 §8 + §13.1. **INFO:** the descriptor↔profile *link* is test-pinned for knowledge-work only — `test_knowledge_work_pack.py:49,163,164,169` asserts both `descriptor["loop_ceiling"] == "Goal"` and the profile's mirroring sentence. `test_software_dev_pack.py:63` pins the profile's ceiling sentence but **no test anywhere asserts the software-dev descriptor's `loop_ceiling` value**, so the two halves are not tied together for that domain; the agreement was verified by reading both artifacts at RC time. See Known limitations §6. |
 | 10 | `AGENTS.md` remains the only generated-project policy owner; initial adapters are thin and lifecycle-governed | **PASS** | All four adapters declare `policy_prohibition.canonical_owner: "AGENTS.md"` with forbidden categories (re-read at RC time). Lifecycles are the typed four-state machine: `claude-code` `scaffold_active`, `cursor` `migration_ready`, `codex` `repo_only`, `gemini-cli` `repo_only`. Adapter artifacts are pointers (`.claude/CLAUDE.md`, `CLAUDE.md`, `.cursorrules`, `.cursor/rules/dat-kit.mdc`) with `ownership_class: adapter`, never policy. Conformance: `test_adapter_conformance.py`; Phase 2 bundle `docs/spikes/phase-2/evidence.md`. |
 | 11 | v1.16 recognized only as a migration source, never green; clean + customized fixtures + one real project pass without silent mutation; `.cursorrules` has typed `RETIRE_LEGACY` semantics | **PASS** | Registry (re-read): `green_revisions: ["dat-kit 2.0"]`, `migratable_source_revisions: ["dat-kit 1.16.0"]` — 1.16 is never green. Fixtures: clean + customized v1.16 migrated via `--migration-plan` → checker exit 0 with custom policy preserved (evidence §5b). **Real project**: Gate 3, owner's blog project via isolated clone — plan S001–S005, applied, `contract_check` exit 0, and `docs/agent-working-rules.md` sha256 **identical before and after** (`736ec0c6…87e69`); the real working tree never touched. `RETIRE_LEGACY` is a typed action in `MATERIALIZATION_ACTIONS` (`scripts/registry.py:35`) and `contract_check.py:112,1122-1124,1337,1379` maps `.cursorrules` → `REMOVE_LEGACY_POINTER`; `test_contract_migration.py`. |
 | 12 | Governed roots have no orphan product paths; `explain-evolution` works as the manual improvement path | **PASS** | Orphan check is not merely tested but **executed on every run**: `validate.py:71` calls `catalog.validate_governed_inventory()` (`registry.py:913`), which emits `EVOLUTION_ORPHAN_PATH` / `EVOLUTION_OWNERSHIP_AMBIGUOUS`; `validate.py` is green at RC time, so the live tree has zero orphans. Negative case pinned by `test_new_governed_product_path_without_component_is_orphaned`. `explain-evolution` **run live at RC time** (§2 above), returning full governance for a real governed path — not asserted. |
@@ -156,6 +164,16 @@ item failed verification, and no item was closed on assumption.
 6. **`docs/codex.md` redirect stub is load-bearing** and must survive while
    v1.17.1 is the rollback target — current scripts and rolled-back v1.17.1
    tooling both print "see docs/codex.md" (rehearsal run D).
+7. **The `.gitattributes`/`expected_outputs()` coverage check is not yet
+   mechanized** (added by code review of this bundle). The lesson appended this
+   session states that every `render.py` projection destination needs an
+   explicit `eol=lf` pin and that a repo check should assert it. Today all three
+   destinations ARE pinned (§3), but nothing stops a future projection from
+   landing unpinned — same species as limitation 3: a rule that lives in prose
+   and is not mechanically caught.
+8. **`release/1.x` gates have not been re-run at RC time.** That branch is
+   untouched by this work, but Phase 5 Exit requires the check rather than the
+   inference. Carried into step 11 (§11 item 4).
 
 ## 7. Fact-check sources and dates (§9.4)
 
@@ -204,7 +222,26 @@ Rehearsed live at 5c (evidence §5c Deliverable 1), not theorized:
 
 ## 10. Review of this RC bundle (per §16)
 
-- **code-reviewer** over the RC diff: see §10 verdict recorded at commit time.
+- **code-reviewer** over the RC diff `222cac6..802e21c` (two commits, two files;
+  gate outputs pasted into the dispatch per §16 rule 2): **APPROVE — 0 blocking,
+  0 MAJOR.** The reviewer independently resolved every spot-checked citation —
+  all 16 named tests exist with matching per-file counts, every `file:line`
+  reference is exact, the quoted `revert-map.md` and ADAPTER.md strings match,
+  and the §13.1 row texts match `plans/PLAN-v7-platform.md:880-905` in order. It
+  confirmed: no fabricated or misdescribed citation; no restated claim (every row
+  ends in a citation or an explicitly labelled RC-time re-run); item 13's OPEN
+  status not disguised; item 9's asymmetry real; freeze compliance clean; the
+  13-item count correct.
+  Six MINOR precision findings were raised and **all six fixed in the follow-up
+  commit**: a loop-profile line reference off by two (:18 → :20); limitation 4's
+  "software-dev has none" overstated (the profile sentence IS pinned at
+  `test_software_dev_pack.py:63` — what is unpinned is the descriptor↔profile
+  link); §1's file list overstating the diff; §10's self-referential review
+  pointer plus the unresolved `<RC_COMMIT>` placeholder; the item-count note
+  implying the correction lived in the order document; and a missing reciprocal
+  forward-reference on the 2026-07-13 lesson entry. Two further INFO gaps were
+  promoted into §6 as limitations 7 and 8. Reviewer lesson candidates are
+  recorded in `docs/spikes/phase-5/evidence.md` § RC1.
 - **security-reviewer: SKIPPED — stated reason.** The RC diff is
   evidence/lessons documentation only (`lessons-learned/lessons-learned.md`,
   `docs/spikes/phase-5/rc1-bundle.md`, `docs/spikes/phase-5/evidence.md`,
