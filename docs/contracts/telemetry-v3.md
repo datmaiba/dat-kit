@@ -74,8 +74,8 @@ Every v3 event contains exactly these required top-level fields:
 | `producer` | closed object `{id, revision}`; both are stable IDs from T3.3.1 |
 | `revisions` | closed object with all revision references in T3.4 |
 | `lineage` | closed object `{parent_task_id, delegation_id, correction_of}`; every key is present and nullable |
-| `source_class` | `runtime | repository | human | legacy_import | derived` |
-| `privacy_class` | `public | project | local_private` |
+| `source_class` | `runtime`, `repository`, `human`, `legacy_import`, or `derived` |
+| `privacy_class` | `public`, `project`, or `local_private` |
 | `coverage` | closed coverage object from T3.5 |
 | `tokens` | closed token-attribution object from T3.5 |
 | `elapsed` | closed elapsed-attribution object from T3.5 |
@@ -152,7 +152,7 @@ event.
 - `status` is `full | partial`;
 - `missing_event_types` is a sorted unique array of T3.6 event types;
 - `reason` is null for `full`, otherwise exactly one of
-  `completion_only | unsupported_host_start | telemetry_disabled | legacy_import | producer_failure`.
+  `completion_only | unsupported_host_start | telemetry_disabled | legacy_import | producer_failure | in_progress`.
 
 `full` requires an empty missing list and a null reason. `partial` requires a
 non-empty missing list and a non-null reason. Partial coverage is valid data,
@@ -175,6 +175,14 @@ valid T3.6 order. The validator derives the required set, then requires
 An isolated `task_finished` therefore cannot claim `full`. Unknown workflows
 owe the universal start/finish pair; their producer revision may declare a
 stricter required-event profile but may never weaken this floor.
+
+`in_progress` is valid only before the original `task_finished`. On each
+non-terminal event, `missing_event_types` is the exact required set not yet
+observed at that append position, including `task_finished`; the list may
+shrink as evidence arrives. The original `task_finished` and any correction of
+it carry the terminal `full` or degraded `partial` result and cannot use
+`in_progress`. Reports use that latest valid terminal coverage, never an
+earlier in-progress snapshot.
 
 ### T3.5.2 Tokens
 
@@ -219,7 +227,8 @@ may mint the task ID at finish; T3.5.1 then requires partial coverage.
 
 Each payload contains exactly the fields below. `stable-id`, `stable-ref`, and
 `path` use T3.3.1. `verdict_source` is always
-`human | agent | automation`.
+`human | agent | automation`. In the table, slash-separated values are the
+exact closed enum alternatives, not free text.
 
 The load-bearing named fields include `resumed_from_handoff`, `first_pass`,
 `verdict_source`, `introduced_task`, `approving_reviewers`,
@@ -228,23 +237,19 @@ payloads and types are fixed below.
 
 | `event_type` | Exact payload fields |
 |---|---|
-| `task_started` | `{workflow: stable-id, resumed_from_handoff: bool, handoff_ref: path|null}` |
-| `task_finished` | `{outcome: completed|aborted|unknown, scorecard_ref: path|null}` |
-| `handoff_created` | `{handoff_ref: path, reason: context_ceiling|deliberate_pause|delegation_brief}` |
-| `task_resumed` | `{handoff_ref: path, resumed_from_task_id: UUIDv4}` |
-| `delegation_started` | `{child_task_id: UUIDv4, delegated_role: stable-id, brief_ref: path}` |
-| `gate_result` | `{gate_id: stable-id, outcome: pass|fail|skipped, first_pass: bool, verdict_source: human|agent|automation, evidence_ref: stable-ref|null}` |
-| `review_result` | `{reviewer_id: stable-id, reviewer_class: plan|qa|software-dev|knowledge-work|security|owner, round: positive-integer, verdict: approve|return_to_builder|phase_done|revise|skipped, verdict_source: human|agent|automation, finding_count: non-negative-integer, evidence_ref: stable-ref|null}` |
-| `defect_recorded` | `{defect_id: stable-id, introduced_task: UUIDv4|null, approving_reviewers: sorted-unique-stable-id-array, gate_that_should_have_caught_it: stable-id, evidence_ref: stable-ref}` |
-| `rework_recorded` | `{cause_event_id: UUIDv4, round: positive-integer, reason: gate_failure|review_finding|spec_correction|other, evidence_ref: stable-ref|null}` |
+| `task_started` | `{workflow: stable-id}` |
+| `task_finished` | `{outcome: completed/aborted/unknown, scorecard_ref: path or null}` |
+| `handoff_created` | `{handoff_ref: path, reason: context_ceiling/deliberate_pause/delegation_brief}` |
+| `task_resumed` | `{handoff_ref: path, resumed_from_handoff: true, resumed_from_event_id: UUIDv4}` |
+| `delegation_started` | `{delegation_id: UUIDv4, child_task_id: UUIDv4, delegated_role: stable-id, brief_ref: path}` |
+| `gate_result` | `{gate_id: stable-id, outcome: pass/fail/skipped, first_pass: bool, verdict_source: human/agent/automation, evidence_ref: stable-ref or null}` |
+| `review_result` | `{reviewer_id: stable-id, reviewer_class: plan/qa/software-dev/knowledge-work/security/owner, round: positive-integer, verdict: approve/return_to_builder/phase_done/revise/skipped, verdict_source: human/agent/automation, finding_count: non-negative-integer, evidence_ref: stable-ref or null}` |
+| `defect_recorded` | `{defect_id: stable-id, introduced_task: UUIDv4 or null, approving_reviewers: sorted-unique-stable-id-array, gate_that_should_have_caught_it: stable-id, evidence_ref: stable-ref}` |
+| `rework_recorded` | `{cause_event_id: UUIDv4, round: positive-integer, reason: gate_failure/review_finding/spec_correction/other, evidence_ref: stable-ref or null}` |
 | `lesson_candidate_recorded` | `{kit_facing: bool, root_cause_ref: stable-ref, candidate_ref: stable-ref}` |
-| `fact_check_recorded` | `{gate_id: stable-id, verdict: supported|unsupported|mixed|unverified, verdict_source: human|agent|automation, evidence_ref: stable-ref}` |
+| `fact_check_recorded` | `{gate_id: stable-id, verdict: supported/unsupported/mixed/unverified, verdict_source: human/agent/automation, evidence_ref: stable-ref}` |
 | `scorecard_imported` | `{source_path: "benchmarks/scorecard.jsonl", source_record_ordinal: positive-integer, source_record_hash: lowercase-sha256, source_record_ref: stable-ref}` |
-| `benchmark_exported` | `{export_batch_id: UUIDv4, target_path: "benchmarks/telemetry-v3.jsonl"|"benchmarks/defects.jsonl", prior_hash: lowercase-sha256|null, exported_event_ids: sorted-unique-UUIDv4-array}` |
-
-`task_started.resumed_from_handoff` is true exactly when the task begins from
-a handoff. In that case `handoff_ref` is non-null and a `task_resumed` event is
-required for full coverage. Otherwise `handoff_ref` is null.
+| `benchmark_exported` | `{export_batch_id: UUIDv4, target_path: "benchmarks/telemetry-v3.jsonl" or "benchmarks/defects.jsonl", prior_hash: lowercase-sha256 or null, exported_event_ids: sorted-unique-UUIDv4-array}` |
 
 `gate_result.first_pass` reports whether this gate passed on its first
 attempt for the task; it is not reconstructed from a later final result.
@@ -259,23 +264,31 @@ finishes, finish-before-start, and an original event appended after finish are
 invalid. Correction events do not alter this original-event cardinality.
 
 The completion-only degraded path has exactly one original `task_finished`, no
-`task_started`, and the T3.5.1 partial-coverage label. A resumed task has
-exactly one `task_started` with `resumed_from_handoff=true`, a non-null
-`handoff_ref`, and exactly one matching `task_resumed` after start and before
-finish. A non-resumed task has neither a handoff ref nor a `task_resumed` event.
+`task_started`, and the T3.5.1 partial-coverage label.
+
+A resumed execution preserves the same `task_id` and does not emit another `task_started`. It emits `task_resumed` after an earlier unmatched `handoff_created.event_id` for that same task and before finish. Its
+`resumed_from_event_id` names that event, its `handoff_ref` is identical, and
+`resumed_from_handoff` is the literal true. One task may have multiple ordered
+handoff/resume pairs, but a handoff event can be consumed at most once. A
+completed task has no unmatched non-delegation handoff; an aborted task may
+end with one and remains partial.
 
 ## T3.7 Lineage and corrections
 
 `lineage.parent_task_id` is null for a root task and the parent task UUID for
-a delegated child. `lineage.delegation_id` is null outside delegation and is a
-UUIDv4 shared by the parent's `delegation_started` event and every child event.
-A child always has its own `task_id`; it never reuses the parent's identity.
+a delegated child. `lineage.delegation_id` is null outside a delegated child
+and is copied from the parent's `delegation_started.payload.delegation_id` to
+every child event. A child always has its own `task_id`; it never reuses the
+parent's identity.
 
 All original events for one task carry one immutable `(parent_task_id, delegation_id)` pair. A delegation ID identifies exactly one parent-child task pair,
-appears in exactly one parent `delegation_started` event whose payload names
-that child, and cannot be reused for another parent or child. A parent ID
-without a delegation ID, a delegation ID without a parent ID on the child,
-pair drift within a task, or a parent/child cycle is invalid.
+appears in exactly one parent `delegation_started` payload whose
+`child_task_id` names that child, and cannot be reused for another parent or
+child. The parent event keeps the parent's own lineage pair; a root parent may
+therefore delegate multiple children through distinct payload delegation IDs
+without lineage drift. A parent ID without a delegation ID, a delegation ID
+without a parent ID on the child, pair drift within a task, or a parent/child
+cycle is invalid.
 
 `lineage.correction_of` is null for an original event. A correction is a new,
 complete event with a new `event_id` and the same `event_type` as its target;
@@ -430,7 +443,7 @@ producer responsibilities are:
 | build-loop HARVEST | emit `lesson_candidate_recorded` with `kit_facing=true` only when root cause is in a dat-kit skill, template, or gate | a real HARVEST task plus validated event |
 | diagnosing-bugs | emit `defect_recorded` and export its projection to `benchmarks/defects.jsonl` | a real post-mortem with the required defect tuple |
 | knowledge-work fact-check | emit a machine-readable `fact_check_recorded` footer while preserving the human verdict | a real knowledge-work task with human-vs-agent-vs-automation source distinguished |
-| task/handoff schema | emit `task_started.resumed_from_handoff` and `task_resumed`, preserving parent/delegation linkage | a real resumed or delegated task |
+| task/handoff schema | emit `task_resumed.resumed_from_handoff=true`, preserve the original task ID across handoff, and preserve parent/delegation linkage | a real resumed or delegated task |
 | reports | derive the per-reviewer view and event-coverage-rate view from valid events | report fixtures plus representative software-dev and knowledge-work observations |
 
 Every producer begins `planned`. It becomes `active` only when its runtime,

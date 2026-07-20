@@ -1,6 +1,6 @@
 {
   "format_revision": 1,
-  "proposal_id": "proposal-7658d0c11f5cd343a855",
+  "proposal_id": "proposal-f80fa03211e51c3f68c5",
   "created_at": "2026-07-20T21:27:14Z",
   "proposer_identity": "codex-session-2026-07-21-phase6a",
   "policy_revision": "platform-contract-policy/1",
@@ -38,7 +38,7 @@
   ],
   "evidence_refs": [
     "handoffs/HANDOFF-2026-07-21-phase6-telemetry-v3-entry.md#verified-gates",
-    "plans/PLAN-v7-platform.md#phase-6-telemetry-v3-and-dat-kit-2.1.0"
+    "plans/PLAN-v7-platform.md#phase-6--telemetry-v3-and-dat-kit-210"
   ],
   "hypothesis": "A closed Telemetry v3 contract reviewed before runtime work prevents incompatible producers, privacy leakage, and history-rewriting implementations in Phase 6B.",
   "patch_scope": [
