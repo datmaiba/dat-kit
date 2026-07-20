@@ -12,7 +12,7 @@ import sys
 SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 CONTRACT = ROOT / "docs/contracts/telemetry-v3.md"
-PROPOSAL = ROOT / "docs/decisions/evolution-proposal-d11f5bd073a3c69a2fff.proposal.json"
+PROPOSAL = ROOT / "docs/decisions/evolution-proposal-7658d0c11f5cd343a855.proposal.json"
 sys.path.insert(0, str(SCRIPTS))
 
 from registry import Catalog, Diagnostic, canonical_file_hash, canonical_json
@@ -63,6 +63,13 @@ def test_proposal_identity_and_policy_binding_are_deterministic() -> None:
     payload.pop("proposal_id")
     expected_id = "proposal-" + hashlib.sha256(canonical_json(payload)).hexdigest()[:20]
     assert proposal["proposal_id"] == expected_id
+    assert proposal["evidence_refs"] == [
+        "handoffs/HANDOFF-2026-07-21-phase6-telemetry-v3-entry.md#verified-gates",
+        "plans/PLAN-v7-platform.md#phase-6-telemetry-v3-and-dat-kit-2.1.0",
+    ]
+    for reference in proposal["evidence_refs"]:
+        path, separator, anchor = reference.partition("#")
+        assert separator and anchor and (ROOT / path).is_file()
 
 
 def test_envelope_fields_types_and_closed_enums_are_normative() -> None:
@@ -98,6 +105,11 @@ def test_lifecycle_lineage_and_event_payloads_are_closed() -> None:
     assert "minted at LOAD" in text
     assert "same `event_type`" in text
     assert "forward, self, missing, or cyclic correction" in text
+    assert "Exactly one original `task_started`" in text
+    assert "Exactly one original `task_finished`" in text
+    assert "finish-before-start" in text
+    assert "one immutable `(parent_task_id, delegation_id)` pair" in text
+    assert "exactly one parent-child task pair" in text
 
 
 def test_attribution_coverage_storage_and_recovery_are_bounded() -> None:
@@ -108,6 +120,7 @@ def test_attribution_coverage_storage_and_recovery_are_bounded() -> None:
         "single writer", "`O_APPEND`", "exact positive write count",
         "interrupted final record", "Multi-writer locking is deferred",
         "Duplicate `event_id` values are invalid",
+        "full coverage requires both `task_started` and `task_finished`",
     ):
         assert requirement in text
 
@@ -123,7 +136,10 @@ def test_privacy_retention_import_export_disable_and_compatibility_are_explicit(
         "Raw prompts", "tool request or response bodies", "environment values",
         "credentials", "secrets", "No automatic TTL", "verified export",
         "never rewrites existing benchmark bytes", "must not block the work loop",
-        "1.x", "schema freeze",
+        "1.x", "schema freeze", "No telemetry field accepts free-form text",
+        "`[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`",
+        "`source_record_ordinal`", "path + ordinal + hash + event type",
+        "`benchmark_exported` events are never export-eligible",
     ):
         assert requirement in text
 
@@ -133,6 +149,6 @@ def test_five_named_producers_and_required_views_are_mapped() -> None:
     for requirement in (
         "build-loop HARVEST", "diagnosing-bugs", "knowledge-work fact-check",
         "resumed_from_handoff", "per-reviewer view", "event-coverage-rate view",
-        "`planned`", "`active`",
+        "`planned`", "`active`", "`reviewer_id`",
     ):
         assert requirement in text

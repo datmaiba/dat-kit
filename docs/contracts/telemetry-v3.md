@@ -71,7 +71,7 @@ Every v3 event contains exactly these required top-level fields:
 | `task_id` | canonical lowercase UUIDv4 string |
 | `event_type` | one closed event-type value from T3.6 |
 | `occurred_at` | RFC 3339 UTC timestamp ending in `Z`; describes when this record was emitted |
-| `producer` | closed object `{id, revision}`; both are non-empty stable strings |
+| `producer` | closed object `{id, revision}`; both are stable IDs from T3.3.1 |
 | `revisions` | closed object with all revision references in T3.4 |
 | `lineage` | closed object `{parent_task_id, delegation_id, correction_of}`; every key is present and nullable |
 | `source_class` | `runtime | repository | human | legacy_import | derived` |
@@ -86,7 +86,24 @@ invalid. Nullable fields use JSON `null`; an empty string is never a null
 substitute. Arrays described as sets are sorted, contain no duplicates, and
 use the identity rules of their element type.
 
-### T3.3.1 Source and privacy classes
+### T3.3.1 String grammars
+
+No telemetry field accepts free-form text. Every non-enum string is one of:
+
+- **stable ID**: 1-128 ASCII characters matching
+  `[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`;
+- **stable reference**: 1-512 ASCII characters matching
+  `[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,511}`; or
+- **path**: a 1-512 character canonical repository-relative POSIX path with
+  no empty, `.`, or `..` segment, no control character, no backslash, no
+  Windows-reserved basename, and no trailing space or dot.
+
+Hashes, UUIDs, timestamps, and literal paths use their narrower declared
+grammar. Arbitrary descriptions, error messages, prompt excerpts, copied
+source, and user-entered notes have no field in v3. Producers map a condition
+to a closed enum and store only a stable evidence reference.
+
+### T3.3.2 Source and privacy classes
 
 `source_class` describes provenance:
 
@@ -116,7 +133,7 @@ allowlist and forbidden-value rules always win.
 Each value is a closed object `{value, unavailable_reason}`. Exactly one is
 non-null:
 
-- `value` is a non-empty stable revision string and `unavailable_reason` is
+- `value` is a stable reference and `unavailable_reason` is
   null; or
 - `value` is null and `unavailable_reason` is one of
   `not_applicable | not_emitted | unsupported_host | legacy_source | ambiguous`.
@@ -142,6 +159,22 @@ non-empty missing list and a non-null reason. Partial coverage is valid data,
 not an error to hide. A completion-only scorecard may mint a task ID, but its
 events must use `partial` with reason `completion_only` and name the lifecycle
 events that were not observed.
+
+At minimum, full coverage requires both `task_started` and `task_finished` in
+valid T3.6 order. The validator derives the required set, then requires
+`missing_event_types` to equal the required types absent from the stream:
+
+- every task: `task_started`, `task_finished`;
+- `workflow=build-loop`: at least one `gate_result` and one `review_result`;
+- `workflow=knowledge-work`: at least one `fact_check_recorded` carrying the
+  load-bearing fact-check verdict;
+- `resumed_from_handoff=true`: `task_resumed`;
+- any delegated parent/child pair: the linked `delegation_started` event;
+- any emitted handoff: `handoff_created`.
+
+An isolated `task_finished` therefore cannot claim `full`. Unknown workflows
+owe the universal start/finish pair; their producer revision may declare a
+stricter required-event profile but may never weaken this floor.
 
 ### T3.5.2 Tokens
 
@@ -184,9 +217,8 @@ equivalent. The same `task_id` propagates through gates, reviews, handoffs,
 HARVEST, and finish. A completion-only degraded producer is the sole path that
 may mint the task ID at finish; T3.5.1 then requires partial coverage.
 
-Each payload contains exactly the fields below. `string` means non-empty.
-`path` means a canonical repository-relative POSIX path; absolute paths and
-`..` segments are invalid. `verdict_source` is always
+Each payload contains exactly the fields below. `stable-id`, `stable-ref`, and
+`path` use T3.3.1. `verdict_source` is always
 `human | agent | automation`.
 
 The load-bearing named fields include `resumed_from_handoff`, `first_pass`,
@@ -196,18 +228,18 @@ payloads and types are fixed below.
 
 | `event_type` | Exact payload fields |
 |---|---|
-| `task_started` | `{workflow: string, resumed_from_handoff: bool, handoff_ref: path|null}` |
+| `task_started` | `{workflow: stable-id, resumed_from_handoff: bool, handoff_ref: path|null}` |
 | `task_finished` | `{outcome: completed|aborted|unknown, scorecard_ref: path|null}` |
 | `handoff_created` | `{handoff_ref: path, reason: context_ceiling|deliberate_pause|delegation_brief}` |
 | `task_resumed` | `{handoff_ref: path, resumed_from_task_id: UUIDv4}` |
-| `delegation_started` | `{child_task_id: UUIDv4, delegated_role: string, brief_ref: path}` |
-| `gate_result` | `{gate_id: string, outcome: pass|fail|skipped, first_pass: bool, verdict_source: human|agent|automation, evidence_ref: string|null}` |
-| `review_result` | `{reviewer_class: plan|qa|software-dev|knowledge-work|security|owner, round: positive-integer, verdict: approve|return_to_builder|phase_done|revise|skipped, verdict_source: human|agent|automation, finding_count: non-negative-integer, evidence_ref: string|null}` |
-| `defect_recorded` | `{defect_id: string, introduced_task: UUIDv4|null, approving_reviewers: sorted-unique-string-array, gate_that_should_have_caught_it: string, evidence_ref: string}` |
-| `rework_recorded` | `{cause_event_id: UUIDv4, round: positive-integer, reason: string, evidence_ref: string|null}` |
-| `lesson_candidate_recorded` | `{kit_facing: bool, root_cause_ref: string, candidate_ref: string}` |
-| `fact_check_recorded` | `{gate_id: string, verdict: supported|unsupported|mixed|unverified, verdict_source: human|agent|automation, evidence_ref: string}` |
-| `scorecard_imported` | `{source_path: "benchmarks/scorecard.jsonl", source_record_hash: lowercase-sha256, source_record_ref: string}` |
+| `delegation_started` | `{child_task_id: UUIDv4, delegated_role: stable-id, brief_ref: path}` |
+| `gate_result` | `{gate_id: stable-id, outcome: pass|fail|skipped, first_pass: bool, verdict_source: human|agent|automation, evidence_ref: stable-ref|null}` |
+| `review_result` | `{reviewer_id: stable-id, reviewer_class: plan|qa|software-dev|knowledge-work|security|owner, round: positive-integer, verdict: approve|return_to_builder|phase_done|revise|skipped, verdict_source: human|agent|automation, finding_count: non-negative-integer, evidence_ref: stable-ref|null}` |
+| `defect_recorded` | `{defect_id: stable-id, introduced_task: UUIDv4|null, approving_reviewers: sorted-unique-stable-id-array, gate_that_should_have_caught_it: stable-id, evidence_ref: stable-ref}` |
+| `rework_recorded` | `{cause_event_id: UUIDv4, round: positive-integer, reason: gate_failure|review_finding|spec_correction|other, evidence_ref: stable-ref|null}` |
+| `lesson_candidate_recorded` | `{kit_facing: bool, root_cause_ref: stable-ref, candidate_ref: stable-ref}` |
+| `fact_check_recorded` | `{gate_id: stable-id, verdict: supported|unsupported|mixed|unverified, verdict_source: human|agent|automation, evidence_ref: stable-ref}` |
+| `scorecard_imported` | `{source_path: "benchmarks/scorecard.jsonl", source_record_ordinal: positive-integer, source_record_hash: lowercase-sha256, source_record_ref: stable-ref}` |
 | `benchmark_exported` | `{export_batch_id: UUIDv4, target_path: "benchmarks/telemetry-v3.jsonl"|"benchmarks/defects.jsonl", prior_hash: lowercase-sha256|null, exported_event_ids: sorted-unique-UUIDv4-array}` |
 
 `task_started.resumed_from_handoff` is true exactly when the task begins from
@@ -219,12 +251,31 @@ attempt for the task; it is not reconstructed from a later final result.
 Human-run gates use `verdict_source=human`; deterministic commands use
 `automation`; an AI reviewer or agent uses `agent`.
 
+Exactly one original `task_started` exists for every normally observed task.
+Exactly one original `task_finished` also exists. The original start is the task's first
+event and the original finish follows every work, gate, review, handoff,
+delegation, and HARVEST event for that task. Duplicate starts, duplicate
+finishes, finish-before-start, and an original event appended after finish are
+invalid. Correction events do not alter this original-event cardinality.
+
+The completion-only degraded path has exactly one original `task_finished`, no
+`task_started`, and the T3.5.1 partial-coverage label. A resumed task has
+exactly one `task_started` with `resumed_from_handoff=true`, a non-null
+`handoff_ref`, and exactly one matching `task_resumed` after start and before
+finish. A non-resumed task has neither a handoff ref nor a `task_resumed` event.
+
 ## T3.7 Lineage and corrections
 
 `lineage.parent_task_id` is null for a root task and the parent task UUID for
 a delegated child. `lineage.delegation_id` is null outside delegation and is a
 UUIDv4 shared by the parent's `delegation_started` event and every child event.
 A child always has its own `task_id`; it never reuses the parent's identity.
+
+All original events for one task carry one immutable `(parent_task_id, delegation_id)` pair. A delegation ID identifies exactly one parent-child task pair,
+appears in exactly one parent `delegation_started` event whose payload names
+that child, and cannot be reused for another parent or child. A parent ID
+without a delegation ID, a delegation ID without a parent ID on the child,
+pair drift within a task, or a parent/child cycle is invalid.
 
 `lineage.correction_of` is null for an original event. A correction is a new,
 complete event with a new `event_id` and the same `event_type` as its target;
@@ -282,6 +333,13 @@ source text. `local_private` events stay only in `telemetry/events.jsonl` and
 are excluded from every committed export. `project` and `public` events are
 exportable only field-for-field under this contract's allowlist.
 
+The T3.3.1 grammar and size bounds apply before persistence, including
+`workflow`, producer and reviewer identity, gate/defect IDs, every reason,
+and every evidence/root-cause/candidate reference. A producer may not place
+free-form text in a stable-ref field merely because the characters happen to
+match the grammar; the value must resolve to a stable artifact, identifier, or
+closed enum owned by the producer.
+
 Disable and error paths obey the same rules. A diagnostic may name a field but
 never print its rejected secret-like value.
 
@@ -291,10 +349,12 @@ never print its rejected secret-like value.
 
 A v2 scorecard import reads `benchmarks/scorecard.jsonl` without modifying it
 and emits new `scorecard_imported`-linked v3 events. The source record's
-canonical hash and stable record reference provide provenance. Imported
+one-based physical `source_record_ordinal`, canonical hash, and stable record
+reference provide provenance. Imported
 records use `source_class=legacy_import`; unavailable lifecycle, token, and
 revision facts remain explicitly unknown. Import is idempotent by source
-record hash plus event type.
+path + ordinal + hash + event type. Two byte-identical source lines at
+different ordinals remain two distinct historical records.
 
 No import may normalize, reorder, truncate, or rewrite existing scorecard
 bytes. Historical schema-v1 and schema-v2 scorecard records remain valid in
@@ -316,6 +376,12 @@ The exporter verifies and records the target's prior-byte hash before the
 batch and emits `benchmark_exported` only after the target append succeeds.
 Partial failure leaves already-valid append-only records intact and reports
 the unexported IDs; retry deduplicates the completed IDs.
+
+`benchmark_exported` events are never export-eligible and never appear in
+`exported_event_ids`. A no-op export with no new eligible events emits no new
+receipt. The stream is caught up when every eligible non-receipt event is
+present identically in its target, so an export cannot create an endless tail
+of receipts that makes pruning unreachable.
 
 ### T3.10.3 Retention
 
@@ -372,8 +438,10 @@ artifact/schema revision, validation, and a real producer receipt exist.
 Contract prose, a schema fixture, or a synthetic event alone cannot activate a
 producer.
 
-The per-reviewer view groups `review_result` rounds and linked
-`defect_recorded.approving_reviewers` by reviewer class and identity. It reports
+The per-reviewer view groups `review_result` rounds by the payload's explicit
+`reviewer_id` and `reviewer_class`, then joins linked
+`defect_recorded.approving_reviewers` on the same stable reviewer IDs. The
+producer identity is not a substitute for reviewer identity. The view reports
 association, not causal blame, and includes unknown/unlinked defects rather
 than dropping them.
 
