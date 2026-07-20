@@ -4,6 +4,38 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-20 — `* text=auto` let a Windows checkout rewrite a byte-compared generated file
+
+- **What happened**: the first real push of `feature/open-platform-v2` failed the Windows Actions job with `PROJECTION_BYTE_MISMATCH` on `skills/build-loop/SKILL.md` and `skills/knowledge-work/SKILL.md`. `.gitattributes` pinned `registry/**`, `templates/**`, `*.py` and `*.sh` to `eol=lf` but not the generated skill projections, so a `core.autocrlf=true` checkout (the GitHub-hosted Windows default) normalized their committed LF bytes to CRLF while `render.py` always emits LF — `validate.py`'s byte-compare failed on Windows only. Fixed in `ba77045` by adding `skills/**/SKILL.md text eol=lf`.
+- **Root cause**: byte-exactness was enforced at compare time but never protected at checkout time; `* text=auto` is a heuristic that actively rewrites line endings, so it is the opposite of a guarantee for a file whose bytes are the contract.
+- **Rule**: every destination in `render.py`'s `expected_outputs()` needs its own explicit `.gitattributes` `eol=lf` pin — adding a new projection means adding its pin in the same commit. A repo check asserting that every `expected_outputs()` path is covered by such a pin is the mechanical form of this rule and should be added before the next projection lands.
+
+---
+
+### 2026-07-20 — Sandbox rsync-copy verification is structurally blind to checkout-normalization bugs
+
+- **What happened**: every gate run for slices 5a→5c was green, but they all ran against an `rsync`'d copy of the working tree — never a real `git clone`. The `.gitattributes` defect above was therefore undiscoverable locally and surfaced only after a push, in CI. It was reproduced locally only afterwards, with `git clone -c core.autocrlf=true --quiet . /tmp/before`, which produced the identical two diagnostics.
+- **Root cause**: the local verification loop copied files rather than materializing them through git, so the entire class of "what does checkout do to these bytes" bugs was outside what any local green could ever prove. The copy protocol was adopted for speed and its blind spot was never stated.
+- **Rule**: a green gate on a file copy proves nothing about checkout behavior. Anything line-ending-, `.gitattributes`- or filter-related must be verified through a real `git clone -c core.autocrlf=true <repo> <tmp>` before push — not discovered post-push via Actions. State the blind spot wherever the copy protocol is documented, so the next session doesn't mistake copy-green for checkout-green. → strengthens the 2026-07-13 entry below ("a workflow file existing ≠ CI working"): a local green ≠ a CI green, for reasons that are structural, not flaky.
+
+---
+
+### 2026-07-20 — An unscoped smoke prompt authorized a host agent to execute the whole plan
+
+- **What happened**: the Gate 4 Codex host smoke ran `codex exec "run the build loop"` under the default `sandbox: workspace-write` + `approval: never`. Codex treated the prompt as full authorization: it re-ran parts of Gates 1–2 itself, tried to shell out to Claude Code, and **wrote** `handoffs/HANDOFF-2026-07-20-phase5-external-gates.md` plus a `benchmarks/scorecard.jsonl` append recording a "Claude pack-read FAIL" conclusion that was true only of its own sandboxed attempt. Both artifacts were uncommitted and were reverted — but a stale handoff is exactly what build-loop reads first on resume.
+- **Root cause**: the smoke test's intent (does the host read the pack?) and the prompt's literal meaning (execute the build loop) were not the same thing, and nothing in the invocation constrained the gap. A trigger phrase chosen to prove trigger-matching doubles as a real work order.
+- **Rule**: a host-conformance smoke must restrict scope in the prompt itself ("read-only: report three facts, do not modify files or execute the plan") or run under a read-only sandbox flag. Never smoke-test a trigger phrase with write permissions granted — and treat any artifact a smoke run leaves in `handoffs/` or `benchmarks/` as contaminated evidence until proven otherwise.
+
+---
+
+### 2026-07-20 — A lifecycle label and a declared artifact list contradicted each other across descriptors
+
+- **What happened**: 5c code review found that `adapters/codex/ADAPTER.md` defines the `repo_only` lifecycle as "no project artifact exists or is emitted", while the gemini-cli descriptor in `registry/adapters.json` sits at `repo_only` *and* declares a `GEMINI.md` `project_artifact`. Both are shipped truth; nothing detects the contradiction, and it survived to the RC because the definition lives in one adapter's prose rather than in the registry contract.
+- **Root cause**: lifecycle semantics were documented per-adapter instead of being defined once and enforced mechanically, so a label became a comment — a descriptor can claim a state whose stated meaning its own data violates.
+- **Rule**: every registry lifecycle state needs exactly one canonical definition in the registry contract plus a conformance check asserting each descriptor's data matches the state it claims (`repo_only` ⇒ empty `project_artifact`). Per-adapter prose describing a shared state is a documentation smell — the next descriptor will contradict it silently. Deferred past v2.0.0 only because the fix edits frozen registry surfaces (R9 amendment procedure required).
+
+---
+
 ### 2026-07-20 — A snapshot doubling as recognition record AND live-template proof deadlocked the revision flip
 
 - **What happened**: the 5a templates flip could not go green under pre-5a registry semantics — the immutable 1.16 snapshot and the new 2.0 snapshot listed the same target paths (`REGISTRY_PATH_COLLISION`) and both pointed at the same `templates/common/` files, of which only one revision's bytes can live-hash (`REGISTRY_SNAPSHOT_HASH_MISMATCH` ×2). No arrangement of hashes could avoid it; the builder had to stop for decision D-5a-1.
