@@ -41,6 +41,10 @@ contain.** The tag's own hash and the tagged commit's hash are recorded in the
 post-tag commit and in `docs/spikes/phase-5/evidence.md` § Step 11 as amended
 there — verify mechanically with `git rev-list -n1 v2.0.0`.
 
+*(Post-tag addendum, added in the commit after the tag: annotated tag `v2.0.0`,
+tag object `9bb07fe`, on commit `1ec1a15`. §13.1 = 13 PASS / 0 OPEN / 0 STOP.
+Not pushed — see Next steps.)*
+
 ## State
 
 **DONE:**

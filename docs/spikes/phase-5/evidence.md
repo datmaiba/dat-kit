@@ -755,7 +755,27 @@ checkout).
 - One fix round (`238d7fb`); no findings-scoped re-review needed (single
   MINOR, prose precision, verified in place).
 
-### §13.1 item 13 — status at this commit
+### §13.1 item 13 — CLOSED (recorded post-tag)
+
+**CLOSED.** Receipts, all mechanically verifiable:
+
+| Fact | Value | Verify with |
+|---|---|---|
+| Annotated tag | `v2.0.0` | `git tag -l v2.0.0` |
+| Tag object | `9bb07fe` | `git rev-parse v2.0.0` |
+| Tagged commit | `1ec1a15` | `git rev-list -n1 v2.0.0` |
+| Tagger / date | Dat &lt;lateone0@gmail.com&gt;, 2026-07-21 | `git show v2.0.0` |
+
+The tagged tree is the RC-approved tree plus release documentation and the
+D-11-F correction (D-11-D, the reading recorded explicitly). **All 13 §13.1
+items now read 13 PASS / 0 OPEN / 0 STOP** — the program's Definition of Done,
+and Phase 5 Exit.
+
+This section is in the commit *after* the tag by design: the pre-tag text
+below is preserved unedited as the honest record of what was provable at tag
+time.
+
+### §13.1 item 13 — status at the pre-tag commit (preserved)
 
 **OPEN — closes at the tag, which is the final act of the release train.**
 
