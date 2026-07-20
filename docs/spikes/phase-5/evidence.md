@@ -865,3 +865,45 @@ and closes the repository's pre-existing `git diff --check` findings.
 3. Record tag object/commit hashes and §13.1 item 13 closure only in a
    post-tag commit. Until then the release remains open and the old local tag
    is stale evidence.
+
+## RC2 pre-tag migration application receipts
+
+**Status:** external migration gate closed on 2026-07-21; tag recut and CI
+receipt remain open.
+
+- **Clean v1.16 fixture:** pre-state `migration-source`; plan classified
+  `AGENTS.md` as `MIGRATE_REPLACE`; after applying S001-S005 the checker
+  reported `green` with no diagnostics.
+- **Customized v1.16 fixture:** pre-state `migration-source`; an appended
+  `Never overwrite production data.` rule made the plan classify `AGENTS.md`
+  as `MERGE_REQUIRED`; the rule was inventoried into
+  `docs/agent-working-rules.md`, and the post-application checker reported
+  `green` with the custom policy still present.
+- **Isolated real project:** cloned committed tree `93c5b86` from a
+  maintainer-owned v1.16 repository into a disposable workspace without
+  modifying the live project. Its rendered project name differs from the
+  target directory basename, so the corrected classifier deliberately
+  failed closed to `MERGE_REQUIRED`. The manual plan changed only
+  `AGENTS.md` (revision 1.16 to 2.0), retired `.cursorrules`, and added
+  `.cursor/rules/dat-kit.mdc`; checker result was `ok=true`, state `green`.
+  `docs/agent-working-rules.md` remained byte-identical before and after
+  (SHA-256 `393e8dd2768d6287ba56c94158ef01734e7368f58ffd881c6e480c0d4d420a85`).
+  The new Cursor pointer matched its source template exactly (SHA-256
+  `0e2754f181333e36b3ba788d3080d08ab5ff8b843b72f519adfd24de42296f45`).
+
+These receipts supersede the pre-correction application transcripts for RC2.
+They close external gate 1 above; the stale local tag remains withheld until
+this evidence is independently reviewed and the full repository gates pass.
+
+### Final pre-tag verification
+
+- `python scripts/validate.py` — **PASS**.
+- `python -m pytest scripts/tests` — **277 passed, 6 skipped**.
+- `python scripts/render.py --check` — **PASS**.
+- `bash -n scripts/init.sh` and `shellcheck scripts/init.sh` — **PASS**.
+- `git diff --check` — **PASS**.
+- QA — **PHASE DONE** on the anonymized final receipt.
+- Code review — **APPROVE** for factual consistency, privacy, and honest
+  pre-tag status. Security review was not repeated because this receipt-only
+  diff touches none of its trigger surfaces; the corrected classifier itself
+  retains the prior **APPROVE** recorded above.

@@ -2,7 +2,7 @@
 
 A spec-driven working-discipline toolkit for AI coding agents, distilled from real production workflows. One install gives your agent a complete working loop: think before coding, plan before building, verify before claiming, and harvest lessons after shipping. Since 2.0, the loop is an open platform: one host-neutral engine, per-domain policy packs, and a registry that generates every host-facing surface.
 
-> Status: **v2.0.0 release correction in progress** on `feature/open-platform-v2`. The local tag is withheld while migration-safety fixes complete RC2 verification; the latest published tag remains `v1.17.1`. See [Roadmap](#roadmap).
+> Status: **v2.0.0 RC2 migration verification complete** on `feature/open-platform-v2`. The stale local tag remains withheld until the corrected pre-tag tree passes final review and is recut; the latest published tag remains `v1.17.1`. See [Roadmap](#roadmap).
 
 ## Architecture
 
