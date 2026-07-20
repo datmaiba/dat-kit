@@ -39,7 +39,8 @@ the predecessors.
 | **Phase 4** | **CLOSED** — all six slices closed; plan §6 Exit criteria proven in the evidence bundle | `docs/spikes/phase-4/evidence.md` |
 | 5a | CLOSED — atomic templates flip landed (2.0 snapshot + descriptor hashes + adapter rows + marker + tsv, D-5a-1 "historical = record" registry semantics with registry.md R6 amendment); FU-1 closed; 4f alias-embed security INFO closed; greenfield GREEN under v2 checker; 1.16 snapshot byte-identical; code + security APPROVE (0 actionable) | `docs/spikes/phase-5/evidence.md`, commits `d1e9d14..ede8670` |
 | 5b | CLOSED — format freeze (R9 statement + pin test, D-5b-B) + release_version 2.0.0 (D-5b-A, mirrored ×3); render byte-check no-op; suites 275+3; Linux clean-install smoke green (incl. idempotent rerun); clean + customized v1.16 fixtures migrated via --migration-plan → checker exit 0 with custom policy preserved; 3 approved 5a lessons appended; code APPROVE (1 MINOR, 1 INFO) + security APPROVE (0 findings) | `docs/spikes/phase-5/evidence.md` §5b, commits `6181816..024882b` |
-| 5 (rest) | OPEN — steps 6 (external), 8 RC bundle, 9 rollback rehearsal, 10 docs sweep, 11 migration guide + tag; external halves of 5 (Windows smoke) and 7 (real project) | — |
+| 5c | CLOSED — step 9 live rollback rehearsal to v1.17.1 (D-5c-A: worktree tooling vs 2.0 + 1.16 project dirs; fail-closed named diagnostics, every byte preserved, forward-migratability intact, v1.17.1 validate green) + step 10 docs sweep (D-5c-B full README/HUONG_DAN rewrite with §9.4-dated per-host table; codex.md folded into adapters/codex/ADAPTER.md + load-bearing redirect stub; domains/loops verified already 0001-compliant, no edit); code APPROVE (0 actionable, 2 INFO) + security skip stated (pure docs + read-only rehearsal) | `docs/spikes/phase-5/evidence.md` §5c, commits `e751d5f..a6a1be6` |
+| 5 (rest) | OPEN — steps 6 (external), 8 RC bundle (per D-5c-C: only after external gates return), 11 migration guide + tag; external halves of 5 (Windows smoke) and 7 (real project) | — |
 
 4b deferrals/flags for later slices: docs/loops.md L7 rewrite (five-slot →
 six-slot, domains/ paths) deferred to 4f — map §9 tags it "4b/4f" but the
@@ -174,6 +175,23 @@ an optional later-slice candidate. Docs sweep (step 10) now also owns the
 stale "1.17.1" citations in README/HUONG_DAN/docs/codex.md. External
 halves still open: Windows Git Bash clean-install smoke (step 5), one real
 v1.16 project migration (step 7), live host smokes (step 6).
+
+5c deferrals/flags → later Phase 5 slices: D-5c-C BINDS — RC bundle (8)
+opens only after the external gates return (Windows Git Bash smoke, real
+v1.16 project migration, Actions runs, live host smokes), so the RC
+evidence bundle is complete; then migration guide + tag (11). The
+`docs/codex.md` redirect stub is LOAD-BEARING: current scripts AND
+rolled-back v1.17.1 tooling print "see docs/codex.md" (rehearsal run D) —
+never delete it while v1.17.1 remains the rollback target. Rolled INFOs
+for the RC window: one-way freeze coupling (5b); Gemini
+`repo_only`-vs-declared-GEMINI.md-`project_artifact` registry quirk (5c
+code review) — reconciling it touches frozen registry surfaces, so it
+requires the R9 freeze-amendment procedure (statement + pin test, same
+commit). One 5c lesson candidate (lifecycle-label vs artifact-list
+contradiction needs a conformance check, not per-adapter prose) awaits
+owner approval in evidence §5c. Docs sweep is DONE — steps 9 + 10 closed;
+README/HUONG_DAN/ADAPTER.md are now the 2.0 truth surfaces; keep future
+edits consistent with `registry/adapters.json` official_facts dates.
 
 ## Phase 4 — isolated structural cutover, SPLIT INTO SIX SLICES (all CLOSED)
 

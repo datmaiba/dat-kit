@@ -242,3 +242,132 @@ Cowork sandbox; suites run on an rsync'd local copy of the exact tree per the
 ## Lesson candidates (5b)
 
 None — the slice applied existing lessons; reviewers proposed none.
+
+# Phase 5 evidence — slice 5c: rollback rehearsal (step 9) + docs sweep (step 10)
+
+Branch `feature/open-platform-v2`. Baseline `b14d648` (owner-committed 5c
+session-order doc on the dictated `8d5fb70`; history beneath verified
+identical — same benign-deviation pattern as 5b's `c1ffaf0`). Slice range
+`b14d648..a6a1be6` + this evidence commit. Executed 2026-07-20 (Windows
+Cowork sandbox; suites and the rehearsal run on an rsync'd local copy per
+the 5a machine-quirk protocol; edits + git in the mounted repo).
+
+## Decisions (owner-confirmed at session start, one batch)
+
+- **D-5c-A — live rollback rehearsal in the sandbox** (worktree at tag
+  `v1.17.1` from the local copy; era-appropriate tooling against a
+  2.0-scaffolded AND a 1.16 project dir; transcript below).
+- **D-5c-B — full README rewrite per plan** (architecture + per-host
+  capability/support table); HUONG_DAN.vi.md follows the same depth.
+- **D-5c-C — RC bundle (step 8) stays OUT of 5c**, opens only after the
+  external gates return (Windows smoke, real v1.16 project, Actions runs,
+  host smokes) so the RC evidence bundle is complete.
+
+## Deliverable 1 — step 9: rollback rehearsal to v1.17.1 (live transcript)
+
+Setup: `git worktree add /tmp/kit-run/v1171 v1.17.1` (in the rsync'd copy —
+mounted repo untouched); `proj20` scaffolded by HEAD tooling
+(`scripts/init.sh --here --profile react`, AGENTS.md marker `dat-kit 2.0`,
+current `contract_check --target` exit 0); `proj116` scaffolded by v1.17.1
+tooling (marker `dat-kit 1.16.0`). Both got user content (spec/00-vision.md
++ USER-NOTES.md); sha256 of every file recorded pre-rehearsal (18 files
+each).
+
+| Run | Command (v1.17.1 tooling) | Target | Result |
+|---|---|---|---|
+| A | `contract_check.py --target` | proj116 | **exit 0** (own-era green, silent success) |
+| B | `contract_check.py --target` | proj20 | **exit 1**, named diagnostic `COMPETING_AGENTS: AGENTS.md is not the current dat-kit canonical contract` — no traceback |
+| B2 | `--target --migration-plan` | proj20 | exit 1; plan S001–S003 with `UNRESOLVED AGENTS.md: POLICY_DESTINATION` — proposes, resolves nothing, applies nothing |
+| C | `init.sh --here --profile react` rerun | copy of proj116 | **exit 0**; dir **byte-identical** (idempotent, user files preserved) |
+| D | `init.sh --here --profile react` rerun | copy of proj20 | **exit 1**, fails closed: `COMPETING_AGENTS` + `BROWNFIELD_CONTRACT_CONFLICT: migrate manually; see …/docs/codex.md`; dir **byte-identical** — 2.0 AGENTS.md, user notes, spec content all intact |
+| E | CURRENT `contract_check.py --target` | proj116 post-rehearsal | exit 1, `CONTRACT_MIGRATION_REQUIRED` ×2 — still cleanly migratable forward |
+
+Read-only proof: sha256 manifests of proj20 and proj116 identical before and
+after A/B/B2 (`diff` empty both). v1.17.1 tooling self-health: its
+`validate.py` in the worktree → "✓ all checks green".
+
+**Rollback notes**: (1) reverting to v1.17.1 tooling never mutates or
+corrupts a project tree of either revision — old init refuses the newer
+contract fail-closed with named diagnostics and preserves every byte;
+(2) v1.17.1 error text points users at `docs/codex.md`, which makes the
+step-10 redirect stub **load-bearing for rollback users** — the stub must
+survive as long as v1.17.1 remains the rollback target; (3) round trip is
+safe: a 1.16 project that lived through the rollback era remains a clean
+`CONTRACT_MIGRATION_REQUIRED` source for 2.0 tooling. Step 9 repo-side:
+**CLOSED**.
+
+## Deliverable 2 — step 10: docs sweep
+
+- `e751d5f` — README.md full rewrite (three-layer architecture section;
+  per-host capability/support table derived row-by-row from
+  `registry/adapters.json` incl. lifecycles and `official_facts verified_on
+  2026-07-18` per plan §9.4; 2.0/1.16 migration truth; roadmap gains the
+  v2.0.0 in-train entry; stale 1.17.1-as-current claims removed) +
+  HUONG_DAN.vi.md rewritten to mirror the same facts in Vietnamese.
+- `a6a1be6` — `docs/codex.md` folded into `adapters/codex/ADAPTER.md`
+  (host guide + migration reference, truth-updated: the former "v1.17.1
+  continues to accept the unchanged dat-kit 1.16.0 layout" claim is
+  replaced by the proven fail-closed 1.16 semantics); `docs/codex.md` is
+  now a redirect stub carrying the migration-plan command only — kept
+  because `scripts/init.sh`, `scripts/contract_check.py`,
+  `docs/agent-workflow.md`, `skills/project-init/SKILL.md` AND rolled-back
+  v1.17.1 tooling (rehearsal run D) all point at that path.
+- `docs/domains.md` + `docs/loops.md`: **verified already compliant, no
+  edit** — zero "final/permanent" instances (removed by the 4f rewrite,
+  decision 0001 satisfied; repo-wide grep found only benign non-layout
+  uses) and zero stale version citations. No commit needed.
+- Pinned eval phrases untouched (no SKILL.md in the diff).
+
+## Proofs (gates on the end-state tree `a6a1be6`)
+
+pytest → **275 passed, 3 skipped** (unchanged — docs-only diff adds no
+tests); `validate.py` → "✓ all checks green"; `render.py --check` → exit 0.
+Format freeze respected: no registry/, templates/, scripts/ path in the
+diff.
+
+## Review (per §16: sequential, diff-scoped, ≤30-line report)
+
+- code-reviewer over `b14d648..a6a1be6`: **APPROVE** — 0 actionable; 2 INFO
+  (Gemini row "None committed" is looser than the registry, which defines a
+  GEMINI.md `project_artifact` despite `repo_only` — registry-internal
+  quirk, not editable under the freeze; cell wording). All five dictated
+  checks PASS (truth-derivation, 2.0 semantics, stub function, VI
+  consistency, decision-0001 language).
+- security-reviewer: **SKIPPED, stated reason** — pure docs sweep (four
+  .md files) + read-only rehearsal in /tmp; no registry data, migration
+  code, path handling, or public-input surface touched, so the §16 trigger
+  does not fire.
+
+## Auto-decisions logged this slice (low severity)
+
+1. HEAD `b14d648` (owner session-order doc) accepted as benign vs. the
+   dictated `8d5fb70`; history beneath verified identical.
+2. Inbound `docs/codex.md` references in scripts/agent-workflow/project-init
+   left pointing at the redirect stub intentionally (scripts frozen this
+   slice; stub proven load-bearing by rehearsal run D).
+3. No third commit for domains/loops — nothing to change; recorded as a
+   verification instead.
+4. Rehearsal artifacts kept out of the repo (transcript lives in this
+   section, per the 5b evidence pattern); raw logs remained in the sandbox.
+
+## Known limitations / rolled forward
+
+- Remaining Phase 5: RC bundle (8, per D-5c-C after external gates),
+  migration guide + tag (11), live host smokes (6).
+- External gates unchanged: push + real Actions runs (Ubuntu + Windows),
+  Windows Git Bash clean-install smoke, real v1.16 project migration, live
+  host smokes per ADAPTER.md.
+- Rolled INFOs: one-way freeze coupling (from 5b); Gemini
+  `repo_only`-vs-defined-`project_artifact` registry quirk (from 5c review)
+  — reconcile before RC, registry edit requires the freeze-amendment
+  procedure (R9 + pin test, same commit) if it touches frozen surfaces.
+
+## Lesson candidates (5c)
+
+1. (from code review) A lifecycle label and a declared artifact list can
+   silently contradict each other across descriptors — `repo_only` is
+   defined in the codex ADAPTER as "no project artifact exists or is
+   emitted" while the gemini-cli descriptor defines a GEMINI.md
+   `project_artifact` at the same lifecycle. Registry semantics need one
+   canonical definition per lifecycle state, enforced by a conformance
+   check, not per-adapter prose. (Awaiting owner approval.)
