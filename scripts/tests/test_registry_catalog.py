@@ -71,7 +71,9 @@ def test_current_catalog_is_atomic_and_cutover_state_matches_plan():
         "knowledge-work": "active",
         "software-dev": "active",
     }
-    assert catalog.release_version == "1.17.1"
+    # 2.0.0 since slice 5b (D-5b-A: straight bump, no rc suffix — Phase 5
+    # Exit requires RC artifact == tagged artifact).
+    assert catalog.release_version == "2.0.0"
     assert [item.path for item in catalog.version_targets()] == [
         ".claude-plugin/marketplace.json",
         ".claude-plugin/plugin.json",
