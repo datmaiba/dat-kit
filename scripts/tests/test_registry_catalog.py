@@ -187,7 +187,6 @@ def test_historical_snapshot_descriptor_disagreement_still_fails_closed(tmp_path
     assert not isinstance(result, Catalog)
     assert "REGISTRY_SNAPSHOT_HASH_MISMATCH" in codes(result)
 
-
 def test_canonical_snapshot_still_verifies_live_template_bytes(tmp_path):
     root = registry_fixture(tmp_path)
     (root / "templates/common/AGENTS.md").write_text(
@@ -196,4 +195,3 @@ def test_canonical_snapshot_still_verifies_live_template_bytes(tmp_path):
     result = Catalog.load(root)
     assert not isinstance(result, Catalog)
     assert "REGISTRY_SNAPSHOT_HASH_MISMATCH" in codes(result)
-

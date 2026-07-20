@@ -1010,6 +1010,15 @@ def _hash_normalized(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _hash_static_target(relative: str, text: str, project_name: str | None) -> str:
+    """Hash a rendered static file in its descriptor-owned template form."""
+    if relative == "AGENTS.md" and project_name is not None:
+        rendered_title = f"# Agent contract — {project_name}\n"
+        if text.startswith(rendered_title):
+            text = "# Agent contract — {{PROJECT_NAME}}\n" + text[len(rendered_title):]
+    return _hash_normalized(text)
+
+
 def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], report: Report) -> str:
     """Project-contract revision state machine (plan §3.6, contract R8).
 
@@ -1089,18 +1098,22 @@ def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], re
         descriptor = matched[revision]
         customized: list[str] = []
         untouched: list[str] = []
-        # Marker-rule files (e.g. AGENTS.md) are rendered per project by
-        # design — their hash never matches the pristine template, so hash
-        # divergence there is not customization evidence. They are always
-        # migrated by merge, never by replace.
-        rendered = {rule["path"] for rule in descriptor["marker_rules"]}
+        agents_text = read("AGENTS.md") or ""
+        agents_title = re.match(r"\A# Agent contract — ([^\n]+)\n", agents_text)
+        project_name = agents_title.group(1) if agents_title is not None else None
+        target_root_name = paths["AGENTS.md"].path.parent.name if paths.get("AGENTS.md") else None
+        if project_name != target_root_name:
+            project_name = None
+        # Descriptor hashes own the pristine bytes. Rendered fields are
+        # neutralized only when they match independent target metadata; every
+        # other divergence is user customization and fails closed to merge.
         for relative, expected in sorted(descriptor["static_template_hashes"].items()):
-            if relative in rendered:
-                continue
             text = read(relative)
             if text is None:
                 continue
-            (untouched if _hash_normalized(text) == expected else customized).append(relative)
+            target_hash = _hash_static_target(relative, text, project_name)
+            (untouched if target_hash == expected else customized).append(relative)
+        agents_action = "MERGE_REQUIRED" if "AGENTS.md" in customized else "MIGRATE_REPLACE"
         report.add(
             "CONTRACT_MIGRATION_REQUIRED",
             f"recognized migration source {revision}: run the migration plan; "
@@ -1109,7 +1122,7 @@ def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], re
             classification="migration-source",
             summary=f"project is on migratable revision {revision}",
             evidence=tuple(f"untouched:{item}" for item in untouched),
-            action="MIGRATE_REPLACE",
+            action=agents_action,
         )
         legacy_pointer = ".cursorrules"
         if legacy_pointer in untouched:

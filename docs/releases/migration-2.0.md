@@ -41,14 +41,18 @@ runtime files and reports what it finds.
   `ADD` — nothing else, and the project-owned
   `docs/agent-working-rules.md` (real stack rules, ~140 lines) was correctly
   **absent from the plan entirely**, because the tool recognized it as
-  project-owned content, not shipped template.
-- A **customized 1.16 project** (local edits to `docs/agent-workflow.md`, plus
-  user-authored spec content) adds a fourth step:
-  `MERGE_CANONICAL_POLICY` with a `PRESERVATION` destination. Verified: applying
-  it restored the canonical workflow bytes and appended the customized policy
-  to `docs/agent-working-rules.md` under a **provenance heading** — your
-  customization is never discarded, just relocated with an explicit marker of
-  where it came from.
+  project-owned content, not shipped template. The planner neutralizes the
+  rendered project name only when it matches the target directory name, then
+  compares `AGENTS.md` with the immutable 1.16 template hash; a renamed target
+  or any other difference fails closed as customization.
+- A **customized 1.16 project** (local edits to `AGENTS.md` or
+  `docs/agent-workflow.md`, plus user-authored spec content) adds a
+  `MERGE_CANONICAL_POLICY` with a `PRESERVATION` destination. The customized
+  `AGENTS.md` regression fixture proves the planner is deterministic,
+  read-only, and names that preservation step. The separately applied
+  customized-workflow fixture restored the canonical workflow bytes and
+  appended its customized policy to `docs/agent-working-rules.md` under a
+  **provenance heading**.
 
 Read the plan before applying anything. It is deterministic — the same project
 state always produces the same plan.
@@ -57,14 +61,15 @@ state always produces the same plan.
 
 Applying is manual, on purpose: the checker plans, it does not execute
 unattended changes to your policy files. Follow the exact steps the plan
-printed. In every proven run this meant, in order:
+printed. The approved order is:
 
-1. Replace `AGENTS.md` with the 2.0 template (project name substituted).
+1. For a clean `AGENTS.md` `MIGRATE_REPLACE` step, replace it with the 2.0
+   template (project name substituted). If the plan instead reports
+   `MERGE_CANONICAL_POLICY`, preserve its user-authored policy in
+   `docs/agent-working-rules.md` under the provenance heading before replacing
+   the canonical shell.
 2. Remove `.cursorrules` (`RETIRE_LEGACY`).
 3. Add `.cursor/rules/dat-kit.mdc` (the new pointer artifact).
-4. If a `MERGE_CANONICAL_POLICY` step was planned: merge customized policy
-   into `docs/agent-working-rules.md` under the provenance heading the plan
-   names.
 
 ## Step 3 — verify
 
@@ -81,9 +86,9 @@ touched, by a clean-case migration.
 ## What preservation guarantees, and what it doesn't
 
 - **Project-owned files are never silently overwritten.** `AGENTS.md`
-  customizations and `docs/agent-working-rules.md` are recognized and
-  preserved by semantic merge with a provenance heading — never
-  byte-replacement.
+  customizations beyond its rendered project name and
+  `docs/agent-working-rules.md` are recognized and preserved by semantic merge
+  with a provenance heading — never byte-replacement.
 - **A failed or partial migration never corrupts your tree.** In the rollback
   rehearsal (below), every fail-closed path left the target directory
   byte-identical to its pre-attempt state.

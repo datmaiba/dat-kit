@@ -12,6 +12,13 @@ and the earlier phase bundles remain the primary evidence. Where this document
 states a result, it is either (a) a citation, or (b) a check re-run at RC time
 and labelled as such. Nothing here is restated as a fresh claim.
 
+> **RC2 correction status (2026-07-21):** the post-tag migration-safety audit
+> reopened release exit. This RC1 bundle remains historical evidence, but its
+> migration and tag conclusions do not certify the corrected tree. See
+> `docs/spikes/phase-5/evidence.md` → “Phase 5 RC2 correction — migration policy
+> preservation” for the repository-side fix and the two external gates that
+> must pass before `v2.0.0` is recut or pushed.
+
 RC1 is an **evidence bundle, not a version string**: `release_version` is
 `2.0.0` with no `-rc` suffix, by decision D-5b-A, because Phase 5 Exit requires
 "RC artifact equals tagged artifact".

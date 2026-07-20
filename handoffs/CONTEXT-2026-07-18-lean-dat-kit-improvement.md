@@ -1,8 +1,8 @@
 # Active context — lean dat-kit improvement
 
-**Status:** active execution context, not execution authority  
-**Date:** 2026-07-18  
-**Purpose:** preserve Plan v7's product and safety outcomes while minimizing avoidable context, implementation, test, and review tokens.  
+**Status:** active execution context, not execution authority
+**Date:** 2026-07-18
+**Purpose:** preserve Plan v7's product and safety outcomes while minimizing avoidable context, implementation, test, and review tokens.
 **Supersedes for future sessions:** `handoffs/HANDOFF-2026-07-18-token-discipline-portable.md` as the default context file. Keep that file only as historical evidence; do not execute its patch recipe again.
 
 ## 0. Hard boundary

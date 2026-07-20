@@ -15,10 +15,17 @@ import contract_check as cc
 
 def scaffold_contract(target: Path) -> None:
     shutil.copytree(ROOT / "templates/common", target, dirs_exist_ok=True)
-    (target / "AGENTS.md").write_text(
-        (target / "AGENTS.md").read_text(encoding="utf-8").replace("{{PROJECT_NAME}}", "demo"),
-        encoding="utf-8",
-    )
+    project_name = target.name
+    for relative in (
+        "AGENTS.md",
+        "CONTEXT.md",
+        "lessons-learned/lessons-learned.md",
+    ):
+        path = target / relative
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("{{PROJECT_NAME}}", project_name),
+            encoding="utf-8",
+        )
     rules = target / "docs/agent-working-rules.md"
     rules.write_text("This document is part of the canonical `AGENTS.md` contract.\n", encoding="utf-8")
 
@@ -720,3 +727,9 @@ def test_init_consumes_generated_pointer_manifest_without_host_tuple():
     for pointer in {path for paths in cc.POINTERS.values() for path in paths}:
         assert f"\t{pointer}\t" in manifest
         assert f'TARGET/{pointer}' not in script
+
+
+def test_ci_runs_for_version_tag_pushes():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "branches: [master, main]" in workflow
+    assert 'tags: ["v*"]' in workflow

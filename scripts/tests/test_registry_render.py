@@ -155,4 +155,3 @@ def test_projection_check_is_byte_exact_and_never_repairs(tmp_path):
     diagnostics = check_outputs(root, outputs)
     assert any(item.code == "PROJECTION_BYTE_MISMATCH" for item in diagnostics)
     assert manifest.read_bytes() == before
-

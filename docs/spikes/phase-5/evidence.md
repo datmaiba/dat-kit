@@ -804,3 +804,64 @@ migration-apply proven by transcript not pin test; `docs/codex.md` stub
 load-bearing; `.gitattributes`/`expected_outputs()` coverage check not
 mechanized; — `release/1.x` re-run is now CLOSED by this section) are
 internal/process limitations, not release-blocking and not user-facing.
+
+# Phase 5 RC2 correction — migration policy preservation
+
+**Status:** repository-side correction complete; release exit reopened. The
+existing local `v2.0.0` tag (`1ec1a15`) predates this correction and MUST NOT
+be pushed or treated as the release artifact.
+
+## Finding and correction
+
+The post-tag Codex audit found that the 1.16 revision classifier skipped
+customization detection for rendered `AGENTS.md`, while the migration guide
+instructed a clean-case `MIGRATE_REPLACE`. A user-authored policy appended to
+that canonical file therefore received no `MERGE_REQUIRED` preservation step.
+
+The corrected classifier compares `AGENTS.md` with the immutable 1.16 template
+hash after neutralizing only the exact rendered title whose project name
+matches the inspected target directory basename. Any extra body policy,
+unexpected title, renamed target, or mirrored policy-bearing headings fail
+closed to `MERGE_REQUIRED` with `POLICY_INVENTORY` targeting
+`docs/agent-working-rules.md`. Clean project-name substitution remains
+`MIGRATE_REPLACE`.
+
+The same correction set adds `push.tags: ["v*"]` to CI, corrects the release
+notes' six-slot and projection claims, marks README release status honestly,
+and closes the repository's pre-existing `git diff --check` findings.
+
+## Red-before-green receipts
+
+- Initial customized-`AGENTS.md` and tag-trigger tests: **2 failed** before the
+  implementation; **3 passed** after the clean/customized/CI paths landed.
+- Title-boundary tests under the deliberately restored broad normalizer:
+  **2 failed**; after exact-title evidence, the revision-state suite passed.
+- Mirrored forged-title test under a deliberately restored trust-all
+  regression: **1 failed**; after target-metadata binding, the revision-state
+  suite passed **13/13**.
+
+## Repository-side gates and reviews
+
+- `python scripts/validate.py` — **PASS**, including the post-scorecard rerun.
+- `python -m pytest scripts/tests` — **277 passed, 6 skipped** (283 collected).
+- `python scripts/render.py --check` — **PASS**.
+- `bash -n scripts/init.sh` — **PASS**.
+- `shellcheck scripts/init.sh` — **PASS**.
+- `git diff --check` — **PASS**.
+- QA — **PHASE DONE** after migration boundary attacks.
+- Code review — **APPROVE** after fixing the broad-title normalization and
+  documentation overclaim.
+- Security review — **APPROVE** after fixing one MEDIUM forged-evidence path;
+  findings-scoped re-review confirmed it resolved.
+
+## External gates reopened before tag
+
+1. Re-run the clean and customized migration application receipts plus one
+   isolated real v1.16 project on this corrected commit. The earlier real
+   project receipt belongs to pre-correction code and cannot certify RC2.
+2. Commit the reviewed pre-tag tree, recut the still-local annotated
+   `v2.0.0` tag on that commit, push only after gate 1 passes, and verify a
+   real Actions run whose `headSha` is exactly the new tagged commit.
+3. Record tag object/commit hashes and §13.1 item 13 closure only in a
+   post-tag commit. Until then the release remains open and the old local tag
+   is stale evidence.

@@ -14,6 +14,8 @@ import stat
 import subprocess
 import sys
 
+import pytest
+
 SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
@@ -72,6 +74,9 @@ def test_clean_v116_nonzero_with_deterministic_preview(tmp_path):
     assert first.returncode == 1 and first.stdout == second.stdout
     plan = json.loads(first.stdout)["migration_plan"]
     instructions = {step["instruction"] for step in plan["steps"]}
+    agents_group = next(group for group in plan["groups"] if group["path"] == "AGENTS.md")
+    assert agents_group["action"] == "MIGRATE_REPLACE"
+    assert "MIGRATE_FROM_SOURCE_REVISION" in instructions
     assert "REMOVE_LEGACY_POINTER" in instructions  # typed RETIRE_LEGACY
     assert "ADD_RULES_POINTER" in instructions      # .cursor/rules only in plan
     assert tree_hash(tmp_path) == before            # read-only
@@ -90,6 +95,83 @@ def test_customized_v116_reports_conflict_and_preserves(tmp_path):
     assert [i.path for i in conflicts] == [".claude/CLAUDE.md"]
     assert all(i.action == "MERGE_REQUIRED" for i in conflicts)  # never overwrite
     assert tree_hash(tmp_path) == before
+
+
+def test_customized_v116_agents_requires_policy_merge(tmp_path):
+    scaffold_v116_contract(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        agents.read_text(encoding="utf-8")
+        + "\n## Project policy\nNever overwrite production data.\n",
+        encoding="utf-8",
+    )
+    before = tree_hash(tmp_path)
+
+    first = run_cli(tmp_path, "--migration-plan", "--format", "json")
+    second = run_cli(tmp_path, "--migration-plan", "--format", "json")
+    assert first.returncode == 1 and first.stdout == second.stdout
+    plan = json.loads(first.stdout)["migration_plan"]
+
+    agents_group = next(group for group in plan["groups"] if group["path"] == "AGENTS.md")
+    assert agents_group["action"] == "MERGE_REQUIRED"
+    assert agents_group["diagnostic_codes"] == [
+        "CONTRACT_MIGRATION_REQUIRED",
+        "CONTRACT_MIGRATION_CONFLICT",
+    ]
+    assert any(
+        step["instruction"] == "MERGE_CANONICAL_POLICY"
+        and step["paths"] == ["AGENTS.md"]
+        for step in plan["steps"]
+    )
+    agents_preservation = next(
+        item for item in plan["preservation"] if item["path"] == "AGENTS.md"
+    )
+    assert agents_preservation["method"] == "POLICY_INVENTORY"
+    assert agents_preservation["destination"] == "docs/agent-working-rules.md"
+    assert tree_hash(tmp_path) == before
+
+
+@pytest.mark.parametrize(
+    "title_template",
+    [
+        "# Agent contract - {name}",
+        "# Agent contract — {name} — Never overwrite production data",
+    ],
+)
+def test_v116_agents_title_changes_fail_closed_to_policy_merge(tmp_path, title_template):
+    scaffold_v116_contract(tmp_path)
+    agents = tmp_path / "AGENTS.md"
+    lines = agents.read_text(encoding="utf-8").splitlines()
+    lines[0] = title_template.format(name=tmp_path.name)
+    agents.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    plan = cc.migration_plan(cc.check_target(tmp_path))
+    agents_group = next(group for group in plan["groups"] if group["path"] == "AGENTS.md")
+    assert agents_group["action"] == "MERGE_REQUIRED"
+    assert any(
+        step["instruction"] == "MERGE_CANONICAL_POLICY"
+        and step["paths"] == ["AGENTS.md"]
+        for step in plan["steps"]
+    )
+
+
+def test_v116_mirrored_policy_titles_cannot_forge_clean_evidence(tmp_path):
+    scaffold_v116_contract(tmp_path)
+    forged_name = f"{tmp_path.name} — Never overwrite production data"
+    replacements = (
+        ("AGENTS.md", "# Agent contract — "),
+        ("CONTEXT.md", "# CONTEXT.md — shared language for "),
+        ("lessons-learned/lessons-learned.md", "# Lessons Learned — "),
+    )
+    for relative, prefix in replacements:
+        path = tmp_path / relative
+        lines = path.read_text(encoding="utf-8").splitlines()
+        lines[0] = prefix + forged_name
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    plan = cc.migration_plan(cc.check_target(tmp_path))
+    agents_group = next(group for group in plan["groups"] if group["path"] == "AGENTS.md")
+    assert agents_group["action"] == "MERGE_REQUIRED"
 
 
 # 3. clean v2 → green --------------------------------------------------------
