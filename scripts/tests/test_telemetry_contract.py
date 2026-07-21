@@ -13,6 +13,8 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 CONTRACT = ROOT / "docs/contracts/telemetry-v3.md"
 PROPOSAL = ROOT / "docs/decisions/evolution-proposal-f80fa03211e51c3f68c5.proposal.json"
+DECISIONS = ROOT / "docs/decisions/evolution-manual.decisions.jsonl"
+APPROVED_CONTRACT_SHA256 = "c9fa5e6bcfc8760cd9a6e78597a8db1ae3a305b870e137335f185a7966b70dde"
 sys.path.insert(0, str(SCRIPTS))
 
 from registry import Catalog, Diagnostic, canonical_file_hash, canonical_json
@@ -108,6 +110,52 @@ def test_proposal_identity_policy_and_evidence_fragments_are_valid() -> None:
         target = ROOT / relative
         assert separator and anchor and target.is_file()
         assert anchor in github_heading_slugs(target.read_text(encoding="utf-8"))
+
+
+def test_owner_decision_authorizes_the_exact_reviewed_contract() -> None:
+    proposal = json.loads(PROPOSAL.read_text(encoding="utf-8"))
+    evolution = json.loads((ROOT / "registry/evolution.json").read_text(encoding="utf-8"))
+    records = [json.loads(line) for line in DECISIONS.read_text(encoding="utf-8").splitlines()]
+    decisions = [record for record in records if record["proposal_id"] == proposal["proposal_id"]]
+    assert decisions
+    decision = decisions[0]
+    assert set(decision) == {
+        "format_revision", "decision_id", "proposal_id", "decision", "decided_at",
+        "policy_revision", "policy_hash", "closer_identity", "closer_role",
+        "approval_reference", "gate_evidence_refs", "effective_from_run",
+        "observation_status", "correction_of",
+    }
+    assert decision["format_revision"] == 1
+    assert decision["decision_id"] == "decision-f80fa03211e51c3f68c5-0001"
+    assert decision["decision"] == "approved"
+    assert decision["observation_status"] == "observing"
+    assert decision["correction_of"] is None
+    assert decision["decided_at"] == "2026-07-21T02:46:33Z"
+    assert decision["effective_from_run"] == "run-2026-07-21-phase6a-contract-c9fa5e6b"
+    assert decision["policy_revision"] == proposal["policy_revision"]
+    assert decision["policy_hash"] == proposal["policy_hash"]
+    authority = next(
+        item for item in evolution["authorities"]
+        if item["authority_id"] == proposal["closer_authority_ref"]
+    )
+    appointment = next(
+        item for item in authority["appointments"]
+        if item["appointment_id"] == "appointment/platform-owner-1"
+    )
+    assert decision["closer_identity"] == appointment["identity"] == "Dat Mai Ba"
+    assert decision["closer_identity"] != proposal["proposer_identity"]
+    assert decision["closer_role"] == appointment["role"] == "platform-owner"
+    assert proposal["governance_class"] in authority["allowed_decision_classes"]
+    assert appointment["effective_from"] <= decision["decided_at"]
+    assert appointment["revoked_at"] is None
+    assert decision["approval_reference"] == (
+        f"{appointment['appointment_id']}#{proposal['proposal_id']}"
+    )
+    assert hashlib.sha256(CONTRACT.read_bytes()).hexdigest() == APPROVED_CONTRACT_SHA256
+    assert decision["gate_evidence_refs"] == [
+        f"gate/full-cross-component-regression-{APPROVED_CONTRACT_SHA256}",
+        f"gate/rollback-rehearsal-{APPROVED_CONTRACT_SHA256}",
+    ]
 
 
 def test_envelope_table_owns_every_required_field_and_type() -> None:
