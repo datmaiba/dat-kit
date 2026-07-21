@@ -73,7 +73,7 @@ Every v3 event contains exactly these required top-level fields:
 | `occurred_at` | RFC 3339 UTC timestamp ending in `Z`; describes when this record was emitted |
 | `producer` | closed object `{id, revision}`; both are stable IDs from T3.3.1 |
 | `revisions` | closed object with all revision references in T3.4 |
-| `lineage` | closed object `{parent_task_id, delegation_id, correction_of}`; every key is present and nullable |
+| `lineage` | closed object `{parent_task_id, delegation_id, correction_of, correction_evidence_ref}`; every key is present and nullable |
 | `source_class` | `runtime`, `repository`, `human`, `legacy_import`, or `derived` |
 | `privacy_class` | `public`, `project`, or `local_private` |
 | `coverage` | closed coverage object from T3.5 |
@@ -85,6 +85,14 @@ UUID values use the textual `8-4-4-4-12` form. Nil UUIDs and non-v4 UUIDs are
 invalid. Nullable fields use JSON `null`; an empty string is never a null
 substitute. Arrays described as sets are sorted, contain no duplicates, and
 use the identity rules of their element type.
+
+The maximum encoded event record is 65,536 UTF-8 bytes including its terminal
+LF. Array cardinalities are closed: `coverage.missing_event_types` has at most
+13 entries, `coverage.missing_requirement_refs` at most 128,
+`defect_recorded.approving_reviewers` at most 64,
+`fact_check_recorded.failure_classes` at most 7, and
+`benchmark_exported.exported_event_ids` at most 256. No other v3 field is a
+variable-length array.
 
 ### T3.3.1 String grammars
 
@@ -102,6 +110,11 @@ Hashes, UUIDs, timestamps, and literal paths use their narrower declared
 grammar. Arbitrary descriptions, error messages, prompt excerpts, copied
 source, and user-entered notes have no field in v3. Producers map a condition
 to a closed enum and store only a stable evidence reference.
+
+A stable reference is an opaque identifier. A v3 reader, validator, exporter,
+or reporter never treats it as a filesystem path or URI, joins it to a root,
+opens it, or follows its slash/colon syntax. A field that authorizes filesystem
+access must instead have type `path` and pass the path and containment rules.
 
 ### T3.3.2 Source and privacy classes
 
@@ -318,31 +331,42 @@ without lineage drift. A parent ID without a delegation ID, a delegation ID
 without a parent ID on the child, pair drift within a task, or a parent/child
 cycle is invalid.
 
-`lineage.correction_of` is null for an original event. A correction is a new,
-complete event with a new `event_id` and the same `event_type` as its target;
-it carries the corrected envelope and payload rather than a JSON patch. The
+`lineage.correction_of` and `lineage.correction_evidence_ref` are both null for
+an original event. A correction is a new, complete event with a new `event_id`
+and the same `event_type` as its target; both correction lineage fields are
+non-null. It carries the corrected envelope rather than a JSON patch. The
 target remains byte-for-byte present. A validator resolves the latest valid
 correction in append order but preserves the entire chain.
 
 Immutable target fields are `schema_version`, `task_id`, `event_type`,
-`source_class`, `lineage.parent_task_id`, and `lineage.delegation_id`; a
-correction must equal its target for all of them. Replacement fields are
-`coverage`, `tokens`, `elapsed`, and `payload`; the correction supplies their
-complete current values. Correction-evidence fields are `event_id`,
-`occurred_at`, `producer`, and `revisions`; they describe the correcting write
-and may differ from the target. `lineage.correction_of` names the immediate
-target. `privacy_class` may stay equal or tighten only in the order
+`source_class`, `producer.id`, `lineage.parent_task_id`,
+`lineage.delegation_id`, and every `payload` field; a correction must equal its
+target for all of them. Replacement fields are `coverage`, `tokens`, and
+`elapsed`; the correction supplies their complete current values.
+Correction-evidence fields are `event_id`, `occurred_at`, `producer.revision`,
+and `revisions`; they describe the correcting write and may differ from the
+target. `lineage.correction_of` names the immediate target. `privacy_class` may
+stay equal or tighten only in the order
 `public` -> `project` -> `local_private`; it may never loosen. Aggregation uses
 the immutable identity from the chain and the latest replacement values, so it
 never merges unspecified fields.
 
-Event-type identity fields inside a payload are also immutable across a
-correction. For `scorecard_imported`, `source_path`,
-`source_record_ordinal`, `source_record_hash`, and `source_record_ref` must all
-equal the target, so a correction cannot change the source-record or linked
-event identity. Its payload therefore remains equal while envelope attribution
-may be corrected. The exactly-one import pair counts original events only;
-valid corrections do not create another logical pair member.
+The writer injects `producer.id` from a registered producer channel; it never
+accepts that ID from event input. Every correction must arrive through the same
+registered channel as the root original event. Its
+`lineage.correction_evidence_ref` is an opaque stable reference to an
+append-only correction receipt owned by that producer and bound to the root
+event ID, immediate target event ID, correcting event ID, and replacement-field
+hash. Before append, the writer verifies that binding through the registered
+producer's evidence resolver. Missing, mismatched, caller-authored, or
+self-asserted evidence fails `TELEMETRY_CORRECTION_UNAUTHORIZED`; v3 has no
+owner-override shortcut.
+
+Because every payload field is immutable, a correction cannot change a gate,
+review, fact-check, task outcome, legacy provenance, or other load-bearing
+claim. A later gate/review/fact-check observation is a new original event with
+its own source evidence; an erroneous terminal claim remains auditable and is
+followed by defect/rework evidence rather than overwritten.
 
 Privacy may tighten to `local_private` only before any member of the correction
 chain has been exported. Once one member is present in either durable benchmark
@@ -364,9 +388,23 @@ success, and re-check replacement-aware path identity while the lock is held.
 Multi-writer locking is deferred until delegated agents actually write
 concurrently; v3 must not claim it today.
 
+These checks apply before the first normal append and every later local or
+durable write, not only during recovery. The writer resolves the fixed target
+and every existing parent component under the canonical repository root,
+rejects any symlink or reparse point, and rejects a target outside that root.
+It opens or creates only the fixed final path with no-follow semantics, requires
+a regular file with link count one, and compares the opened handle's file
+identity and containment before append, after append, and after flush. A
+missing target may be created only beneath an already verified parent chain.
+Any identity change, hard link, link-like component, non-regular file, or
+containment ambiguity fails closed before further mutation.
+
 Before append, the writer validates the closed envelope, payload, privacy
-allowlist, correction target, and corpus-wide ID uniqueness. Duplicate `event_id` values are invalid. The same ID with different bytes is never a correction;
-it is a collision.
+allowlist, correction target and authority, encoded-line size, array bounds,
+and corpus-wide ID uniqueness. Duplicate `event_id` values are invalid. The
+same ID with different bytes is never a correction; it is a collision. A
+reader or importer stops after 65,537 bytes without LF and rejects the record,
+so size validation never requires unbounded allocation.
 
 Recovery may truncate only an interrupted final record that lacks a complete
 UTF-8 JSON object plus terminal LF. Truncation returns exactly to the byte
@@ -380,6 +418,7 @@ Normative diagnostic families are:
 - `TELEMETRY_EVENT_INVALID`;
 - `TELEMETRY_DUPLICATE_EVENT_ID`;
 - `TELEMETRY_CORRECTION_INVALID`;
+- `TELEMETRY_CORRECTION_UNAUTHORIZED`;
 - `TELEMETRY_PRIVACY_IRREVERSIBLE`;
 - `TELEMETRY_HISTORY_CORRUPT`;
 - `TELEMETRY_PRIVACY_VIOLATION`;
@@ -407,8 +446,10 @@ The T3.3.1 grammar and size bounds apply before persistence, including
 `workflow`, producer and reviewer identity, gate/defect IDs, every reason,
 and every evidence/root-cause/candidate reference. A producer may not place
 free-form text in a stable-ref field merely because the characters happen to
-match the grammar; the value must resolve to a stable artifact, identifier, or
-closed enum owned by the producer.
+match the grammar; the opaque value must denote a stable artifact, identifier,
+or closed enum owned by the producer. Telemetry never dereferences it; any
+producer-side evidence resolver applies its own authenticated namespace and
+returns only a binding verdict, never bytes for telemetry to open.
 
 Disable and error paths obey the same rules. A diagnostic may name a field but
 never print its rejected secret-like value.
@@ -420,18 +461,27 @@ never print its rejected secret-like value.
 A v2 scorecard import reads `benchmarks/scorecard.jsonl` without modifying it
 and emits exactly one `scorecard_imported` and one `task_finished` for each
 valid source line, in that order, with the same task ID. The importer mints one
-UUIDv4 task ID on the first import of the source-record identity. If append is
+UUIDv4 task ID on the first import of the source-record slot. If append is
 interrupted after either event, retry finds the existing event by source
-identity, reuses that task ID after an interrupted import, and emits only the
+slot and event type, reuses that task ID after an interrupted import, and emits only the
 missing member of the pair.
 
-The source-record identity is path + ordinal + hash. Each linked event identity
-is that source-record identity + event type. The ordinal is the one-based
-physical line number. To compute `source_record_hash`, take the exact
+The immutable source-record slot is path + ordinal. Its
+`source_record_hash` is the content binding, not a way to mint another slot.
+Each linked event identity is source-record slot + event type. The ordinal is
+the one-based physical line number. Once any event records a slot/hash pair, a
+later import of that slot with a different hash fails
+`TELEMETRY_HISTORY_CORRUPT`; it never creates new evidence or a new task ID.
+To compute `source_record_hash`, take the exact
 UTF-8 bytes of that physical JSON record, normalize only its terminal CRLF or CR to LF, include that LF in the SHA-256 input, and perform no JSON
 reserialization or other normalization. The stable source reference is
 `benchmarks/scorecard.jsonl#line-<ordinal>`. Two byte-identical source lines at
 different ordinals remain distinct historical records.
+
+A legacy physical line has the same 65,536-byte maximum including terminal LF
+as a v3 event. The importer reads at most 65,537 bytes while seeking LF and
+rejects an oversized line before JSON parsing or event creation; hashing may be
+streamed but cannot bypass the bound.
 
 Only the original `scorecard_imported` and `task_finished` consume these two
 linked event identities. T3.7 corrections preserve the import provenance
@@ -465,6 +515,7 @@ closed projection to `benchmarks/defects.jsonl`:
 | `parent_task_id` | source lineage value, UUIDv4 or null |
 | `delegation_id` | source lineage value, UUIDv4 or null |
 | `correction_of` | source lineage value, UUIDv4 or null |
+| `correction_evidence_ref` | source lineage opaque stable reference or null |
 | `occurred_at` | source event RFC 3339 UTC timestamp |
 | `defect_id` | source payload stable ID |
 | `introduced_task` | source payload UUIDv4 or null |

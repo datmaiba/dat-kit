@@ -123,8 +123,19 @@ def test_envelope_table_owns_every_required_field_and_type() -> None:
     assert envelope["task_id"] == "canonical lowercase UUIDv4 string"
     assert "all revision references" in envelope["revisions"]
     assert "every key is present and nullable" in envelope["lineage"]
+    assert "correction_evidence_ref" in envelope["lineage"]
     assert envelope["source_class"] == "`runtime`, `repository`, `human`, `legacy_import`, or `derived`"
     assert envelope["privacy_class"] == "`public`, `project`, or `local_private`"
+    envelope_section = prose(section(text, "## T3.3 Closed event envelope", "### T3.3.1 String grammars"))
+    assert "maximum encoded event record is 65,536 UTF-8 bytes including its terminal LF" in envelope_section
+    for bound in (
+        "`coverage.missing_event_types` has at most 13 entries",
+        "`coverage.missing_requirement_refs` at most 128",
+        "`defect_recorded.approving_reviewers` at most 64",
+        "`fact_check_recorded.failure_classes` at most 7",
+        "`benchmark_exported.exported_event_ids` at most 256",
+    ):
+        assert bound in envelope_section
     assert "Unknown fields are invalid" in text
 
 
@@ -192,10 +203,14 @@ def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
     assert "forward, self, missing, or cyclic correction" in lineage
     lineage_prose = prose(lineage)
     assert "Immutable target fields are `schema_version`, `task_id`, `event_type`" in lineage_prose
-    assert "Replacement fields are `coverage`, `tokens`, `elapsed`, and `payload`" in lineage_prose
-    assert "Correction-evidence fields are `event_id`, `occurred_at`, `producer`, and `revisions`" in lineage_prose
-    assert "For `scorecard_imported`, `source_path`, `source_record_ordinal`, `source_record_hash`, and `source_record_ref` must all equal the target" in lineage_prose
-    assert "exactly-one import pair counts original events only" in lineage_prose
+    assert "`source_class`, `producer.id`, `lineage.parent_task_id`, `lineage.delegation_id`, and every `payload` field" in lineage_prose
+    assert "Replacement fields are `coverage`, `tokens`, and `elapsed`" in lineage_prose
+    assert "Correction-evidence fields are `event_id`, `occurred_at`, `producer.revision`, and `revisions`" in lineage_prose
+    assert "writer injects `producer.id` from a registered producer channel" in lineage_prose
+    assert "same registered channel as the root original event" in lineage_prose
+    assert "append-only correction receipt owned by that producer" in lineage_prose
+    assert "fails `TELEMETRY_CORRECTION_UNAUTHORIZED`" in lineage_prose
+    assert "correction cannot change a gate, review, fact-check, task outcome, legacy provenance" in lineage_prose
     assert "tighten to `local_private` only before any member of the correction chain has been exported" in lineage_prose
     assert "every later correction must remain `public` or `project` and therefore export-eligible" in lineage_prose
     assert "fails with `TELEMETRY_PRIVACY_IRREVERSIBLE`" in lineage_prose
@@ -211,12 +226,16 @@ def test_partial_reason_precedence_import_set_and_defect_projection_are_closed()
     ) in prose(coverage)
     transfer_prose = prose(transfer)
     assert "exactly one `scorecard_imported` and one `task_finished`" in transfer_prose
-    assert "mints one UUIDv4 task ID on the first import of the source-record identity" in transfer_prose
+    assert "mints one UUIDv4 task ID on the first import of the source-record slot" in transfer_prose
     assert "reuses that task ID after an interrupted import" in transfer_prose
-    assert "source-record identity is path + ordinal + hash" in transfer_prose
-    assert "linked event identity is that source-record identity + event type" in transfer_prose
+    assert "immutable source-record slot is path + ordinal" in transfer_prose
+    assert "`source_record_hash` is the content binding, not a way to mint another slot" in transfer_prose
+    assert "linked event identity is source-record slot + event type" in transfer_prose
+    assert "later import of that slot with a different hash fails `TELEMETRY_HISTORY_CORRUPT`" in transfer_prose
     assert "terminal CRLF or CR to LF" in transfer_prose
     assert "include that LF" in transfer_prose
+    assert "legacy physical line has the same 65,536-byte maximum including terminal LF" in transfer_prose
+    assert "reads at most 65,537 bytes while seeking LF" in transfer_prose
     assert "non-terminal `scorecard_imported` uses `status=partial`, reason `in_progress`" in transfer_prose
     assert "reason is selected by the T3.5.1 precedence" in transfer_prose
     assert "ordinary import uses `legacy_import`" in transfer_prose
@@ -227,7 +246,7 @@ def test_partial_reason_precedence_import_set_and_defect_projection_are_closed()
     assert set(projection) == {
         "Defect projection field",
         "schema_version", "event_id", "task_id", "parent_task_id", "delegation_id",
-        "correction_of", "occurred_at", "defect_id", "introduced_task",
+        "correction_of", "correction_evidence_ref", "occurred_at", "defect_id", "introduced_task",
         "approving_reviewers", "gate_that_should_have_caught_it", "evidence_ref",
     }
 
@@ -242,10 +261,20 @@ def test_attribution_privacy_storage_import_export_and_compatibility_are_bounded
         "credentials", "secrets", "No telemetry field accepts free-form text",
         "`[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`", "No automatic TTL",
             "verified export", "never rewrites existing benchmark bytes",
-            "source-record identity is path + ordinal + hash", "`benchmark_exported` events are never export-eligible",
+            "immutable source-record slot is path + ordinal", "`benchmark_exported` events are never export-eligible",
         "must not block the work loop", "1.x", "schema freeze",
     ):
         assert requirement in text
+    bounded = prose(text)
+    for requirement in (
+        "stable reference is an opaque identifier",
+        "never treats it as a filesystem path or URI",
+        "checks apply before the first normal append and every later local or durable write",
+        "rejects any symlink or reparse point",
+        "regular file with link count one",
+        "opened handle's file identity and containment before append, after append, and after flush",
+    ):
+        assert requirement in bounded
     for path in (
         "`telemetry/events.jsonl`", "`benchmarks/telemetry-v3.jsonl`",
         "`benchmarks/defects.jsonl`", "`benchmarks/scorecard.jsonl`",
