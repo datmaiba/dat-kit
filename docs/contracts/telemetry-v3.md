@@ -147,18 +147,22 @@ event.
 
 ### T3.5.1 Coverage
 
-`coverage` contains exactly `{status, missing_event_types, reason}`:
+`coverage` contains exactly
+`{status, missing_event_types, missing_requirement_refs, reason}`:
 
 - `status` is `full | partial`;
 - `missing_event_types` is a sorted unique array of T3.6 event types;
+- `missing_requirement_refs` is a sorted unique stable-ID array of unmet
+  instance-level requirements; and
 - `reason` is null for `full`, otherwise exactly one of
-  `completion_only | unsupported_host_start | telemetry_disabled | legacy_import | producer_failure | in_progress`.
+  `completion_only | unsupported_host_start | telemetry_disabled | legacy_import |
+  producer_failure | unresumed_handoff | in_progress`.
 
-`full` requires an empty missing list and a null reason. `partial` requires a
-non-empty missing list and a non-null reason. Partial coverage is valid data,
-not an error to hide. A completion-only scorecard may mint a task ID, but its
-events must use `partial` with reason `completion_only` and name the lifecycle
-events that were not observed.
+`full` requires both missing arrays to be empty and a null reason. `partial`
+requires at least one non-empty missing array and a non-null reason. Partial
+coverage is valid data, not an error to hide. A completion-only scorecard may
+mint a task ID, but its events must use `partial` with reason
+`completion_only` and name the lifecycle events that were not observed.
 
 At minimum, full coverage requires both `task_started` and `task_finished` in
 valid T3.6 order. The validator derives the required set, then requires
@@ -172,24 +176,31 @@ valid T3.6 order. The validator derives the required set, then requires
 - any delegated parent/child pair: the linked `delegation_started` event;
 - any emitted handoff: `handoff_created`.
 
+`missing_requirement_refs` is normally empty. For every unmatched
+`handoff_created` whose reason is `context_ceiling` or `deliberate_pause`, it
+contains exactly `handoff:<handoff-event-UUIDv4>:task_resumed`. A later matching
+`task_resumed` removes that reference. A `delegation_brief` does not create
+this resume requirement because its child lifecycle is linked through
+`delegation_started` instead.
+
 An isolated `task_finished` therefore cannot claim `full`. Unknown workflows
 owe the universal start/finish pair; their producer revision may declare a
 stricter required-event profile but may never weaken this floor.
 
 `in_progress` is valid only before the original `task_finished`. On each
-non-terminal event, `missing_event_types` is the exact required set not yet
-observed at that append position, including `task_finished`; the list may
-shrink as evidence arrives. The original `task_finished` and any correction of
-it carry the terminal `full` or degraded `partial` result and cannot use
-`in_progress`. Reports use that latest valid terminal coverage, never an
-earlier in-progress snapshot.
+non-terminal event, both missing arrays are the exact requirements not yet
+observed at that append position; `missing_event_types` includes
+`task_finished`. The arrays may shrink as evidence arrives. The original
+`task_finished` and any correction of it carry the terminal `full` or degraded
+`partial` result and cannot use `in_progress`. Reports use that latest valid
+terminal coverage, never an earlier in-progress snapshot.
 
 When more than one terminal degradation cause applies, the single reason is
 selected by this strict precedence:
-`telemetry_disabled` > `legacy_import` > `producer_failure` > `unsupported_host_start` > `completion_only`.
-The missing-event list still exposes the complete loss; the reason identifies
-the highest-precedence cause and is never selected opportunistically to improve
-a coverage report.
+`telemetry_disabled` > `legacy_import` > `producer_failure` > `unresumed_handoff` > `unsupported_host_start` > `completion_only`.
+The two missing-requirement arrays still expose the complete loss; the reason
+identifies the highest-precedence cause and is never selected opportunistically
+to improve a coverage report.
 
 ### T3.5.2 Tokens
 
@@ -287,7 +298,8 @@ A resumed execution preserves the same `task_id` and does not emit another `task
 `resumed_from_handoff` is the literal true. One task may have multiple ordered
 handoff/resume pairs, but a handoff event can be consumed at most once. A
 completed task has no unmatched non-delegation handoff; an aborted task may
-end with one and remains partial.
+end with one and uses terminal partial reason `unresumed_handoff` plus the
+corresponding `missing_requirement_refs` entry.
 
 ## T3.7 Lineage and corrections
 
@@ -324,6 +336,22 @@ target. `privacy_class` may stay equal or tighten only in the order
 the immutable identity from the chain and the latest replacement values, so it
 never merges unspecified fields.
 
+Event-type identity fields inside a payload are also immutable across a
+correction. For `scorecard_imported`, `source_path`,
+`source_record_ordinal`, `source_record_hash`, and `source_record_ref` must all
+equal the target, so a correction cannot change the source-record or linked
+event identity. Its payload therefore remains equal while envelope attribution
+may be corrected. The exactly-one import pair counts original events only;
+valid corrections do not create another logical pair member.
+
+Privacy may tighten to `local_private` only before any member of the correction
+chain has been exported. Once one member is present in either durable benchmark
+target, every later correction must remain `public` or `project` and therefore
+export-eligible. A request to make already-exported evidence `local_private`
+fails with `TELEMETRY_PRIVACY_IRREVERSIBLE`, stops further export of that chain,
+and requires separately governed incident handling; append-only history cannot
+claim to retract bytes already committed.
+
 The target must be an earlier event in the same corpus. A forward, self, missing, or cyclic correction is invalid. A correction never changes the identity or
 bytes of its target and never authorizes removal of the original.
 
@@ -352,6 +380,7 @@ Normative diagnostic families are:
 - `TELEMETRY_EVENT_INVALID`;
 - `TELEMETRY_DUPLICATE_EVENT_ID`;
 - `TELEMETRY_CORRECTION_INVALID`;
+- `TELEMETRY_PRIVACY_IRREVERSIBLE`;
 - `TELEMETRY_HISTORY_CORRUPT`;
 - `TELEMETRY_PRIVACY_VIOLATION`;
 - `TELEMETRY_EXPORT_COLLISION`.
@@ -403,6 +432,10 @@ UTF-8 bytes of that physical JSON record, normalize only its terminal CRLF or CR
 reserialization or other normalization. The stable source reference is
 `benchmarks/scorecard.jsonl#line-<ordinal>`. Two byte-identical source lines at
 different ordinals remain distinct historical records.
+
+Only the original `scorecard_imported` and `task_finished` consume these two
+linked event identities. T3.7 corrections preserve the import provenance
+fields and do not count as additional pair members.
 
 Both linked events use `source_class=legacy_import` and explicit unknowns for
 unavailable lifecycle, token, elapsed, and revision facts. The non-terminal

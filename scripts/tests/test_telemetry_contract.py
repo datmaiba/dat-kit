@@ -130,7 +130,8 @@ def test_envelope_table_owns_every_required_field_and_type() -> None:
 
 def test_payload_table_owns_closed_event_shapes() -> None:
     text = contract_text()
-    payloads = markdown_table(section(text, "## T3.6 Lifecycle and closed event payloads", "## T3.7 Lineage and corrections"))
+    lifecycle = section(text, "## T3.6 Lifecycle and closed event payloads", "## T3.7 Lineage and corrections")
+    payloads = markdown_table(lifecycle)
     assert set(payloads) == {
         "task_started", "task_finished", "handoff_created", "task_resumed",
         "delegation_started", "gate_result", "review_result", "defect_recorded",
@@ -150,6 +151,11 @@ def test_payload_table_owns_closed_event_shapes() -> None:
     assert "verdict: sourced/return_to_builder" in payloads["fact_check_recorded"]
     assert "finding_count: non-negative-integer" in payloads["fact_check_recorded"]
     assert "failure_classes: sorted-unique-fact-check-failure-array" in payloads["fact_check_recorded"]
+    lifecycle_prose = prose(lifecycle)
+    assert "`sourced` is the machine value for the knowledge-work charter's `SOURCED` verdict" in lifecycle_prose
+    assert "`finding_count` is zero and `failure_classes` is empty" in lifecycle_prose
+    assert "`return_to_builder` records the charter's numbered failure outcome" in lifecycle_prose
+    assert "the count is positive and the array is non-empty" in lifecycle_prose
 
 
 def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
@@ -157,10 +163,15 @@ def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
     coverage = section(text, "### T3.5.1 Coverage", "### T3.5.2 Tokens")
     lifecycle = section(text, "## T3.6 Lifecycle and closed event payloads", "## T3.7 Lineage and corrections")
     lineage = section(text, "## T3.7 Lineage and corrections", "## T3.8 Append, validation, and recovery")
+    coverage_prose = prose(coverage)
     assert (
         "`completion_only | unsupported_host_start | telemetry_disabled | legacy_import | "
-        "producer_failure | in_progress`"
-    ) in coverage
+        "producer_failure | unresumed_handoff | in_progress`"
+    ) in coverage_prose
+    assert "{status, missing_event_types, missing_requirement_refs, reason}" in coverage_prose
+    assert "requires at least one non-empty missing array" in coverage_prose
+    assert "handoff:<handoff-event-UUIDv4>:task_resumed" in coverage_prose
+    assert "later matching `task_resumed` removes that reference" in coverage_prose
     assert "`in_progress` is valid only before the original `task_finished`" in coverage
     assert "full coverage requires both `task_started` and `task_finished`" in coverage
     assert "Exactly one original `task_started`" in lifecycle
@@ -169,6 +180,7 @@ def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
     assert "does not emit another `task_started`" in lifecycle
     assert "same `task_id`" in lifecycle
     assert "earlier unmatched `handoff_created.event_id`" in lifecycle
+    assert "terminal partial reason `unresumed_handoff`" in lifecycle
     assert "one immutable `(parent_task_id, delegation_id)` pair" in lineage
     assert "parent event keeps the parent's own lineage pair" in lineage
     assert "exactly one parent-child task pair" in lineage
@@ -178,6 +190,10 @@ def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
     assert "Immutable target fields are `schema_version`, `task_id`, `event_type`" in lineage_prose
     assert "Replacement fields are `coverage`, `tokens`, `elapsed`, and `payload`" in lineage_prose
     assert "Correction-evidence fields are `event_id`, `occurred_at`, `producer`, and `revisions`" in lineage_prose
+    assert "For `scorecard_imported`, `source_path`, `source_record_ordinal`, `source_record_hash`, and `source_record_ref` must all equal the target" in lineage_prose
+    assert "exactly-one import pair counts original events only" in lineage_prose
+    assert "tighten to `local_private` only before any member of the correction chain has been exported" in lineage_prose
+    assert "fails with `TELEMETRY_PRIVACY_IRREVERSIBLE`" in lineage_prose
 
 
 def test_partial_reason_precedence_import_set_and_defect_projection_are_closed() -> None:
@@ -185,9 +201,9 @@ def test_partial_reason_precedence_import_set_and_defect_projection_are_closed()
     coverage = section(text, "### T3.5.1 Coverage", "### T3.5.2 Tokens")
     transfer = section(text, "## T3.10 Import, export, retention, and durable history", "## T3.11 Disable, downgrade, and compatibility")
     assert (
-        "`telemetry_disabled` > `legacy_import` > `producer_failure` > "
+        "`telemetry_disabled` > `legacy_import` > `producer_failure` > `unresumed_handoff` > "
         "`unsupported_host_start` > `completion_only`"
-    ) in coverage
+    ) in prose(coverage)
     transfer_prose = prose(transfer)
     assert "exactly one `scorecard_imported` and one `task_finished`" in transfer_prose
     assert "mints one UUIDv4 task ID on the first import of the source-record identity" in transfer_prose
@@ -200,6 +216,7 @@ def test_partial_reason_precedence_import_set_and_defect_projection_are_closed()
     assert "reason is selected by the T3.5.1 precedence" in transfer_prose
     assert "ordinary import uses `legacy_import`" in transfer_prose
     assert "disabled scorecard import covered by T3.11 uses `telemetry_disabled`" in transfer_prose
+    assert "corrections preserve the import provenance fields and do not count as additional pair members" in transfer_prose
     projection = markdown_table(transfer)
     assert projection["Defect projection field"] == "Normative value"
     assert set(projection) == {
