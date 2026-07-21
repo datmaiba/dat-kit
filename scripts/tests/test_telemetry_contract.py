@@ -156,6 +156,10 @@ def test_payload_table_owns_closed_event_shapes() -> None:
     assert "`finding_count` is zero and `failure_classes` is empty" in lifecycle_prose
     assert "`return_to_builder` records the charter's numbered failure outcome" in lifecycle_prose
     assert "the count is positive and the array is non-empty" in lifecycle_prose
+    assert (
+        "failure values are `unsupported_claim`, `weaker_than_claim`, `contradiction`, "
+        "`unreliable_source`, `stale_source`, `inadequate_coverage`, and `prose_contradiction`"
+    ) in lifecycle_prose
 
 
 def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
@@ -193,6 +197,7 @@ def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
     assert "For `scorecard_imported`, `source_path`, `source_record_ordinal`, `source_record_hash`, and `source_record_ref` must all equal the target" in lineage_prose
     assert "exactly-one import pair counts original events only" in lineage_prose
     assert "tighten to `local_private` only before any member of the correction chain has been exported" in lineage_prose
+    assert "every later correction must remain `public` or `project` and therefore export-eligible" in lineage_prose
     assert "fails with `TELEMETRY_PRIVACY_IRREVERSIBLE`" in lineage_prose
 
 
