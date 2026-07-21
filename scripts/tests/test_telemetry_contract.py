@@ -209,7 +209,11 @@ def test_lifecycle_coverage_lineage_and_corrections_are_satisfiable() -> None:
     assert "writer injects `producer.id` from a registered producer channel" in lineage_prose
     assert "same registered channel as the root original event" in lineage_prose
     assert "append-only correction receipt owned by that producer" in lineage_prose
+    assert "root event ID, immediate target event ID, correcting event ID" in lineage_prose
+    assert "SHA-256 of the complete encoded correcting event record including its terminal LF" in lineage_prose
+    assert "covers every envelope, lineage, privacy, attribution, and payload byte" in lineage_prose
     assert "fails `TELEMETRY_CORRECTION_UNAUTHORIZED`" in lineage_prose
+    assert "v3 has no owner-override shortcut" in lineage_prose
     assert "correction cannot change a gate, review, fact-check, task outcome, legacy provenance" in lineage_prose
     assert "tighten to `local_private` only before any member of the correction chain has been exported" in lineage_prose
     assert "every later correction must remain `public` or `project` and therefore export-eligible" in lineage_prose

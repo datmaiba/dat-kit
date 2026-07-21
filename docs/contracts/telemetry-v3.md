@@ -356,10 +356,13 @@ accepts that ID from event input. Every correction must arrive through the same
 registered channel as the root original event. Its
 `lineage.correction_evidence_ref` is an opaque stable reference to an
 append-only correction receipt owned by that producer and bound to the root
-event ID, immediate target event ID, correcting event ID, and replacement-field
-hash. Before append, the writer verifies that binding through the registered
-producer's evidence resolver. Missing, mismatched, caller-authored, or
-self-asserted evidence fails `TELEMETRY_CORRECTION_UNAUTHORIZED`; v3 has no
+event ID, immediate target event ID, correcting event ID, and SHA-256 of the
+complete encoded correcting event record including its terminal LF. That hash
+covers every envelope, lineage, privacy, attribution, and payload byte,
+including `lineage.correction_evidence_ref`; it is not a hash of replacement
+fields alone. Before append, the writer verifies that exact binding through the
+registered producer's evidence resolver. Missing, mismatched, caller-authored,
+or self-asserted evidence fails `TELEMETRY_CORRECTION_UNAUTHORIZED`; v3 has no
 owner-override shortcut.
 
 Because every payload field is immutable, a correction cannot change a gate,
