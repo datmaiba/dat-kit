@@ -891,7 +891,7 @@ def check_repo(root: Path = ROOT) -> Report:
     )
     for rel in required:
         exact_path(root, rel, report)
-    for pointer, template in POINTER_TEMPLATES.items():
+    for _pointer, template in POINTER_TEMPLATES.items():
         source = exact_path(root, template, report)
         if source:
             check_pointer(source, source, template, report)
@@ -1054,7 +1054,7 @@ def _classify_target_revision(paths: dict[str, "InspectedTargetPath | None"], re
         texts = [scan(rule["path"]) for rule in rules]
         if texts and all(
             text is not None and rule["required_text"] in text
-            for rule, text in zip(rules, texts)
+            for rule, text in zip(rules, texts, strict=True)
         ):
             matched[descriptor["revision"]] = descriptor
 

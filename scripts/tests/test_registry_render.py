@@ -8,7 +8,6 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
-from registry import Catalog
 from render import MANIFEST_PATH, check_outputs, expected_outputs, write_outputs
 from test_registry_catalog import load_ok, registry_fixture, write_json
 

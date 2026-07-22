@@ -84,6 +84,10 @@
       "owner": "maintainers"
     },
     {
+      "path": "mypy.ini",
+      "owner": "maintainers"
+    },
+    {
       "path": "plans",
       "owner": "maintainers"
     },
@@ -93,6 +97,14 @@
     },
     {
       "path": "requirements-dev.txt",
+      "owner": "maintainers"
+    },
+    {
+      "path": "requirements-review.txt",
+      "owner": "maintainers"
+    },
+    {
+      "path": "ruff.toml",
       "owner": "maintainers"
     },
     {
@@ -200,6 +212,7 @@
       "path_globs": [
         "scripts/contract_check.py",
         "scripts/init.sh",
+        "scripts/review_summary.py",
         "scripts/scorecard.py",
         "scripts/spikes/**",
         "scripts/statusline.py",
@@ -276,7 +289,10 @@
         ".gitattributes",
         ".gitignore",
         "LICENSE",
-        "requirements-dev.txt"
+        "mypy.ini",
+        "requirements-dev.txt",
+        "requirements-review.txt",
+        "ruff.toml"
       ],
       "owner": "maintainers",
       "governance_class": "B",

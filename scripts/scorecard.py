@@ -69,7 +69,11 @@ def scan_sessions(tdir: pathlib.Path):
                     if key == "usage" and isinstance(value, dict):
                         for token_key in TOKEN_KEYS:
                             if type(value.get(token_key)) is int and value[token_key] >= 0:
-                                totals[token_key] += value[token_key]
+                                # Suppression reason: walk() is defined fresh each
+                                # outer-loop iteration and only ever called within
+                                # that same iteration (line below), so `totals` is
+                                # never stale here despite closing over a loop var.
+                                totals[token_key] += value[token_key]  # noqa: B023
                     else:
                         walk(value)
             elif isinstance(node, list):
@@ -173,7 +177,7 @@ def _safe_parent_fingerprints(parent, *, create):
             current_stat = current.lstat()
         except FileNotFoundError:
             if not create:
-                raise ValueError(f"scorecard parent does not exist: {current}")
+                raise ValueError(f"scorecard parent does not exist: {current}") from None
             os.mkdir(current)
             current_stat = current.lstat()
         if _is_link_or_reparse(current_stat) or not stat.S_ISDIR(current_stat.st_mode):

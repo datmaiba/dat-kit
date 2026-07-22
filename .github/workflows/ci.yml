@@ -76,3 +76,108 @@ jobs:
           test "$workflow_hash" = "$(sha256sum docs/agent-workflow.md)"
           test "$rules_hash" = "$(sha256sum docs/agent-working-rules.md)"
           echo "init.sh smoke ✓"
+
+  # --- R1 addition: External Verification Receipt Gate (plan v2, phase R1) ---
+  # This job produces machine-readable evidence and reports/summary.json so
+  # the QA step of the build loop can be satisfied by *reading* this job's
+  # result for the candidate commit SHA, instead of re-executing pytest /
+  # validate.py inside an agent's context window. See docs/agent-workflow.md
+  # "QA evidence intake" (added alongside this job) for the read-side of the
+  # contract, and plans/PLAN-external-verification-receipt-gate-v2.md for why
+  # CodeQL/Semgrep/pip-audit/mypy are scoped the way they are below.
+  review-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install review-tool dependencies (pinned, isolated from requirements-dev.txt)
+        run: pip install -r requirements-review.txt
+
+      - name: Install validation dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff (required — correctness + security rule subset only)
+        id: ruff
+        run: |
+          mkdir -p reports
+          set +e
+          ruff check --output-format=json --output-file=reports/ruff.json .
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          # human-readable copy in the job log
+          ruff check --output-format=concise . || true
+
+      - name: mypy (report-only — never fails this job)
+        id: mypy
+        run: |
+          set +e
+          mypy scripts --config-file mypy.ini > reports/mypy.log 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          cat reports/mypy.log
+
+      - name: Repo validation (repeat, capture exit code for the summary)
+        id: validate
+        run: |
+          set +e
+          python3 scripts/validate.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: pytest with JUnit XML
+        id: pytest
+        run: |
+          set +e
+          pytest scripts/tests --junitxml=reports/pytest-junit.xml
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: ShellCheck init.sh (repeat, capture exit code)
+        id: shellcheck
+        run: |
+          set +e
+          shellcheck scripts/init.sh
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Compose reports/summary.json
+        run: |
+          python3 scripts/review_summary.py \
+            --junit reports/pytest-junit.xml \
+            --ruff-json reports/ruff.json --ruff-exit-code "${{ steps.ruff.outputs.exit_code }}" \
+            --mypy-log reports/mypy.log --mypy-exit-code "${{ steps.mypy.outputs.exit_code }}" \
+            --validate-exit-code "${{ steps.validate.outputs.exit_code }}" \
+            --shellcheck-exit-code "${{ steps.shellcheck.outputs.exit_code }}" \
+            --os ubuntu-latest \
+            --out reports/summary.json
+
+      - name: Upload review evidence
+        # Pinned to an immutable release tag (v4.4.3) rather than a floating
+        # major-version tag, per plan v2 §3 "pin third-party actions by
+        # immutable revision".
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3 — SHA verified via GitHub API 2026-07-22
+        if: always()
+        with:
+          name: review-evidence-${{ github.sha }}
+          path: reports/
+          retention-days: 30
+
+      - name: Fail the job if any required gate failed
+        run: |
+          python3 -c "
+          import json, sys
+          s = json.load(open('reports/summary.json'))
+          required = s['required_gate_set']
+          failed = [g for g in required if s['gates'][g]['outcome'] != 'pass']
+          if failed:
+              print('Required gate(s) failed:', failed)
+              sys.exit(1)
+          print('All required gates green.')
+          "
+
+  # CodeQL default setup is a free, non-blocking advisory scan on this public
+  # repo — enabled via Settings > Security > Code scanning > Default setup,
+  # not a workflow file. It intentionally does not appear as a job here so it
+  # never sits on the required-gate latency path (plan v2 §3).
