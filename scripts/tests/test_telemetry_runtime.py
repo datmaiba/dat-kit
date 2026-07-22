@@ -134,8 +134,41 @@ def event(event_type: str = "task_started", payload: dict | None = None) -> dict
     }
 
 
+METADATA_RULES = {
+    "producer.revision": ("test/*", "other/*"),
+    "revisions.domain.value": ("test/*",),
+    "revisions.engine.value": ("test/*",),
+    "revisions.adapter.value": ("test/*",),
+    "revisions.canonical_contract.value": ("test/*",),
+    "revisions.profile.value": ("test/*",),
+    "coverage.missing_requirement_refs": ("handoff:*",),
+    "lineage.correction_evidence_ref": ("correction:*",),
+    "payload.workflow": ("build-loop",),
+    "payload.delegated_role": ("builder",),
+    "payload.gate_id": ("pytest", "fact-check"),
+    "payload.evidence_ref": ("run:*", "review:*", "defect:*", "fact-check:*"),
+    "payload.reviewer_id": ("code-reviewer",),
+    "payload.defect_id": ("defect-*",),
+    "payload.approving_reviewers": ("code-reviewer",),
+    "payload.gate_that_should_have_caught_it": ("pytest",),
+    "payload.root_cause_ref": ("root:*",),
+    "payload.candidate_ref": ("candidate:*",),
+    "payload.source_record_ref": ("scorecard:*",),
+}
+
+
+def policy(resolver=None, *, source_classes=("runtime",), verdict_sources=("agent", "automation")):
+    return telemetry_runtime.ProducerPolicy(
+        correction_resolver=resolver,
+        source_classes=source_classes,
+        verdict_sources=verdict_sources,
+        metadata_rules=METADATA_RULES,
+    )
+
+
 def store(root: Path, resolver=None, **additional):
-    registry = {"test-producer": resolver, **additional}
+    registry = {"test-producer": policy(resolver)}
+    registry.update({producer_id: policy(item) for producer_id, item in additional.items()})
     return telemetry_runtime.TelemetryStore(root, registry)
 
 
@@ -202,16 +235,41 @@ def test_privacy_rejection_does_not_echo_forbidden_value():
     assert "C:/Users/name/private" not in str(caught.value)
 
 
+def test_storage_requires_channel_owned_metadata_and_provenance(tmp_path):
+    secret = "ghp_abcdefghijklmnopqrstuvwxyz012345"
+    value = event("gate_result")
+    value["payload"]["evidence_ref"] = secret
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        writer(tmp_path).append(value)
+    assert caught.value.code == "TELEMETRY_PRIVACY_VIOLATION"
+    assert secret not in str(caught.value)
+    assert not (tmp_path / "telemetry/events.jsonl").exists()
+
+    forged_source = event("gate_result")
+    forged_source["source_class"] = "human"
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        writer(tmp_path).append(forged_source)
+    assert caught.value.code == "TELEMETRY_PRIVACY_VIOLATION"
+
+    forged_verdict = event("gate_result")
+    forged_verdict["payload"]["verdict_source"] = "human"
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        writer(tmp_path).append(forged_verdict)
+    assert caught.value.code == "TELEMETRY_PRIVACY_VIOLATION"
+
+
 def test_producer_writer_is_bound_only_by_immutable_store(tmp_path):
-    registrations = {"test-producer": lambda *_: False}
+    registrations = {"test-producer": policy(lambda *_: False)}
     composed = telemetry_runtime.TelemetryStore(tmp_path, registrations)
     bound = composed.bind("test-producer")
-    registrations["test-producer"] = lambda *_: True
+    registrations["test-producer"] = policy(lambda *_: True)
 
     with pytest.raises(TypeError, match="created only"):
         telemetry_runtime.ProducerWriter(composed, "test-producer")
     with pytest.raises(AttributeError, match="immutable"):
         bound._producer_id = "other-producer"
+    with pytest.raises(AttributeError, match="immutable"):
+        composed._registry["test-producer"].source_classes = frozenset({"human"})
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
         composed.bind("unregistered-producer")
     assert caught.value.code == "TELEMETRY_CORRECTION_UNAUTHORIZED"

@@ -75,7 +75,11 @@
     },
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "stableId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
-    "stableRef": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,511}$"},
+    "stableRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,511}$",
+      "$comment": "Structural grammar only. Storage also requires immutable producer-policy authorization for the specific field and namespace."
+    },
     "path": {
       "type": "string",
       "minLength": 1,

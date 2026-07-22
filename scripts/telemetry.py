@@ -110,19 +110,74 @@ class TelemetryError(ValueError):
 CorrectionResolver = Callable[[str, Mapping[str, str]], bool]
 
 
+class ProducerPolicy:
+    """Immutable channel policy for provenance and producer-owned metadata."""
+
+    __slots__ = (
+        "correction_resolver",
+        "source_classes",
+        "verdict_sources",
+        "metadata_rules",
+        "_frozen",
+    )
+
+    def __init__(
+        self,
+        *,
+        correction_resolver: CorrectionResolver | None = None,
+        source_classes: Sequence[str],
+        verdict_sources: Sequence[str],
+        metadata_rules: Mapping[str, Sequence[str]],
+    ) -> None:
+        if correction_resolver is not None and not callable(correction_resolver):
+            raise TypeError("correction_resolver must be callable or null")
+        sources = frozenset(source_classes)
+        verdicts = frozenset(verdict_sources)
+        if not sources or not sources <= {"runtime", "repository", "human", "legacy_import", "derived"}:
+            raise ValueError("source_classes must be a non-empty closed subset")
+        if not verdicts <= {"human", "agent", "automation"}:
+            raise ValueError("verdict_sources must use the closed verdict-source enum")
+        copied_rules: dict[str, tuple[str, ...]] = {}
+        for field, rules in metadata_rules.items():
+            if not isinstance(field, str) or not field or not isinstance(rules, Sequence) or isinstance(rules, (str, bytes)):
+                raise TypeError("metadata rules must map field names to sequences")
+            normalized = tuple(rules)
+            if not normalized or any(not isinstance(rule, str) or not rule or rule == "*" for rule in normalized):
+                raise ValueError("metadata rules must use exact values or bounded prefixes")
+            copied_rules[field] = normalized
+        object.__setattr__(self, "correction_resolver", correction_resolver)
+        object.__setattr__(self, "source_classes", sources)
+        object.__setattr__(self, "verdict_sources", verdicts)
+        object.__setattr__(self, "metadata_rules", MappingProxyType(copied_rules))
+        object.__setattr__(self, "_frozen", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "_frozen", False):
+            raise AttributeError("ProducerPolicy is immutable")
+        object.__setattr__(self, name, value)
+
+    def authorizes(self, field: str, value: str) -> bool:
+        for rule in self.metadata_rules.get(field, ()):
+            if rule.endswith("*") and value.startswith(rule[:-1]):
+                return True
+            if value == rule:
+                return True
+        return False
+
+
 class _ProducerChannel:
     """Internal producer identity resolved from an immutable store registry."""
 
-    __slots__ = ("producer_id", "correction_resolver")
+    __slots__ = ("producer_id", "policy")
 
     def __init__(
         self,
         producer_id: str,
-        correction_resolver: CorrectionResolver | None = None,
+        policy: ProducerPolicy,
     ) -> None:
         _require_stable_id(producer_id, "producer channel id")
         object.__setattr__(self, "producer_id", producer_id)
-        object.__setattr__(self, "correction_resolver", correction_resolver)
+        object.__setattr__(self, "policy", policy)
 
 
 class TelemetryStore:
@@ -133,16 +188,16 @@ class TelemetryStore:
     def __init__(
         self,
         repository_root: Path | str,
-        producer_registry: Mapping[str, CorrectionResolver | None],
+        producer_registry: Mapping[str, ProducerPolicy],
     ) -> None:
         if not isinstance(producer_registry, Mapping):
             raise TypeError("producer_registry must be a mapping")
-        copied: dict[str, CorrectionResolver | None] = {}
-        for producer_id, resolver in producer_registry.items():
+        copied: dict[str, ProducerPolicy] = {}
+        for producer_id, policy in producer_registry.items():
             _require_stable_id(producer_id, "registered producer id")
-            if resolver is not None and not callable(resolver):
-                raise TypeError("registered correction resolver must be callable or null")
-            copied[producer_id] = resolver
+            if type(policy) is not ProducerPolicy:
+                raise TypeError("registered producer entries must be ProducerPolicy instances")
+            copied[producer_id] = policy
         object.__setattr__(self, "_repository_root", _canonical_root(repository_root))
         object.__setattr__(self, "_registry", MappingProxyType(copied))
         object.__setattr__(self, "_writer_seal", object())
@@ -565,7 +620,53 @@ def _prepare_event(value: Mapping[str, Any], channel: _ProducerChannel) -> dict[
     _require_stable_ref(producer["revision"], "producer.revision")
     prepared["producer"] = {"id": channel.producer_id, "revision": producer["revision"]}
     validate_event(prepared)
+    _enforce_producer_policy(prepared, channel.policy)
     return prepared
+
+
+def _metadata_values(event: Mapping[str, Any]) -> list[tuple[str, str]]:
+    values = [("producer.revision", event["producer"]["revision"])]
+    for revision_name, revision in event["revisions"].items():
+        if revision["value"] is not None:
+            values.append((f"revisions.{revision_name}.value", revision["value"]))
+    for requirement in event["coverage"]["missing_requirement_refs"]:
+        values.append(("coverage.missing_requirement_refs", requirement))
+    correction_ref = event["lineage"]["correction_evidence_ref"]
+    if correction_ref is not None:
+        values.append(("lineage.correction_evidence_ref", correction_ref))
+
+    metadata_fields = {
+        "workflow",
+        "delegated_role",
+        "gate_id",
+        "evidence_ref",
+        "reviewer_id",
+        "defect_id",
+        "approving_reviewers",
+        "gate_that_should_have_caught_it",
+        "root_cause_ref",
+        "candidate_ref",
+        "source_record_ref",
+    }
+    for field, value in event["payload"].items():
+        if field not in metadata_fields or value is None:
+            continue
+        if isinstance(value, list):
+            values.extend((f"payload.{field}", item) for item in value)
+        else:
+            values.append((f"payload.{field}", value))
+    return values
+
+
+def _enforce_producer_policy(event: Mapping[str, Any], policy: ProducerPolicy) -> None:
+    if event["source_class"] not in policy.source_classes:
+        _error("source_class is not authorized for this producer", code="TELEMETRY_PRIVACY_VIOLATION")
+    verdict_source = event["payload"].get("verdict_source")
+    if verdict_source is not None and verdict_source not in policy.verdict_sources:
+        _error("verdict_source is not authorized for this producer", code="TELEMETRY_PRIVACY_VIOLATION")
+    for field, value in _metadata_values(event):
+        if not policy.authorizes(field, value):
+            _error(f"{field} is outside the producer-owned metadata namespace", code="TELEMETRY_PRIVACY_VIOLATION")
 
 
 def _duplicate_object_pairs(pairs: Sequence[tuple[str, Any]]) -> dict[str, Any]:
@@ -679,7 +780,7 @@ def _authorize_correction(
     if target["producer"]["id"] != channel.producer_id:
         _error("correction arrived through a different producer channel", code="TELEMETRY_CORRECTION_UNAUTHORIZED", event_id=event["event_id"])
     _validate_correction_shape(event, target)
-    if channel.correction_resolver is None:
+    if channel.policy.correction_resolver is None:
         _error("correction lacks channel authority", code="TELEMETRY_CORRECTION_UNAUTHORIZED", event_id=event["event_id"])
 
     root = target
@@ -701,7 +802,7 @@ def _authorize_correction(
         "record_sha256": hashlib.sha256(encoded).hexdigest(),
     }
     try:
-        authorized = channel.correction_resolver(event["lineage"]["correction_evidence_ref"], binding)
+        authorized = channel.policy.correction_resolver(event["lineage"]["correction_evidence_ref"], binding)
     except Exception:
         authorized = False
     if authorized is not True:
