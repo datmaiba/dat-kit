@@ -412,12 +412,12 @@ def test_generic_writer_recovery_of_interrupted_tail_is_preserved(tmp_path, caps
 
 
 @pytest.mark.parametrize("event_type,payload_json", [
-    ("handoff_created", "{}"),
-    ("task_resumed", json.dumps({
+    pytest.param("handoff_created", "{}", id="handoff_created-empty-payload"),
+    pytest.param("task_resumed", json.dumps({
         "handoff_ref": "handoffs/task.md", "resumed_from_handoff": True,
         "resumed_from_event_id": [],
-    })),
-    ("gate_result", '{"x":' + "[" * 20000 + "]" * 20000 + "}"),
+    }), id="task_resumed-type-confused-event-id"),
+    pytest.param("gate_result", '{"x":' + "[" * 20000 + "]" * 20000 + "}", id="gate_result-deep-recursion"),
 ])
 def test_lifecycle_payload_failures_stay_structured_and_non_mutating(
     tmp_path, capsys, event_type, payload_json
