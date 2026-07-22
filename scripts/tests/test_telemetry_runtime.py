@@ -134,8 +134,13 @@ def event(event_type: str = "task_started", payload: dict | None = None) -> dict
     }
 
 
-def channel(resolver=None):
-    return telemetry_runtime._register_producer_channel("test-producer", resolver)
+def store(root: Path, resolver=None, **additional):
+    registry = {"test-producer": resolver, **additional}
+    return telemetry_runtime.TelemetryStore(root, registry)
+
+
+def writer(root: Path, resolver=None):
+    return store(root, resolver).bind("test-producer")
 
 
 def stored(value: dict) -> dict:
@@ -197,25 +202,49 @@ def test_privacy_rejection_does_not_echo_forbidden_value():
     assert "C:/Users/name/private" not in str(caught.value)
 
 
-def test_producer_channel_is_an_opaque_runtime_capability():
-    with pytest.raises(TypeError, match="not caller-constructible"):
-        telemetry_runtime.ProducerChannel("test-producer", lambda *_: True)
+def test_producer_writer_is_bound_only_by_immutable_store(tmp_path):
+    registrations = {"test-producer": lambda *_: False}
+    composed = telemetry_runtime.TelemetryStore(tmp_path, registrations)
+    bound = composed.bind("test-producer")
+    registrations["test-producer"] = lambda *_: True
+
+    with pytest.raises(TypeError, match="created only"):
+        telemetry_runtime.ProducerWriter(composed, "test-producer")
+    with pytest.raises(AttributeError, match="immutable"):
+        bound._producer_id = "other-producer"
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        composed.bind("unregistered-producer")
+    assert caught.value.code == "TELEMETRY_CORRECTION_UNAUTHORIZED"
+
+    original = event("gate_result")
+    bound.append(original)
+    correction = copy.deepcopy(original)
+    correction["event_id"] = str(uuid.uuid4())
+    correction["producer"] = {"revision": "test/2"}
+    correction["lineage"]["correction_of"] = original["event_id"]
+    correction["lineage"]["correction_evidence_ref"] = "correction:receipt:immutable"
+    prior = (tmp_path / "telemetry/events.jsonl").read_bytes()
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        bound.append(correction)
+    assert caught.value.code == "TELEMETRY_CORRECTION_UNAUTHORIZED"
+    assert (tmp_path / "telemetry/events.jsonl").read_bytes() == prior
 
 
 def test_append_is_single_line_duplicate_safe_and_preserves_prior_bytes(tmp_path):
     first = event()
-    first_stored = telemetry_runtime.append_local_event(tmp_path, first, channel())
+    bound = writer(tmp_path)
+    first_stored = bound.append(first)
     path = tmp_path / "telemetry/events.jsonl"
     prior = path.read_bytes()
     assert prior.endswith(b"\n") and len(prior.splitlines()) == 1
 
     second = event("gate_result")
-    telemetry_runtime.append_local_event(tmp_path, second, channel())
+    bound.append(second)
     assert path.read_bytes().startswith(prior)
 
     before_duplicate = path.read_bytes()
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, first, channel())
+        bound.append(first)
     assert caught.value.code == "TELEMETRY_DUPLICATE_EVENT_ID"
     assert path.read_bytes() == before_duplicate
     assert first_stored["producer"]["id"] == "test-producer"
@@ -231,19 +260,20 @@ def test_storage_rejects_caller_authored_producer_id_and_names_fixed_path(tmp_pa
     value = event()
     value["producer"]["id"] = "caller-controlled"
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, value, channel())
+        writer(tmp_path).append(value)
     assert caught.value.path == "telemetry\\events.jsonl" or caught.value.path == "telemetry/events.jsonl"
     assert not (tmp_path / "telemetry/events.jsonl").exists()
 
 
 def test_interrupted_final_record_is_recovered_but_complete_corruption_is_not(tmp_path):
-    telemetry_runtime.append_local_event(tmp_path, event(), channel())
+    bound = writer(tmp_path)
+    bound.append(event())
     path = tmp_path / "telemetry/events.jsonl"
     prior = path.read_bytes()
     with path.open("ab") as stream:
         stream.write(b'{"schema_version":3')
 
-    telemetry_runtime.append_local_event(tmp_path, event("gate_result"), channel())
+    bound.append(event("gate_result"))
     recovered = path.read_bytes()
     assert recovered.startswith(prior)
     assert b'{"schema_version":3{' not in recovered
@@ -252,16 +282,14 @@ def test_interrupted_final_record_is_recovered_but_complete_corruption_is_not(tm
     path.write_bytes(b"not-json\n" + recovered)
     corrupt = path.read_bytes()
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, event("review_result"), channel())
+        bound.append(event("review_result"))
     assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
     assert path.read_bytes() == corrupt
 
 
 def test_authorized_correction_preserves_target_and_binds_receipt(tmp_path):
     original = event("gate_result")
-    telemetry_runtime.append_local_event(tmp_path, original, channel())
     path = tmp_path / "telemetry/events.jsonl"
-    prior = path.read_bytes()
     bindings = []
 
     correction = copy.deepcopy(original)
@@ -280,7 +308,10 @@ def test_authorized_correction_preserves_target_and_binds_receipt(tmp_path):
         bindings.append((evidence_ref, binding))
         return True
 
-    telemetry_runtime.append_local_event(tmp_path, correction, channel(authorize))
+    bound = writer(tmp_path, authorize)
+    bound.append(original)
+    prior = path.read_bytes()
+    bound.append(correction)
     assert path.read_bytes().startswith(prior)
     assert len(path.read_bytes().splitlines()) == 2
     assert bindings[0][0] == "correction:receipt:1"
@@ -292,7 +323,8 @@ def test_authorized_correction_preserves_target_and_binds_receipt(tmp_path):
 
 def test_correction_rejects_changed_payload_and_missing_authority_without_mutation(tmp_path):
     original = event("gate_result")
-    telemetry_runtime.append_local_event(tmp_path, original, channel())
+    bound = writer(tmp_path)
+    bound.append(original)
     path = tmp_path / "telemetry/events.jsonl"
     prior = path.read_bytes()
 
@@ -303,20 +335,21 @@ def test_correction_rejects_changed_payload_and_missing_authority_without_mutati
     correction["lineage"]["correction_evidence_ref"] = "correction:receipt:1"
     correction["payload"]["outcome"] = "fail"
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, correction, channel(lambda *_: True))
+        bound.append(correction)
     assert caught.value.code == "TELEMETRY_CORRECTION_INVALID"
     assert path.read_bytes() == prior
 
     correction["payload"]["outcome"] = "pass"
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, correction, channel())
+        bound.append(correction)
     assert caught.value.code == "TELEMETRY_CORRECTION_UNAUTHORIZED"
     assert path.read_bytes() == prior
 
 
 def test_cross_channel_correction_is_an_authority_failure(tmp_path):
     original = event("gate_result")
-    telemetry_runtime.append_local_event(tmp_path, original, channel())
+    composed = store(tmp_path, None, **{"other-producer": lambda *_: True})
+    composed.bind("test-producer").append(original)
     path = tmp_path / "telemetry/events.jsonl"
     prior = path.read_bytes()
 
@@ -325,10 +358,8 @@ def test_cross_channel_correction_is_an_authority_failure(tmp_path):
     correction["producer"] = {"revision": "other/1"}
     correction["lineage"]["correction_of"] = original["event_id"]
     correction["lineage"]["correction_evidence_ref"] = "correction:receipt:other"
-    other = telemetry_runtime._register_producer_channel("other-producer", lambda *_: True)
-
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, correction, other)
+        composed.bind("other-producer").append(correction)
     assert caught.value.code == "TELEMETRY_CORRECTION_UNAUTHORIZED"
     assert path.read_bytes() == prior
 
@@ -339,7 +370,7 @@ def test_invalid_utf8_in_complete_history_fails_without_mutation(tmp_path):
     target.write_bytes(b"\xff\n")
     before = target.read_bytes()
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, event(), channel())
+        writer(tmp_path).append(event())
     assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
     assert target.read_bytes() == before
 
@@ -350,7 +381,7 @@ def test_corrupt_unvalidated_event_id_is_not_echoed(tmp_path):
     secret = "access-token-secret"
     target.write_text(json.dumps({"event_id": secret}) + "\n", encoding="utf-8")
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, event(), channel())
+        writer(tmp_path).append(event())
     assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
     assert secret not in str(caught.value)
 
@@ -383,7 +414,7 @@ def test_reader_stops_after_65537_tail_bytes_without_mutation(tmp_path):
     target.write_bytes(b"x" * 65537)
     before = target.read_bytes()
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, event(), channel())
+        writer(tmp_path).append(event())
     assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
     assert target.read_bytes() == before
 
@@ -395,7 +426,7 @@ def test_hard_link_target_is_rejected_without_mutation(tmp_path):
     other = tmp_path / "linked.jsonl"
     os.link(target, other)
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, event(), channel())
+        writer(tmp_path).append(event())
     assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
     assert target.read_bytes() == b""
 
@@ -408,7 +439,7 @@ def test_symlink_parent_is_rejected_when_supported(tmp_path):
     except OSError:
         pytest.skip("symlink creation is unavailable")
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
-        telemetry_runtime.append_local_event(tmp_path, event(), channel())
+        writer(tmp_path).append(event())
     assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
     assert not (outside / "events.jsonl").exists()
 
@@ -417,5 +448,5 @@ def test_record_size_limit_is_enforced_before_write(tmp_path):
     value = event("gate_result")
     value["payload"]["evidence_ref"] = "a" * 70000
     with pytest.raises(telemetry_runtime.TelemetryError):
-        telemetry_runtime.append_local_event(tmp_path, value, channel())
+        writer(tmp_path).append(value)
     assert not (tmp_path / "telemetry/events.jsonl").exists()

@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import stat
 import threading
+from types import MappingProxyType
 from typing import Any, Callable, Mapping, Sequence
 import uuid
 
@@ -76,7 +77,6 @@ LINEAGE_FIELDS = {
 }
 
 _WRITE_LOCK = threading.Lock()
-_CHANNEL_REGISTRATION_SEAL = object()
 
 
 class TelemetryError(ValueError):
@@ -110,8 +110,8 @@ class TelemetryError(ValueError):
 CorrectionResolver = Callable[[str, Mapping[str, str]], bool]
 
 
-class ProducerChannel:
-    """Opaque capability created only by the runtime's trusted registration seam."""
+class _ProducerChannel:
+    """Internal producer identity resolved from an immutable store registry."""
 
     __slots__ = ("producer_id", "correction_resolver")
 
@@ -119,27 +119,69 @@ class ProducerChannel:
         self,
         producer_id: str,
         correction_resolver: CorrectionResolver | None = None,
-        *,
-        _registration_seal: object | None = None,
     ) -> None:
-        if _registration_seal is not _CHANNEL_REGISTRATION_SEAL:
-            raise TypeError("ProducerChannel capabilities are not caller-constructible")
         _require_stable_id(producer_id, "producer channel id")
         object.__setattr__(self, "producer_id", producer_id)
         object.__setattr__(self, "correction_resolver", correction_resolver)
 
 
-def _register_producer_channel(
-    producer_id: str,
-    correction_resolver: CorrectionResolver | None = None,
-) -> ProducerChannel:
-    """Trusted runtime seam; B3 producer adapters own calls to this helper."""
+class TelemetryStore:
+    """Trusted composition root for one repository and immutable producer registry."""
 
-    return ProducerChannel(
-        producer_id,
-        correction_resolver,
-        _registration_seal=_CHANNEL_REGISTRATION_SEAL,
-    )
+    __slots__ = ("_repository_root", "_registry", "_writer_seal", "_frozen")
+
+    def __init__(
+        self,
+        repository_root: Path | str,
+        producer_registry: Mapping[str, CorrectionResolver | None],
+    ) -> None:
+        if not isinstance(producer_registry, Mapping):
+            raise TypeError("producer_registry must be a mapping")
+        copied: dict[str, CorrectionResolver | None] = {}
+        for producer_id, resolver in producer_registry.items():
+            _require_stable_id(producer_id, "registered producer id")
+            if resolver is not None and not callable(resolver):
+                raise TypeError("registered correction resolver must be callable or null")
+            copied[producer_id] = resolver
+        object.__setattr__(self, "_repository_root", _canonical_root(repository_root))
+        object.__setattr__(self, "_registry", MappingProxyType(copied))
+        object.__setattr__(self, "_writer_seal", object())
+        object.__setattr__(self, "_frozen", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "_frozen", False):
+            raise AttributeError("TelemetryStore is immutable")
+        object.__setattr__(self, name, value)
+
+    def bind(self, producer_id: str) -> "ProducerWriter":
+        if not isinstance(producer_id, str) or producer_id not in self._registry:
+            _error("producer is not registered", code="TELEMETRY_CORRECTION_UNAUTHORIZED", path=str(EVENT_PATH))
+        return ProducerWriter(self, producer_id, self._writer_seal)
+
+
+class ProducerWriter:
+    """Bound append surface; event callers cannot supply identity or authority."""
+
+    __slots__ = ("_store", "_producer_id", "_frozen")
+
+    def __init__(self, store: TelemetryStore, producer_id: str, seal: object | None = None) -> None:
+        if type(store) is not TelemetryStore or seal is not store._writer_seal:
+            raise TypeError("ProducerWriter instances are created only by TelemetryStore.bind")
+        object.__setattr__(self, "_store", store)
+        object.__setattr__(self, "_producer_id", producer_id)
+        object.__setattr__(self, "_frozen", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if getattr(self, "_frozen", False):
+            raise AttributeError("ProducerWriter is immutable")
+        object.__setattr__(self, name, value)
+
+    def append(self, event: Mapping[str, Any]) -> dict[str, Any]:
+        channel = _ProducerChannel(
+            self._producer_id,
+            self._store._registry[self._producer_id],
+        )
+        return _append_local_event(self._store._repository_root, event, channel)
 
 
 def _error(
@@ -513,7 +555,7 @@ def encode_event(value: Mapping[str, Any]) -> bytes:
     return _encode_validated_event(value)
 
 
-def _prepare_event(value: Mapping[str, Any], channel: ProducerChannel) -> dict[str, Any]:
+def _prepare_event(value: Mapping[str, Any], channel: _ProducerChannel) -> dict[str, Any]:
     if not isinstance(value, dict):
         _error("event input must be an object")
     prepared = copy.deepcopy(value)
@@ -625,7 +667,7 @@ def _authorize_correction(
     event: Mapping[str, Any],
     encoded: bytes,
     existing: Sequence[Mapping[str, Any]],
-    channel: ProducerChannel,
+    channel: _ProducerChannel,
 ) -> None:
     target_id = event["lineage"]["correction_of"]
     if target_id is None:
@@ -766,14 +808,14 @@ def _read_fd(fd: int, *, path: str) -> bytes:
             start = boundary + 1
 
 
-def append_local_event(
+def _append_local_event(
     repository_root: Path | str,
     event: Mapping[str, Any],
-    channel: ProducerChannel,
+    channel: _ProducerChannel,
 ) -> dict[str, Any]:
     """Validate and append one event to the fixed local Telemetry v3 stream."""
 
-    if type(channel) is not ProducerChannel:
+    if type(channel) is not _ProducerChannel:
         _error("producer channel capability is invalid", code="TELEMETRY_CORRECTION_UNAUTHORIZED", path=str(EVENT_PATH))
     root = _canonical_root(repository_root)
     target = root / EVENT_PATH
