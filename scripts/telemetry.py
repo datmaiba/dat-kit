@@ -598,8 +598,10 @@ def _authorize_correction(
     target = by_id.get(target_id)
     if target is None or target_id == event["event_id"]:
         _error("correction target must be an earlier event", code="TELEMETRY_CORRECTION_INVALID", event_id=event["event_id"])
+    if target["producer"]["id"] != channel.producer_id:
+        _error("correction arrived through a different producer channel", code="TELEMETRY_CORRECTION_UNAUTHORIZED", event_id=event["event_id"])
     _validate_correction_shape(event, target)
-    if target["producer"]["id"] != channel.producer_id or channel.correction_resolver is None:
+    if channel.correction_resolver is None:
         _error("correction lacks channel authority", code="TELEMETRY_CORRECTION_UNAUTHORIZED", event_id=event["event_id"])
 
     root = target

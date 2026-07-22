@@ -302,6 +302,25 @@ def test_correction_rejects_changed_payload_and_missing_authority_without_mutati
     assert path.read_bytes() == prior
 
 
+def test_cross_channel_correction_is_an_authority_failure(tmp_path):
+    original = event("gate_result")
+    telemetry_runtime.append_local_event(tmp_path, original, channel())
+    path = tmp_path / "telemetry/events.jsonl"
+    prior = path.read_bytes()
+
+    correction = copy.deepcopy(original)
+    correction["event_id"] = str(uuid.uuid4())
+    correction["producer"] = {"revision": "other/1"}
+    correction["lineage"]["correction_of"] = original["event_id"]
+    correction["lineage"]["correction_evidence_ref"] = "correction:receipt:other"
+    other = telemetry_runtime.ProducerChannel("other-producer", lambda *_: True)
+
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        telemetry_runtime.append_local_event(tmp_path, correction, other)
+    assert caught.value.code == "TELEMETRY_CORRECTION_UNAUTHORIZED"
+    assert path.read_bytes() == prior
+
+
 def test_invalid_utf8_in_complete_history_fails_without_mutation(tmp_path):
     target = tmp_path / "telemetry/events.jsonl"
     target.parent.mkdir()
