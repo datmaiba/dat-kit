@@ -234,11 +234,26 @@ class ProducerWriter:
         object.__setattr__(self, name, value)
 
     def append(self, event: Mapping[str, Any]) -> dict[str, Any]:
+        return self._append(event, corpus_check=None, strict_tail=False)
+
+    def _append(
+        self,
+        event: Mapping[str, Any],
+        *,
+        corpus_check: Callable[[Sequence[Mapping[str, Any]]], None] | None,
+        strict_tail: bool,
+    ) -> dict[str, Any]:
         channel = _ProducerChannel(
             self._producer_id,
             self._store._registry[self._producer_id],
         )
-        return _append_local_event(self._store._repository_root, event, channel)
+        return _append_local_event(
+            self._store._repository_root,
+            event,
+            channel,
+            corpus_check=corpus_check,
+            strict_tail=strict_tail,
+        )
 
 
 def _error(
@@ -686,7 +701,7 @@ def _parse_line(raw: bytes, *, path: str, line: int) -> dict[str, Any]:
     try:
         text = raw[:-1].decode("utf-8", errors="strict")
         value = json.loads(text, object_pairs_hook=_duplicate_object_pairs)
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
         _error("history record is not a complete UTF-8 JSON object", code="TELEMETRY_HISTORY_CORRUPT", path=path, line=line)
     if not isinstance(value, dict):
         _error("history record is not an object", code="TELEMETRY_HISTORY_CORRUPT", path=path, line=line)
@@ -935,6 +950,9 @@ def _append_local_event(
     repository_root: Path | str,
     event: Mapping[str, Any],
     channel: _ProducerChannel,
+    *,
+    corpus_check: Callable[[Sequence[Mapping[str, Any]]], None] | None = None,
+    strict_tail: bool = False,
 ) -> dict[str, Any]:
     """Validate and append one event to the fixed local Telemetry v3 stream."""
 
@@ -962,6 +980,15 @@ def _append_local_event(
             identity = _handle_identity(fd, target)
             raw = _read_fd(fd, path=str(EVENT_PATH))
             existing, complete_bytes = _split_history(raw, path=str(EVENT_PATH))
+            if strict_tail and complete_bytes != len(raw):
+                _error(
+                    "lifecycle append refuses a raced interrupted record tail",
+                    code="TELEMETRY_HISTORY_CORRUPT",
+                    path=str(EVENT_PATH),
+                    event_id=prepared["event_id"],
+                )
+            if corpus_check is not None:
+                corpus_check(existing)
             if any(item["event_id"] == prepared["event_id"] for item in existing):
                 _error("event ID already exists", code="TELEMETRY_DUPLICATE_EVENT_ID", path=str(EVENT_PATH), event_id=prepared["event_id"])
             _authorize_correction(prepared, encoded, existing, channel)
@@ -993,12 +1020,24 @@ def validate_local_events(repository_root: Path | str) -> list[dict[str, Any]]:
 
     root = _canonical_root(repository_root)
     target = root / EVENT_PATH
-    if not target.parent.exists():
+    # Path safety begins with lstat: Path.exists() follows links, so a
+    # dangling link-like parent would be misreported as an empty corpus.
+    try:
+        parent_info = target.parent.lstat()
+    except FileNotFoundError:
         return []
+    except OSError:
+        _error("event parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
+    if _is_linklike(parent_info) or not stat.S_ISDIR(parent_info.st_mode):
+        _error("event parent path is link-like or non-directory", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
     _verify_parent(root, target.parent, create=False)
     _verify_target_before_open(target)
-    if not target.exists():
+    try:
+        target.lstat()
+    except FileNotFoundError:
         return []
+    except OSError:
+        _error("event target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         fd = os.open(target, flags)
@@ -1322,7 +1361,7 @@ def _bounded_payload(raw: str, event_type: str) -> dict[str, Any]:
         _error("payload JSON exceeds the bounded input limit")
     try:
         value = json.loads(raw, object_pairs_hook=_duplicate_object_pairs)
-    except (json.JSONDecodeError, UnicodeError, ValueError):
+    except (json.JSONDecodeError, UnicodeError, ValueError, RecursionError):
         _error("payload JSON is invalid")
     if not isinstance(value, dict):
         _error("payload JSON must be an object")
@@ -1339,6 +1378,9 @@ def _append_lifecycle_event(
     *,
     explicit_terminal_reason: str | None = None,
 ) -> dict[str, Any]:
+    # Closed-payload validation MUST precede any lifecycle-specific payload
+    # indexing so shape failures stay structured strict diagnostics.
+    _validate_payload(event["event_type"], event["payload"])
     candidate = [*existing, event]
     event["coverage"] = _expected_coverage(
         candidate,
@@ -1346,7 +1388,18 @@ def _append_lifecycle_event(
         explicit_terminal_reason=explicit_terminal_reason,
     )
     _validate_lifecycle_corpus(candidate)
-    return _cli_writer(root).append(event)
+
+    def _locked_corpus_check(actual: Sequence[Mapping[str, Any]]) -> None:
+        # Re-validate the actually opened corpus plus the proposed event under
+        # _WRITE_LOCK immediately before mutation; a raced lifecycle change
+        # (duplicate finish/resume) fails strictly instead of appending.
+        _validate_lifecycle_corpus([*actual, event])
+
+    return _cli_writer(root)._append(
+        event,
+        corpus_check=_locked_corpus_check,
+        strict_tail=True,
+    )
 
 
 class _CliParser(argparse.ArgumentParser):

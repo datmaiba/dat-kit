@@ -338,3 +338,108 @@ def test_strict_failures_are_nonzero_do_not_echo_and_do_not_mutate(tmp_path, cap
         assert path.read_bytes() == before
     if case == "future":
         assert result["code"] == "TELEMETRY_SCHEMA_UNSUPPORTED"
+
+
+def finish_event(events, task_id):
+    lineage = events[0]["lineage"]
+    return telemetry._new_event(
+        task_id,
+        "task_finished",
+        {"outcome": "completed", "scorecard_ref": None},
+        parent_task_id=lineage["parent_task_id"],
+        delegation_id=lineage["delegation_id"],
+    )
+
+
+def test_raced_duplicate_finish_is_rejected_against_the_locked_corpus(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    stale = records(tmp_path)
+    invoke(capsys, tmp_path, "finish", "--task-id", task_id)
+    path = tmp_path / telemetry.EVENT_PATH
+    before = path.read_bytes()
+    with pytest.raises(telemetry.TelemetryError) as caught:
+        telemetry._append_lifecycle_event(tmp_path, stale, finish_event(stale, task_id))
+    assert caught.value.code == "TELEMETRY_LIFECYCLE_INVALID"
+    assert path.read_bytes() == before
+
+
+def test_raced_duplicate_resume_is_rejected_against_the_locked_corpus(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    _, handoff = append(capsys, tmp_path, task_id, "handoff_created", {
+        "handoff_ref": "handoffs/task.md", "reason": "context_ceiling",
+    })
+    resume = {"handoff_ref": "handoffs/task.md", "resumed_from_handoff": True,
+              "resumed_from_event_id": handoff["event_id"]}
+    stale = records(tmp_path)
+    assert append(capsys, tmp_path, task_id, "task_resumed", resume)[0] == 0
+    path = tmp_path / telemetry.EVENT_PATH
+    before = path.read_bytes()
+    with pytest.raises(telemetry.TelemetryError) as caught:
+        telemetry._append_lifecycle_event(
+            tmp_path, stale, telemetry._new_event(task_id, "task_resumed", resume)
+        )
+    assert caught.value.code == "TELEMETRY_LIFECYCLE_INVALID"
+    assert path.read_bytes() == before
+
+
+def test_cli_lifecycle_append_rejects_a_raced_interrupted_tail(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    stale = records(tmp_path)
+    path = tmp_path / telemetry.EVENT_PATH
+    with path.open("ab") as stream:
+        stream.write(b'{"interrupted')
+    before = path.read_bytes()
+    with pytest.raises(telemetry.TelemetryError) as caught:
+        telemetry._append_lifecycle_event(tmp_path, stale, finish_event(stale, task_id))
+    assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
+    assert path.read_bytes() == before
+
+
+def test_generic_writer_recovery_of_interrupted_tail_is_preserved(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    path = tmp_path / telemetry.EVENT_PATH
+    complete = path.read_bytes()
+    with path.open("ab") as stream:
+        stream.write(b'{"interrupted')
+    event = telemetry._new_event(task_id, "gate_result", {
+        "gate_id": "gate:pytest", "outcome": "pass", "first_pass": True,
+        "verdict_source": "automation", "evidence_ref": None,
+    })
+    stored = telemetry._cli_writer(tmp_path).append(event)
+    raw = path.read_bytes()
+    assert raw.startswith(complete) and b'{"interrupted' not in raw
+    assert records(tmp_path)[-1]["event_id"] == stored["event_id"]
+
+
+@pytest.mark.parametrize("event_type,payload_json", [
+    ("handoff_created", "{}"),
+    ("task_resumed", json.dumps({
+        "handoff_ref": "handoffs/task.md", "resumed_from_handoff": True,
+        "resumed_from_event_id": [],
+    })),
+    ("gate_result", '{"x":' + "[" * 20000 + "]" * 20000 + "}"),
+])
+def test_lifecycle_payload_failures_stay_structured_and_non_mutating(
+    tmp_path, capsys, event_type, payload_json
+):
+    task_id = start(capsys, tmp_path)
+    path = tmp_path / telemetry.EVENT_PATH
+    before = path.read_bytes()
+    code, result = invoke(capsys, tmp_path, "append", "--task-id", task_id,
+                          "--event", event_type, "--payload-json", payload_json)
+    assert code != 0 and result["status"] == "error"
+    assert path.read_bytes() == before
+
+
+def test_validate_reports_dangling_linklike_parent_as_corrupt_not_empty(tmp_path, capsys):
+    try:
+        (tmp_path / "telemetry").symlink_to("missing-target")
+    except OSError:
+        pytest.skip("symlink creation is unavailable")
+    code, result = invoke(capsys, tmp_path, "validate")
+    assert code != 0 and (result["status"], result["code"]) == ("error", "TELEMETRY_HISTORY_CORRUPT")
+
+
+def test_validate_reports_truly_absent_parent_as_empty(tmp_path, capsys):
+    code, result = invoke(capsys, tmp_path, "validate")
+    assert (code, result["status"], result["event_count"]) == (0, "ok", 0)
