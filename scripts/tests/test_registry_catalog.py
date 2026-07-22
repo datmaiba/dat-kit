@@ -1,3 +1,4 @@
+import copy
 import json
 from pathlib import Path
 import shutil
@@ -8,7 +9,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
-from registry import Catalog, canonical_relative_path
+from registry import Catalog, Diagnostic, canonical_relative_path
 
 
 def write_json(path: Path, value: object) -> None:
@@ -132,6 +133,56 @@ def test_new_governed_product_path_without_component_is_orphaned(tmp_path):
     result = catalog.validate_governed_inventory()
     assert "EVOLUTION_ORPHAN_PATH" in codes(result)
     assert any(item.path == "docs/new-area/product.bin" for item in result)
+
+
+def test_phase6b_telemetry_paths_resolve_to_one_narrow_owner():
+    catalog = load_ok(ROOT)
+    for path in (
+        "telemetry",
+        "telemetry/schema-v3.json",
+        "telemetry/events.jsonl",
+        "scripts/telemetry.py",
+    ):
+        explanation = catalog.explain_path(path)
+        assert isinstance(explanation, dict), explanation
+        assert explanation["component_id"] == "telemetry-v3-runtime"
+        assert explanation["owner"] == "maintainers"
+        assert explanation["governance_class"] == "B"
+        assert explanation["policy_revision"] == "maintainer-policy/1"
+
+
+def test_phase6b_telemetry_admission_does_not_hide_boundary_orphans():
+    catalog = load_ok(ROOT)
+    for path in ("telemetry-v3/events.jsonl", "scripts/telemetry.py.bak"):
+        explanation = catalog.explain_path(path)
+        assert isinstance(explanation, Diagnostic), explanation
+        assert explanation.code == "EVOLUTION_ORPHAN_PATH"
+
+
+def test_phase6b_telemetry_admission_fails_closed_when_missing_or_ambiguous(tmp_path):
+    root = registry_fixture(tmp_path)
+    evolution_path = root / "registry/evolution.json"
+    evolution = json.loads(evolution_path.read_text(encoding="utf-8"))
+    component = next(
+        item for item in evolution["component_classes"]
+        if item["component_id"] == "telemetry-v3-runtime"
+    )
+
+    evolution["component_classes"].remove(component)
+    write_json(evolution_path, evolution)
+    catalog = load_ok(root)
+    missing = catalog.explain_path("telemetry/events.jsonl")
+    assert isinstance(missing, Diagnostic), missing
+    assert missing.code == "EVOLUTION_ORPHAN_PATH"
+
+    overlapping = copy.deepcopy(component)
+    overlapping["component_id"] = "telemetry-v3-overlap-fixture"
+    evolution["component_classes"].extend((component, overlapping))
+    write_json(evolution_path, evolution)
+    catalog = load_ok(root)
+    ambiguous = catalog.explain_path("telemetry/events.jsonl")
+    assert isinstance(ambiguous, Diagnostic), ambiguous
+    assert ambiguous.code == "EVOLUTION_OWNERSHIP_AMBIGUOUS"
 
 
 def test_catalog_results_are_defensive_copies():

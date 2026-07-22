@@ -116,6 +116,10 @@
       "owner": "maintainers"
     },
     {
+      "path": "telemetry",
+      "owner": "maintainers"
+    },
+    {
       "path": "templates",
       "owner": "project-contract"
     }
@@ -214,6 +218,16 @@
         "scripts/statusline.py",
         "scripts/tests/**",
         "scripts/validate.py"
+      ],
+      "owner": "maintainers",
+      "governance_class": "B",
+      "policy_ref": "maintainer-policy"
+    },
+    {
+      "component_id": "telemetry-v3-runtime",
+      "path_globs": [
+        "scripts/telemetry.py",
+        "telemetry/**"
       ],
       "owner": "maintainers",
       "governance_class": "B",

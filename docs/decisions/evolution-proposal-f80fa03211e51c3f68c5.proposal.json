@@ -1,0 +1,61 @@
+{
+  "format_revision": 1,
+  "proposal_id": "proposal-f80fa03211e51c3f68c5",
+  "created_at": "2026-07-20T21:27:14Z",
+  "proposer_identity": "codex-session-2026-07-21-phase6a",
+  "policy_revision": "platform-contract-policy/1",
+  "policy_hash": "868a6ba79241dc15907d7bb72b41a24516c8c6d8eaa14dc5e8308c472242d902",
+  "governed_owner": "registry-platform",
+  "governance_class": "C",
+  "evidence_window": {
+    "start": "2026-07-17T00:00:00Z",
+    "end": "2026-07-20T21:27:14Z"
+  },
+  "input_hashes": [
+    {
+      "path": "docs/contracts/evolution.md",
+      "sha256": "45e188e19ff7d2398640e4aafbe3c54ed61f7a259be4fb669c1fbbf4c6c7a83a"
+    },
+    {
+      "path": "handoffs/HANDOFF-2026-07-21-phase6-telemetry-v3-entry.md",
+      "sha256": "598a25762690e1da493c596839e918a7c29af3408f390a4663cfa05775474bde"
+    },
+    {
+      "path": "plans/PLAN-v7-platform.md",
+      "sha256": "e1c7847d615401613ecc479a49d47955e00f24a54b196e76b6c70b54243fc05d"
+    },
+    {
+      "path": "registry/evolution.json",
+      "sha256": "52ac2dc5d027c1cd4449b39c04a923cd2e804633ee3a081f1e536503db471975"
+    }
+  ],
+  "affected_paths": [
+    "docs/contracts/telemetry-v3.md"
+  ],
+  "baseline_refs": [
+    "git/e38cfca",
+    "path/docs-contracts-telemetry-v3-absent-at-e38cfca"
+  ],
+  "evidence_refs": [
+    "handoffs/HANDOFF-2026-07-21-phase6-telemetry-v3-entry.md#verified-gates",
+    "plans/PLAN-v7-platform.md#phase-6--telemetry-v3-and-dat-kit-210"
+  ],
+  "hypothesis": "A closed Telemetry v3 contract reviewed before runtime work prevents incompatible producers, privacy leakage, and history-rewriting implementations in Phase 6B.",
+  "patch_scope": [
+    "docs/contracts/telemetry-v3.md"
+  ],
+  "required_gates": [
+    "full-cross-component-regression",
+    "rollback-rehearsal"
+  ],
+  "required_reviewers": [
+    "knowledge-work-reviewer",
+    "software-dev-reviewer"
+  ],
+  "closer_authority_ref": "platform-owner",
+  "observation_window": {
+    "start": "2026-07-21T00:00:00Z",
+    "end": "2026-08-04T00:00:00Z"
+  },
+  "rollback_condition": "Append a rolled_back decision and atomically revert the Phase 6A contract slice if implementation exposes ambiguity, privacy leakage, incompatible producer behavior, or regression before observation closes."
+}
