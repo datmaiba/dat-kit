@@ -213,11 +213,14 @@ def _glob_matches(pattern: str, path: str) -> bool:
     if pattern_parts[-1] == "**":
         prefix = pattern_parts[:-1]
         return len(path_parts) >= len(prefix) and all(
-            fnmatchcase(path_part, pattern_part) for path_part, pattern_part in zip(path_parts, prefix)
+            fnmatchcase(path_part, pattern_part)
+            # path_parts is intentionally longer than prefix here (the "**" tail
+            # matches anything past it) — strict=False documents that on purpose.
+            for path_part, pattern_part in zip(path_parts, prefix, strict=False)
         )
     return len(path_parts) == len(pattern_parts) and all(
         fnmatchcase(path_part, pattern_part)
-        for path_part, pattern_part in zip(path_parts, pattern_parts)
+        for path_part, pattern_part in zip(path_parts, pattern_parts, strict=True)
     )
 
 
