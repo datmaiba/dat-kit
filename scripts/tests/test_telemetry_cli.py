@@ -111,11 +111,46 @@ def test_completion_only_is_the_sole_finish_time_minting_path(tmp_path, capsys):
     assert code != 0 and result["code"] == "TELEMETRY_LIFECYCLE_INVALID"
     assert (tmp_path / telemetry.EVENT_PATH).read_bytes() == before
 
-    forged = {**item, "coverage": {**item["coverage"], "reason": "producer_failure"}}
+    code, result = invoke(
+        capsys, tmp_path, "finish", "--completion-only",
+        "--degraded-reason", "producer_failure",
+    )
+    assert code != 0 and result["code"] == "TELEMETRY_LIFECYCLE_INVALID"
+
+    imported = {
+        **item,
+        "source_class": "legacy_import",
+        "coverage": {**item["coverage"], "reason": "telemetry_disabled"},
+    }
     (tmp_path / telemetry.EVENT_PATH).write_text(
-        json.dumps(forged, sort_keys=True, separators=(",", ":")) + "\n",
+        json.dumps(imported, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
+    assert telemetry.validate_lifecycle_events(tmp_path) == [imported]
+
+
+def test_correction_coverage_is_validated_against_current_lifecycle(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    invoke(capsys, tmp_path, "finish", "--task-id", task_id)
+    path = tmp_path / telemetry.EVENT_PATH
+    original = records(tmp_path)[-1]
+    correction = {
+        **original,
+        "event_id": str(uuid.uuid4()),
+        "lineage": {
+            **original["lineage"],
+            "correction_of": original["event_id"],
+            "correction_evidence_ref": "evidence:correction:1",
+        },
+        "coverage": {
+            "status": "partial",
+            "missing_event_types": ["task_started"],
+            "missing_requirement_refs": [],
+            "reason": "completion_only",
+        },
+    }
+    with path.open("a", encoding="utf-8", newline="") as stream:
+        stream.write(json.dumps(correction, sort_keys=True, separators=(",", ":")) + "\n")
     with pytest.raises(telemetry.TelemetryError) as caught:
         telemetry.validate_lifecycle_events(tmp_path)
     assert caught.value.code == "TELEMETRY_LIFECYCLE_INVALID"
@@ -258,6 +293,19 @@ def test_disabled_and_operational_failure_are_nonblocking_and_non_mutating(tmp_p
     assert (code, result["status"], result["code"]) == (0, "degraded", "TELEMETRY_OPERATIONAL_FAILURE")
     assert "secret operational detail" not in json.dumps(result)
     assert not (tmp_path / telemetry.EVENT_PATH).exists()
+
+    monkeypatch.undo()
+    real_lstat = Path.lstat
+
+    def root_unavailable(path):
+        if path == tmp_path:
+            raise PermissionError("secret repository-root detail")
+        return real_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", root_unavailable)
+    code, result = invoke(capsys, tmp_path, "start", "--workflow", "other")
+    assert (code, result["status"], result["code"]) == (0, "degraded", "TELEMETRY_OPERATIONAL_FAILURE")
+    assert "secret repository-root detail" not in json.dumps(result)
 
 
 @pytest.mark.parametrize("case", ["malformed", "oversized", "unknown-task", "corrupt", "future"])

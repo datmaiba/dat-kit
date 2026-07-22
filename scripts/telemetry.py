@@ -836,9 +836,14 @@ def _canonical_root(root: Path | str) -> Path:
         _error("repository root must be absolute", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
     try:
         info = supplied.lstat()
+    except FileNotFoundError:
+        _error("repository root is unavailable", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+    except OSError:
+        _error("repository root is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
+    try:
         resolved = supplied.resolve(strict=True)
     except OSError:
-        _error("repository root is unavailable", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+        _error("repository root is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
     if _is_linklike(info) or not stat.S_ISDIR(info.st_mode) or os.path.normcase(str(supplied)) != os.path.normcase(str(resolved)):
         _error("repository root is not canonical", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
     return resolved
@@ -1124,8 +1129,6 @@ def _expected_coverage(
     completion_only = len(task_events) == 1 and not starts
     reasons = set()
     if completion_only:
-        if explicit_terminal_reason is not None:
-            _lifecycle_error("completion-only coverage reason is fixed")
         reasons.add("completion_only")
     if unmatched:
         reasons.add("unresumed_handoff")
@@ -1246,8 +1249,6 @@ def _validate_lifecycle_corpus(events: Sequence[Mapping[str, Any]]) -> None:
     _validate_task_sequences(events)
     _validate_delegations(events)
     for index, event in enumerate(events):
-        if event["lineage"]["correction_of"] is not None:
-            continue
         prefix = events[: index + 1]
         reason = event["coverage"]["reason"]
         explicit = reason if reason in _EXPLICIT_TERMINAL_REASONS else None
