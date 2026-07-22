@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Telemetry v3 schema validation and local single-writer storage primitives."""
+"""Telemetry v3 validation, lifecycle, and local single-writer CLI."""
 
 from __future__ import annotations
 
+import argparse
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import stat
+import sys
 import threading
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Sequence
@@ -688,9 +690,24 @@ def _parse_line(raw: bytes, *, path: str, line: int) -> dict[str, Any]:
         _error("history record is not a complete UTF-8 JSON object", code="TELEMETRY_HISTORY_CORRUPT", path=path, line=line)
     if not isinstance(value, dict):
         _error("history record is not an object", code="TELEMETRY_HISTORY_CORRUPT", path=path, line=line)
+    schema_version = value.get("schema_version")
+    if isinstance(schema_version, int) and not isinstance(schema_version, bool) and schema_version > 3:
+        raise TelemetryError(
+            "TELEMETRY_SCHEMA_UNSUPPORTED",
+            "stored event uses an unsupported future schema version",
+            path=path,
+            line=line,
+        )
     try:
         validate_event(value)
     except TelemetryError as diagnostic:
+        if diagnostic.code == "TELEMETRY_SCHEMA_UNSUPPORTED":
+            raise TelemetryError(
+                "TELEMETRY_SCHEMA_UNSUPPORTED",
+                "stored event uses an unsupported schema version",
+                path=path,
+                line=line,
+            ) from None
         candidate_event_id = value.get("event_id")
         safe_event_id = None
         try:
@@ -843,10 +860,10 @@ def _verify_parent(root: Path, parent: Path, *, create: bool) -> None:
             try:
                 current.mkdir(mode=0o700)
             except OSError:
-                _error("event parent path cannot be created safely", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+                _error("event parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
             info = current.lstat()
         except OSError:
-            _error("event parent path is unavailable", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+            _error("event parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
         if _is_linklike(info) or not stat.S_ISDIR(info.st_mode):
             _error("event parent path is link-like or non-directory", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
         try:
@@ -862,7 +879,7 @@ def _verify_target_before_open(target: Path) -> None:
     except FileNotFoundError:
         return
     except OSError:
-        _error("event target is unavailable", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+        _error("event target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
     if _is_linklike(info) or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
         _error("event target must be one unlinked regular file", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
 
@@ -872,7 +889,7 @@ def _handle_identity(fd: int, target: Path) -> tuple[int, int]:
         handle = os.fstat(fd)
         path_info = target.lstat()
     except OSError:
-        _error("event target identity is unavailable", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+        _error("event target identity is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
     if (
         _is_linklike(path_info)
         or not stat.S_ISREG(handle.st_mode)
@@ -935,7 +952,7 @@ def _append_local_event(
         try:
             fd = os.open(target, flags, 0o600)
         except OSError:
-            _error("event target cannot be opened safely", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+            _error("event target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
         try:
             identity = _handle_identity(fd, target)
             raw = _read_fd(fd, path=str(EVENT_PATH))
@@ -981,7 +998,7 @@ def validate_local_events(repository_root: Path | str) -> list[dict[str, Any]]:
     try:
         fd = os.open(target, flags)
     except OSError:
-        _error("event target cannot be opened safely", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+        _error("event target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
     try:
         identity = _handle_identity(fd, target)
         raw = _read_fd(fd, path=str(EVENT_PATH))
@@ -994,3 +1011,483 @@ def validate_local_events(repository_root: Path | str) -> list[dict[str, Any]]:
         return events
     finally:
         os.close(fd)
+
+
+_COVERAGE_REASON_PRIORITY = (
+    "telemetry_disabled",
+    "legacy_import",
+    "producer_failure",
+    "unresumed_handoff",
+    "unsupported_host_start",
+    "completion_only",
+)
+_EXPLICIT_TERMINAL_REASONS = {
+    "telemetry_disabled",
+    "legacy_import",
+    "producer_failure",
+    "unsupported_host_start",
+}
+_CLI_VERDICT_SOURCE = {
+    "gate_result": "automation",
+    "review_result": "agent",
+    "fact_check_recorded": "human",
+}
+_CLI_METADATA_RULES = {
+    "producer.revision": ("telemetry-cli/1",),
+    "coverage.missing_requirement_refs": ("handoff:*",),
+    "payload.workflow": ("build-loop", "knowledge-work", "other"),
+    "payload.delegated_role": ("role:*",),
+    "payload.gate_id": ("gate:*",),
+    "payload.evidence_ref": ("evidence:*",),
+    "payload.reviewer_id": ("reviewer:*",),
+    "payload.defect_id": ("defect:*",),
+    "payload.approving_reviewers": ("reviewer:*",),
+    "payload.gate_that_should_have_caught_it": ("gate:*",),
+    "payload.root_cause_ref": ("evidence:*",),
+    "payload.candidate_ref": ("evidence:*",),
+    "payload.source_record_ref": ("scorecard:*",),
+}
+
+
+def _lifecycle_error(detail: str) -> None:
+    _error(detail, code="TELEMETRY_LIFECYCLE_INVALID", path=str(EVENT_PATH))
+
+
+def _originals(events: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    return [event for event in events if event["lineage"]["correction_of"] is None]
+
+
+def _task_originals(
+    events: Sequence[Mapping[str, Any]], task_id: str
+) -> list[Mapping[str, Any]]:
+    return [event for event in _originals(events) if event["task_id"] == task_id]
+
+
+def _select_coverage_reason(reasons: set[str]) -> str | None:
+    return next((reason for reason in _COVERAGE_REASON_PRIORITY if reason in reasons), None)
+
+
+def _unmatched_handoffs(task_events: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+    unmatched: dict[str, Mapping[str, Any]] = {}
+    for event in task_events:
+        if event["event_type"] == "handoff_created" and event["payload"]["reason"] != "delegation_brief":
+            unmatched[event["event_id"]] = event
+        elif event["event_type"] == "task_resumed":
+            unmatched.pop(event["payload"]["resumed_from_event_id"], None)
+    return unmatched
+
+
+def _expected_coverage(
+    events: Sequence[Mapping[str, Any]],
+    task_id: str,
+    *,
+    explicit_terminal_reason: str | None = None,
+) -> dict[str, Any]:
+    task_events = _task_originals(events, task_id)
+    if not task_events:
+        _lifecycle_error("task has no lifecycle events")
+    event_types = {event["event_type"] for event in task_events}
+    required = {"task_started", "task_finished"}
+    starts = [event for event in task_events if event["event_type"] == "task_started"]
+    workflow = starts[0]["payload"]["workflow"] if starts else None
+    if workflow == "build-loop":
+        required.update({"gate_result", "review_result"})
+    elif workflow == "knowledge-work":
+        required.add("fact_check_recorded")
+
+    lineage = task_events[0]["lineage"]
+    if lineage["delegation_id"] is not None:
+        linked = any(
+            event["event_type"] == "delegation_started"
+            and event["payload"]["delegation_id"] == lineage["delegation_id"]
+            and event["payload"]["child_task_id"] == task_id
+            for event in _originals(events)
+        )
+        if linked:
+            event_types.add("delegation_started")
+        required.add("delegation_started")
+
+    missing_events = sorted(required - event_types)
+    unmatched = _unmatched_handoffs(task_events)
+    missing_refs = sorted(
+        f"handoff:{event_id}:task_resumed" for event_id in unmatched
+    )
+    terminal = task_events[-1]["event_type"] == "task_finished"
+    if not terminal:
+        return {
+            "status": "partial",
+            "missing_event_types": missing_events,
+            "missing_requirement_refs": missing_refs,
+            "reason": "in_progress",
+        }
+
+    completion_only = len(task_events) == 1 and not starts
+    reasons = set()
+    if completion_only:
+        if explicit_terminal_reason is not None:
+            _lifecycle_error("completion-only coverage reason is fixed")
+        reasons.add("completion_only")
+    if unmatched:
+        reasons.add("unresumed_handoff")
+    if explicit_terminal_reason is not None:
+        reasons.add(explicit_terminal_reason)
+    reason = _select_coverage_reason(reasons)
+    if missing_events or missing_refs:
+        if reason is None:
+            _lifecycle_error("terminal task is missing required lifecycle evidence")
+        return {
+            "status": "partial",
+            "missing_event_types": missing_events,
+            "missing_requirement_refs": missing_refs,
+            "reason": reason,
+        }
+    if reason is not None:
+        _lifecycle_error("terminal degradation reason has no missing evidence")
+    return {
+        "status": "full",
+        "missing_event_types": [],
+        "missing_requirement_refs": [],
+        "reason": None,
+    }
+
+
+def _validate_task_sequences(events: Sequence[Mapping[str, Any]]) -> None:
+    task_ids = []
+    for event in _originals(events):
+        if event["task_id"] not in task_ids:
+            task_ids.append(event["task_id"])
+    for task_id in task_ids:
+        task_events = _task_originals(events, task_id)
+        starts = [event for event in task_events if event["event_type"] == "task_started"]
+        finishes = [event for event in task_events if event["event_type"] == "task_finished"]
+        first_type = task_events[0]["event_type"]
+        if first_type == "task_finished":
+            if len(task_events) != 1 or starts or len(finishes) != 1:
+                _lifecycle_error("completion-only task must contain exactly one original finish")
+        elif first_type != "task_started" or len(starts) != 1:
+            _lifecycle_error("normal task must begin with exactly one original start")
+        if len(finishes) > 1:
+            _lifecycle_error("task contains duplicate original finishes")
+        if finishes and task_events[-1]["event_type"] != "task_finished":
+            _lifecycle_error("original event appears after task finish")
+
+        lineage_pairs = {
+            (event["lineage"]["parent_task_id"], event["lineage"]["delegation_id"])
+            for event in task_events
+        }
+        if len(lineage_pairs) != 1:
+            _lifecycle_error("task lineage pair changes within the lifecycle")
+
+        unmatched: dict[str, Mapping[str, Any]] = {}
+        consumed: set[str] = set()
+        for event in task_events:
+            if event["event_type"] == "handoff_created" and event["payload"]["reason"] != "delegation_brief":
+                unmatched[event["event_id"]] = event
+            elif event["event_type"] == "task_resumed":
+                source_id = event["payload"]["resumed_from_event_id"]
+                source = unmatched.get(source_id)
+                if source is None or source_id in consumed:
+                    _lifecycle_error("resume must consume one earlier unmatched handoff")
+                if source["payload"]["handoff_ref"] != event["payload"]["handoff_ref"]:
+                    _lifecycle_error("resume handoff reference does not match its source")
+                consumed.add(source_id)
+                unmatched.pop(source_id)
+
+        if finishes and finishes[0]["payload"]["outcome"] == "completed" and unmatched:
+            _lifecycle_error("completed task cannot retain an unmatched handoff")
+
+
+def _validate_delegations(events: Sequence[Mapping[str, Any]]) -> None:
+    originals = _originals(events)
+    pairs: dict[str, tuple[str, str, int]] = {}
+    child_pairs: dict[str, tuple[str, str]] = {}
+    for index, event in enumerate(originals):
+        if event["event_type"] != "delegation_started":
+            continue
+        delegation_id = event["payload"]["delegation_id"]
+        child_id = event["payload"]["child_task_id"]
+        parent_id = event["task_id"]
+        if parent_id == child_id:
+            _lifecycle_error("delegation parent and child task IDs must differ")
+        if delegation_id in pairs:
+            _lifecycle_error("delegation ID must identify exactly one parent-child pair")
+        if child_id in child_pairs and child_pairs[child_id] != (parent_id, delegation_id):
+            _lifecycle_error("child task cannot belong to multiple delegation pairs")
+        pairs[delegation_id] = (parent_id, child_id, index)
+        child_pairs[child_id] = (parent_id, delegation_id)
+
+    for task_id in {event["task_id"] for event in originals}:
+        task_events = [event for event in originals if event["task_id"] == task_id]
+        parent_id = task_events[0]["lineage"]["parent_task_id"]
+        delegation_id = task_events[0]["lineage"]["delegation_id"]
+        if delegation_id is None:
+            if task_id in child_pairs:
+                _lifecycle_error("delegated child events must carry the registered lineage pair")
+            continue
+        pair = pairs.get(delegation_id)
+        if pair is None or pair[:2] != (parent_id, task_id):
+            _lifecycle_error("child lineage does not match one parent delegation event")
+        first_index = originals.index(task_events[0])
+        if pair[2] >= first_index:
+            _lifecycle_error("parent delegation event must precede child lifecycle")
+
+    graph = {child: parent for child, (parent, _delegation) in child_pairs.items()}
+    for start in graph:
+        seen = set()
+        current = start
+        while current in graph:
+            if current in seen:
+                _lifecycle_error("delegation graph contains a parent-child cycle")
+            seen.add(current)
+            current = graph[current]
+
+
+def _validate_lifecycle_corpus(events: Sequence[Mapping[str, Any]]) -> None:
+    _validate_task_sequences(events)
+    _validate_delegations(events)
+    for index, event in enumerate(events):
+        if event["lineage"]["correction_of"] is not None:
+            continue
+        prefix = events[: index + 1]
+        reason = event["coverage"]["reason"]
+        explicit = reason if reason in _EXPLICIT_TERMINAL_REASONS else None
+        expected = _expected_coverage(prefix, event["task_id"], explicit_terminal_reason=explicit)
+        if event["coverage"] != expected:
+            _lifecycle_error("event coverage does not equal lifecycle requirements at append position")
+
+
+def validate_lifecycle_events(repository_root: Path | str) -> list[dict[str, Any]]:
+    """Strictly validate schema, storage, lifecycle, linkage, and coverage read-only."""
+
+    events = validate_local_events(repository_root)
+    _validate_lifecycle_corpus(events)
+    return events
+
+
+def _cli_policy() -> ProducerPolicy:
+    return ProducerPolicy(
+        source_classes=("runtime",),
+        verdict_sources=("human", "agent", "automation"),
+        metadata_rules=_CLI_METADATA_RULES,
+    )
+
+
+def _cli_writer(root: Path | str) -> ProducerWriter:
+    return TelemetryStore(root, {"dat-kit-cli": _cli_policy()}).bind("dat-kit-cli")
+
+
+def _unknown_revision() -> dict[str, Any]:
+    return {"value": None, "unavailable_reason": "not_emitted"}
+
+
+def _new_event(
+    task_id: str,
+    event_type: str,
+    payload: Mapping[str, Any],
+    *,
+    parent_task_id: str | None = None,
+    delegation_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": 3,
+        "event_id": str(uuid.uuid4()),
+        "task_id": task_id,
+        "event_type": event_type,
+        "occurred_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        "producer": {"revision": "telemetry-cli/1"},
+        "revisions": {name: _unknown_revision() for name in REVISION_FIELDS},
+        "lineage": {
+            "parent_task_id": parent_task_id,
+            "delegation_id": delegation_id,
+            "correction_of": None,
+            "correction_evidence_ref": None,
+        },
+        "source_class": "runtime",
+        "privacy_class": "project",
+        "coverage": {
+            "status": "partial",
+            "missing_event_types": ["task_finished"],
+            "missing_requirement_refs": [],
+            "reason": "in_progress",
+        },
+        "tokens": {"total": None, "attribution_status": "unknown", "reason": "not_reported"},
+        "elapsed": {"milliseconds": None, "clock_source": "unknown", "reason": "not_reported"},
+        "payload": dict(payload),
+    }
+
+
+def _bounded_payload(raw: str, event_type: str) -> dict[str, Any]:
+    if not isinstance(raw, str) or len(raw.encode("utf-8", errors="replace")) > MAX_RECORD_BYTES:
+        _error("payload JSON exceeds the bounded input limit")
+    try:
+        value = json.loads(raw, object_pairs_hook=_duplicate_object_pairs)
+    except (json.JSONDecodeError, UnicodeError, ValueError):
+        _error("payload JSON is invalid")
+    if not isinstance(value, dict):
+        _error("payload JSON must be an object")
+    expected_source = _CLI_VERDICT_SOURCE.get(event_type)
+    if expected_source is not None and value.get("verdict_source") != expected_source:
+        _error("verdict_source does not match the fixed CLI producer policy", code="TELEMETRY_PRIVACY_VIOLATION")
+    return value
+
+
+def _append_lifecycle_event(
+    root: Path | str,
+    existing: Sequence[Mapping[str, Any]],
+    event: dict[str, Any],
+    *,
+    explicit_terminal_reason: str | None = None,
+) -> dict[str, Any]:
+    candidate = [*existing, event]
+    event["coverage"] = _expected_coverage(
+        candidate,
+        event["task_id"],
+        explicit_terminal_reason=explicit_terminal_reason,
+    )
+    _validate_lifecycle_corpus(candidate)
+    return _cli_writer(root).append(event)
+
+
+class _CliParser(argparse.ArgumentParser):
+    def error(self, _message: str) -> None:
+        _error("command line is invalid")
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = _CliParser(prog="telemetry.py")
+    parser.add_argument("--repository-root", required=True)
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    start = commands.add_parser("start")
+    start.add_argument("--workflow", required=True)
+
+    append = commands.add_parser("append")
+    append.add_argument("--task-id", required=True)
+    append.add_argument("--event", required=True, choices=EVENT_TYPES)
+    append.add_argument("--payload-json", required=True)
+    append.add_argument("--parent-task-id")
+    append.add_argument("--delegation-id")
+
+    finish = commands.add_parser("finish")
+    identity = finish.add_mutually_exclusive_group(required=True)
+    identity.add_argument("--task-id")
+    identity.add_argument("--completion-only", action="store_true")
+    finish.add_argument("--outcome", choices=("completed", "aborted", "unknown"), default="completed")
+    finish.add_argument("--scorecard-ref")
+    finish.add_argument("--degraded-reason", choices=tuple(sorted(_EXPLICIT_TERMINAL_REASONS)))
+
+    commands.add_parser("validate")
+    return parser
+
+
+def _execute_command(args: argparse.Namespace) -> dict[str, Any]:
+    root = Path(args.repository_root)
+    existing = validate_lifecycle_events(root)
+    if args.command == "validate":
+        return {"status": "ok", "command": "validate", "event_count": len(existing)}
+    if args.command == "start":
+        task_id = str(uuid.uuid4())
+        event = _new_event(task_id, "task_started", {"workflow": args.workflow})
+        stored = _append_lifecycle_event(root, existing, event)
+    elif args.command == "append":
+        _require_uuid4(args.task_id, "task_id")
+        if (args.parent_task_id is None) != (args.delegation_id is None):
+            _lifecycle_error("parent task ID and delegation ID must be supplied together")
+        if args.parent_task_id is not None:
+            _require_uuid4(args.parent_task_id, "parent_task_id")
+            _require_uuid4(args.delegation_id, "delegation_id")
+        if args.event == "task_finished":
+            _lifecycle_error("task_finished must use the finish command")
+        if args.event == "task_started" and args.delegation_id is None:
+            _lifecycle_error("root task_started must use the start command")
+        payload = _bounded_payload(args.payload_json, args.event)
+        event = _new_event(
+            args.task_id,
+            args.event,
+            payload,
+            parent_task_id=args.parent_task_id,
+            delegation_id=args.delegation_id,
+        )
+        stored = _append_lifecycle_event(root, existing, event)
+    else:
+        if args.completion_only:
+            task_id = str(uuid.uuid4())
+            parent_task_id = delegation_id = None
+            if args.degraded_reason is not None:
+                _lifecycle_error("completion-only reason is fixed by the lifecycle contract")
+        else:
+            task_id = args.task_id
+            _require_uuid4(task_id, "task_id")
+            task_events = _task_originals(existing, task_id)
+            if not task_events:
+                _lifecycle_error("normal finish requires an existing started task")
+            parent_task_id = task_events[0]["lineage"]["parent_task_id"]
+            delegation_id = task_events[0]["lineage"]["delegation_id"]
+        event = _new_event(
+            task_id,
+            "task_finished",
+            {"outcome": args.outcome, "scorecard_ref": args.scorecard_ref},
+            parent_task_id=parent_task_id,
+            delegation_id=delegation_id,
+        )
+        stored = _append_lifecycle_event(
+            root,
+            existing,
+            event,
+            explicit_terminal_reason=args.degraded_reason,
+        )
+    return {
+        "status": "ok",
+        "command": args.command,
+        "task_id": stored["task_id"],
+        "event_id": stored["event_id"],
+    }
+
+
+def _emit_result(value: Mapping[str, Any], *, error: bool = False) -> None:
+    stream = sys.stderr if error else sys.stdout
+    print(json.dumps(value, sort_keys=True, separators=(",", ":")), file=stream)
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> int:
+    """Run the host-neutral lifecycle CLI and return its process exit code."""
+
+    try:
+        args = _parser().parse_args(argv)
+        environment = os.environ if environ is None else environ
+        if args.command in {"start", "append", "finish"} and environment.get("DAT_KIT_TELEMETRY") == "off":
+            _emit_result({"status": "disabled", "command": args.command})
+            return 0
+        result = _execute_command(args)
+    except TelemetryError as diagnostic:
+        command = getattr(locals().get("args"), "command", "unknown")
+        if diagnostic.code == "TELEMETRY_OPERATIONAL_FAILURE" and command in {"start", "append", "finish"}:
+            _emit_result({
+                "status": "degraded",
+                "command": command,
+                "code": "TELEMETRY_OPERATIONAL_FAILURE",
+            })
+            return 0
+        _emit_result({"status": "error", "code": diagnostic.code}, error=True)
+        return 2
+    except OSError:
+        command = getattr(locals().get("args"), "command", "unknown")
+        if command in {"start", "append", "finish"}:
+            _emit_result({
+                "status": "degraded",
+                "command": command,
+                "code": "TELEMETRY_OPERATIONAL_FAILURE",
+            })
+            return 0
+        _emit_result({"status": "error", "code": "TELEMETRY_OPERATIONAL_FAILURE"}, error=True)
+        return 2
+    _emit_result(result)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
