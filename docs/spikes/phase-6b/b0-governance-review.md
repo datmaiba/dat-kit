@@ -79,9 +79,8 @@ pre-existing tree.
 
 ## Authority gate
 
-Status: **platform-owner approval pending**.
-
-On explicit approval, append
+Status: **approved** by platform-owner Dat Mai Ba at
+`2026-07-22T04:14:53Z`, recorded as
 `decision-27d40cbf7ff8c9cebe93-0001` with:
 
 - approval reference
@@ -91,6 +90,5 @@ On explicit approval, append
   `gate/rollback-rehearsal-4eba5b39`; and
 - effective boundary `run-2026-07-22-phase6b-b0-4eba5b39`.
 
-Approval closes B0 only. It does not authorize B1 or create any telemetry
+This approval closes B0 only. It does not authorize B1 or create any telemetry
 runtime path.
-
