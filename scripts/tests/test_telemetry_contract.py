@@ -2,38 +2,34 @@
 
 from __future__ import annotations
 
-import copy
-import hashlib
 import json
 from pathlib import Path
-import subprocess
 import sys
 
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
+TESTS = Path(__file__).resolve().parent
 CONTRACT = ROOT / "docs/contracts/telemetry-v3.md"
 PROPOSAL = ROOT / "docs/decisions/evolution-proposal-f80fa03211e51c3f68c5.proposal.json"
 DECISIONS = ROOT / "docs/decisions/evolution-manual.decisions.jsonl"
 APPROVED_CONTRACT_SHA256 = "c9fa5e6bcfc8760cd9a6e78597a8db1ae3a305b870e137335f185a7966b70dde"
 PHASE6A_BASELINE_COMMIT = "e38cfca56d2b2b830ec0b64a33d8a253bd3e5565"
+PHASE6A_APPROVAL_COMMIT = "8748b00eee562bb7730035f7520dbf0680b03edb"
 sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(TESTS))
 
-from registry import Catalog, Diagnostic, canonical_json
+from evolution_evidence import (
+    assert_approved_decision_common,
+    assert_frozen_proposal,
+    git_file_hash,
+    git_json,
+)
+from registry import Catalog, Diagnostic
 
 
 def contract_text() -> str:
     return CONTRACT.read_text(encoding="utf-8")
-
-
-def phase6a_baseline_hash(path: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(ROOT), "show", f"{PHASE6A_BASELINE_COMMIT}:{path}"],
-        capture_output=True,
-        check=True,
-    )
-    data = result.stdout.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-    return hashlib.sha256(data).hexdigest()
 
 
 def section(text: str, start: str, end: str) -> str:
@@ -61,17 +57,6 @@ def markdown_table(text: str) -> dict[str, str]:
     return rows
 
 
-def github_heading_slugs(text: str) -> set[str]:
-    slugs = set()
-    for line in text.splitlines():
-        if not line.startswith("#"):
-            continue
-        heading = line.lstrip("#").strip().lower()
-        slug = "".join(char for char in heading if char.isalnum() or char in " -_")
-        slugs.add(slug.replace(" ", "-"))
-    return slugs
-
-
 def test_contract_is_routed_as_class_c_platform_contract() -> None:
     catalog = Catalog.load(ROOT)
     assert isinstance(catalog, Catalog), catalog
@@ -93,77 +78,35 @@ def test_contract_is_routed_as_class_c_platform_contract() -> None:
 
 def test_proposal_identity_policy_and_evidence_fragments_are_valid() -> None:
     proposal = json.loads(PROPOSAL.read_text(encoding="utf-8"))
-    evolution = json.loads((ROOT / "registry/evolution.json").read_text(encoding="utf-8"))
-    policy = next(item for item in evolution["policies"] if item["policy_id"] == "platform-contract-policy")
-    authority = next(
-        item for item in evolution["authorities"]
-        if item["authority_id"] == policy["closer_authority_ref"]
-    )
-    signals = {item["signal_id"]: item for item in evolution["signals"]}
-    policy_graph = {
-        "policy": policy,
-        "closer_authority": authority,
-        "required_signals": [signals[item] for item in sorted(policy["required_signals"])],
-    }
-    assert proposal["policy_hash"] == hashlib.sha256(canonical_json(policy_graph)).hexdigest()
-    assert proposal["input_hashes"] == sorted(proposal["input_hashes"], key=canonical_json)
-    for item in proposal["input_hashes"]:
-        assert item["sha256"] == phase6a_baseline_hash(item["path"])
-    payload = copy.deepcopy(proposal)
-    payload.pop("proposal_id")
-    expected_id = "proposal-" + hashlib.sha256(canonical_json(payload)).hexdigest()[:20]
-    assert proposal["proposal_id"] == expected_id
+    evolution = git_json(ROOT, PHASE6A_BASELINE_COMMIT, "registry/evolution.json")
+    assert isinstance(evolution, dict)
+    assert_frozen_proposal(ROOT, proposal, evolution, PHASE6A_BASELINE_COMMIT)
     assert proposal["evidence_refs"] == [
         "handoffs/HANDOFF-2026-07-21-phase6-telemetry-v3-entry.md#verified-gates",
         "plans/PLAN-v7-platform.md#phase-6--telemetry-v3-and-dat-kit-210",
     ]
-    for reference in proposal["evidence_refs"]:
-        relative, separator, anchor = reference.partition("#")
-        target = ROOT / relative
-        assert separator and anchor and target.is_file()
-        assert anchor in github_heading_slugs(target.read_text(encoding="utf-8"))
 
 
 def test_owner_decision_authorizes_the_exact_reviewed_contract() -> None:
     proposal = json.loads(PROPOSAL.read_text(encoding="utf-8"))
-    evolution = json.loads((ROOT / "registry/evolution.json").read_text(encoding="utf-8"))
+    evolution = git_json(ROOT, PHASE6A_BASELINE_COMMIT, "registry/evolution.json")
+    assert isinstance(evolution, dict)
     records = [json.loads(line) for line in DECISIONS.read_text(encoding="utf-8").splitlines()]
     decisions = [record for record in records if record["proposal_id"] == proposal["proposal_id"]]
     assert decisions
     decision = decisions[0]
-    assert set(decision) == {
-        "format_revision", "decision_id", "proposal_id", "decision", "decided_at",
-        "policy_revision", "policy_hash", "closer_identity", "closer_role",
-        "approval_reference", "gate_evidence_refs", "effective_from_run",
-        "observation_status", "correction_of",
-    }
-    assert decision["format_revision"] == 1
-    assert decision["decision_id"] == "decision-f80fa03211e51c3f68c5-0001"
-    assert decision["decision"] == "approved"
-    assert decision["observation_status"] == "observing"
-    assert decision["correction_of"] is None
+    assert_approved_decision_common(
+        decision,
+        proposal,
+        evolution,
+        "decision-f80fa03211e51c3f68c5-0001",
+    )
     assert decision["decided_at"] == "2026-07-21T02:46:33Z"
     assert decision["effective_from_run"] == "run-2026-07-21-phase6a-contract-c9fa5e6b"
-    assert decision["policy_revision"] == proposal["policy_revision"]
-    assert decision["policy_hash"] == proposal["policy_hash"]
-    authority = next(
-        item for item in evolution["authorities"]
-        if item["authority_id"] == proposal["closer_authority_ref"]
+    assert (
+        git_file_hash(ROOT, PHASE6A_APPROVAL_COMMIT, "docs/contracts/telemetry-v3.md")
+        == APPROVED_CONTRACT_SHA256
     )
-    appointment = next(
-        item for item in authority["appointments"]
-        if item["appointment_id"] == "appointment/platform-owner-1"
-    )
-    assert decision["closer_identity"] == appointment["identity"] == "Dat Mai Ba"
-    assert decision["closer_identity"] != proposal["proposer_identity"]
-    assert decision["closer_role"] == appointment["role"] == "platform-owner"
-    assert proposal["governance_class"] in authority["allowed_decision_classes"]
-    assert appointment["effective_from"] <= decision["decided_at"]
-    assert appointment["revoked_at"] is None
-    assert decision["approval_reference"] == (
-        f"{appointment['appointment_id']}#{proposal['proposal_id']}"
-    )
-    assert hashlib.sha256(CONTRACT.read_bytes()).hexdigest() == APPROVED_CONTRACT_SHA256
     assert decision["gate_evidence_refs"] == [
         f"gate/full-cross-component-regression-{APPROVED_CONTRACT_SHA256}",
         f"gate/rollback-rehearsal-{APPROVED_CONTRACT_SHA256}",
