@@ -135,7 +135,7 @@ def event(event_type: str = "task_started", payload: dict | None = None) -> dict
 
 
 def channel(resolver=None):
-    return telemetry_runtime.ProducerChannel("test-producer", resolver)
+    return telemetry_runtime._register_producer_channel("test-producer", resolver)
 
 
 def stored(value: dict) -> dict:
@@ -188,6 +188,18 @@ def test_privacy_rejection_does_not_echo_forbidden_value():
         telemetry_runtime.validate_event(value)
     assert caught.value.code == "TELEMETRY_PRIVACY_VIOLATION"
     assert secret not in str(caught.value)
+
+    absolute_home = stored(event("gate_result"))
+    absolute_home["payload"]["evidence_ref"] = "C:/Users/name/private"
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        telemetry_runtime.validate_event(absolute_home)
+    assert caught.value.code == "TELEMETRY_PRIVACY_VIOLATION"
+    assert "C:/Users/name/private" not in str(caught.value)
+
+
+def test_producer_channel_is_an_opaque_runtime_capability():
+    with pytest.raises(TypeError, match="not caller-constructible"):
+        telemetry_runtime.ProducerChannel("test-producer", lambda *_: True)
 
 
 def test_append_is_single_line_duplicate_safe_and_preserves_prior_bytes(tmp_path):
@@ -313,7 +325,7 @@ def test_cross_channel_correction_is_an_authority_failure(tmp_path):
     correction["producer"] = {"revision": "other/1"}
     correction["lineage"]["correction_of"] = original["event_id"]
     correction["lineage"]["correction_evidence_ref"] = "correction:receipt:other"
-    other = telemetry_runtime.ProducerChannel("other-producer", lambda *_: True)
+    other = telemetry_runtime._register_producer_channel("other-producer", lambda *_: True)
 
     with pytest.raises(telemetry_runtime.TelemetryError) as caught:
         telemetry_runtime.append_local_event(tmp_path, correction, other)
@@ -330,6 +342,39 @@ def test_invalid_utf8_in_complete_history_fails_without_mutation(tmp_path):
         telemetry_runtime.append_local_event(tmp_path, event(), channel())
     assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
     assert target.read_bytes() == before
+
+
+def test_corrupt_unvalidated_event_id_is_not_echoed(tmp_path):
+    target = tmp_path / "telemetry/events.jsonl"
+    target.parent.mkdir()
+    secret = "access-token-secret"
+    target.write_text(json.dumps({"event_id": secret}) + "\n", encoding="utf-8")
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        telemetry_runtime.append_local_event(tmp_path, event(), channel())
+    assert caught.value.code == "TELEMETRY_HISTORY_CORRUPT"
+    assert secret not in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("field", "bad_value"),
+    [
+        ("source_class", []),
+        ("privacy_class", {}),
+    ],
+)
+def test_type_confused_enums_return_normative_diagnostics(field, bad_value):
+    value = stored(event())
+    value[field] = bad_value
+    with pytest.raises(telemetry_runtime.TelemetryError) as caught:
+        telemetry_runtime.validate_event(value)
+    assert caught.value.code in {"TELEMETRY_EVENT_INVALID", "TELEMETRY_PRIVACY_VIOLATION"}
+
+
+def test_type_confused_array_items_return_normative_diagnostic():
+    value = stored(event())
+    value["coverage"]["missing_event_types"] = ["task_finished", {}]
+    with pytest.raises(telemetry_runtime.TelemetryError, match="TELEMETRY_EVENT_INVALID"):
+        telemetry_runtime.validate_event(value)
 
 
 def test_reader_stops_after_65537_tail_bytes_without_mutation(tmp_path):

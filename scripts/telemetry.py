@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass
 from datetime import datetime
 import hashlib
 import json
@@ -77,6 +76,7 @@ LINEAGE_FIELDS = {
 }
 
 _WRITE_LOCK = threading.Lock()
+_CHANNEL_REGISTRATION_SEAL = object()
 
 
 class TelemetryError(ValueError):
@@ -110,15 +110,36 @@ class TelemetryError(ValueError):
 CorrectionResolver = Callable[[str, Mapping[str, str]], bool]
 
 
-@dataclass(frozen=True)
 class ProducerChannel:
-    """Registered producer identity and its correction-evidence authority."""
+    """Opaque capability created only by the runtime's trusted registration seam."""
 
-    producer_id: str
-    correction_resolver: CorrectionResolver | None = None
+    __slots__ = ("producer_id", "correction_resolver")
 
-    def __post_init__(self) -> None:
-        _require_stable_id(self.producer_id, "producer channel id")
+    def __init__(
+        self,
+        producer_id: str,
+        correction_resolver: CorrectionResolver | None = None,
+        *,
+        _registration_seal: object | None = None,
+    ) -> None:
+        if _registration_seal is not _CHANNEL_REGISTRATION_SEAL:
+            raise TypeError("ProducerChannel capabilities are not caller-constructible")
+        _require_stable_id(producer_id, "producer channel id")
+        object.__setattr__(self, "producer_id", producer_id)
+        object.__setattr__(self, "correction_resolver", correction_resolver)
+
+
+def _register_producer_channel(
+    producer_id: str,
+    correction_resolver: CorrectionResolver | None = None,
+) -> ProducerChannel:
+    """Trusted runtime seam; B3 producer adapters own calls to this helper."""
+
+    return ProducerChannel(
+        producer_id,
+        correction_resolver,
+        _registration_seal=_CHANNEL_REGISTRATION_SEAL,
+    )
 
 
 def _error(
@@ -155,6 +176,12 @@ def _require_stable_ref(value: Any, name: str, *, nullable: bool = False) -> Non
     if not isinstance(value, str) or STABLE_REF.fullmatch(value) is None:
         _error(
             f"{name} is not allowlisted metadata",
+            code="TELEMETRY_PRIVACY_VIOLATION",
+        )
+    windows = PureWindowsPath(value)
+    if PurePosixPath(value).is_absolute() or windows.is_absolute() or windows.drive:
+        _error(
+            f"{name} must not contain an absolute path",
             code="TELEMETRY_PRIVACY_VIOLATION",
         )
 
@@ -210,7 +237,7 @@ def _require_path(value: Any, name: str, *, nullable: bool = False) -> None:
 
 
 def _require_enum(value: Any, choices: set[str], name: str) -> None:
-    if value not in choices:
+    if not isinstance(value, str) or value not in choices:
         _error(f"{name} must use its closed enum")
 
 
@@ -221,12 +248,14 @@ def _require_sorted_unique(
     *,
     maximum: int,
 ) -> None:
-    if not isinstance(value, list) or len(value) > maximum or value != sorted(value):
+    if not isinstance(value, list) or len(value) > maximum:
+        _error(f"{name} must be a bounded sorted array")
+    for item in value:
+        validator(item, name)
+    if value != sorted(value):
         _error(f"{name} must be a bounded sorted array")
     if len(value) != len(set(value)):
         _error(f"{name} must not contain duplicates")
-    for item in value:
-        validator(item, name)
 
 
 def _validate_revision(value: Any, name: str) -> None:
@@ -455,9 +484,9 @@ def validate_event(value: Mapping[str, Any]) -> None:
     if (lineage["correction_of"] is None) != (lineage["correction_evidence_ref"] is None):
         _error("correction lineage fields must be present together", code="TELEMETRY_CORRECTION_INVALID")
 
-    if event["source_class"] not in {"runtime", "repository", "human", "legacy_import", "derived"}:
+    if not isinstance(event["source_class"], str) or event["source_class"] not in {"runtime", "repository", "human", "legacy_import", "derived"}:
         _error("source_class is not allowlisted", code="TELEMETRY_PRIVACY_VIOLATION")
-    if event["privacy_class"] not in {"public", "project", "local_private"}:
+    if not isinstance(event["privacy_class"], str) or event["privacy_class"] not in {"public", "project", "local_private"}:
         _error("privacy_class is not allowlisted", code="TELEMETRY_PRIVACY_VIOLATION")
     _validate_coverage(event["coverage"])
     _validate_tokens(event["tokens"])
@@ -519,11 +548,18 @@ def _parse_line(raw: bytes, *, path: str, line: int) -> dict[str, Any]:
     try:
         validate_event(value)
     except TelemetryError as diagnostic:
+        candidate_event_id = value.get("event_id")
+        safe_event_id = None
+        try:
+            _require_uuid4(candidate_event_id, "event_id")
+            safe_event_id = candidate_event_id
+        except TelemetryError:
+            pass
         raise TelemetryError(
             "TELEMETRY_HISTORY_CORRUPT",
             f"stored event fails {diagnostic.code}",
             path=path,
-            event_id=value.get("event_id") if isinstance(value.get("event_id"), str) else None,
+            event_id=safe_event_id,
             line=line,
         ) from None
     return value
@@ -737,6 +773,8 @@ def append_local_event(
 ) -> dict[str, Any]:
     """Validate and append one event to the fixed local Telemetry v3 stream."""
 
+    if type(channel) is not ProducerChannel:
+        _error("producer channel capability is invalid", code="TELEMETRY_CORRECTION_UNAUTHORIZED", path=str(EVENT_PATH))
     root = _canonical_root(repository_root)
     target = root / EVENT_PATH
 
@@ -770,6 +808,9 @@ def append_local_event(
                 os.ftruncate(fd, complete_bytes)
                 os.lseek(fd, 0, os.SEEK_END)
             written = os.write(fd, encoded)
+            _verify_parent(root, target.parent, create=False)
+            if _handle_identity(fd, target) != identity:
+                _error("event target identity changed after append", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH), event_id=prepared["event_id"])
             if written <= 0 or written != len(encoded):
                 os.fsync(fd)
                 _error("append did not write one complete record", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH), event_id=prepared["event_id"])
