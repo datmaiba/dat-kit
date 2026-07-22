@@ -187,3 +187,39 @@ closure chain on `bd4e844` is: findings-scoped security `APPROVE` (row 8) →
 final regression QA `PHASE DONE` (row 10). B2 is review-closed; this completed
 ledger enters the Review-Economy-v3 Stage A decision denominator as
 observation task #1.
+
+## Stage-A gate evidence (joint seam) — deferred follow-up now RESOLVED (2026-07-23)
+
+Per `plans/DECISION-2026-07-22-unify-receipt-gate-and-review-economy.md` §2,
+the RE-v3 packet field `gate_result_summary_and_log_refs` for an observation
+task is satisfied by the R1 `review-evidence` run link plus `summary.json` for
+the candidate SHA. B2's earlier resume brief flagged this as blocked: R1's
+`review-evidence` job lived only on `master`, so a `feature/telemetry-v3`
+candidate had no way to obtain a `summary.json`, and the mechanism was left as
+a deferred maintainer decision.
+
+That follow-up is now resolved. `feature/telemetry-v3` was reconciled with
+`master` (merge commit `3b1914e`, parents `7f55bc5` + `a2664f3`), which brings
+master's `review-evidence` job onto the branch. The reconciliation fixed two
+defects Git's clean-but-wrong auto-merge introduced (a silently dropped
+`import copy` / `Diagnostic` in `test_registry_catalog.py`, and a
+`review-evidence` checkout missing `fetch-depth: 0`; see the 2026-07-23
+lessons-learned entries). PR #4's CI on the reconciled head is fully green:
+
+- Run: CI #34 — <https://github.com/datmaiba/dat-kit/actions/runs/29960796370>
+  (`review-evidence` job `succeeded`; every step green including
+  `Compose reports/summary.json` and `Fail the job if any required gate
+  failed`).
+- Artifact: `review-evidence-<sha>` (`reports/summary.json`, all required
+  gates `pass`).
+- SHA nuance (recorded honestly, not smoothed over): the run is on PR #4's
+  `pull_request` merge head `3b1914e`, which contains the B2 product candidate
+  `bd4e844` (tree `926ac58`) in its history — not a `summary.json` bound to
+  `bd4e844`'s tree in isolation. For Stage-A purposes the evidence attests that
+  the branch carrying the B2 candidate passes the full receipt-gate set; a
+  candidate-isolated `summary.json` would require running `review-evidence`
+  against `bd4e844` directly, which the joint-seam contract does not demand.
+
+This closes B2's Stage-A gate-evidence pointer. Two more observation tasks
+(#2, #3) are still owed before the step-3 Fable-5 one-shot reads the 3-task
+ledger.
