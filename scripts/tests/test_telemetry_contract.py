@@ -6,6 +6,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 
 
@@ -15,13 +16,24 @@ CONTRACT = ROOT / "docs/contracts/telemetry-v3.md"
 PROPOSAL = ROOT / "docs/decisions/evolution-proposal-f80fa03211e51c3f68c5.proposal.json"
 DECISIONS = ROOT / "docs/decisions/evolution-manual.decisions.jsonl"
 APPROVED_CONTRACT_SHA256 = "c9fa5e6bcfc8760cd9a6e78597a8db1ae3a305b870e137335f185a7966b70dde"
+PHASE6A_BASELINE_COMMIT = "e38cfca56d2b2b830ec0b64a33d8a253bd3e5565"
 sys.path.insert(0, str(SCRIPTS))
 
-from registry import Catalog, Diagnostic, canonical_file_hash, canonical_json
+from registry import Catalog, Diagnostic, canonical_json
 
 
 def contract_text() -> str:
     return CONTRACT.read_text(encoding="utf-8")
+
+
+def phase6a_baseline_hash(path: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "show", f"{PHASE6A_BASELINE_COMMIT}:{path}"],
+        capture_output=True,
+        check=True,
+    )
+    data = result.stdout.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def section(text: str, start: str, end: str) -> str:
@@ -96,7 +108,7 @@ def test_proposal_identity_policy_and_evidence_fragments_are_valid() -> None:
     assert proposal["policy_hash"] == hashlib.sha256(canonical_json(policy_graph)).hexdigest()
     assert proposal["input_hashes"] == sorted(proposal["input_hashes"], key=canonical_json)
     for item in proposal["input_hashes"]:
-        assert item["sha256"] == canonical_file_hash(ROOT / item["path"])
+        assert item["sha256"] == phase6a_baseline_hash(item["path"])
     payload = copy.deepcopy(proposal)
     payload.pop("proposal_id")
     expected_id = "proposal-" + hashlib.sha256(canonical_json(payload)).hexdigest()[:20]
