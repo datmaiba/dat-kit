@@ -67,8 +67,41 @@ classification is fixed before B1 results are known.
 
 ## Candidate and invocation ledger
 
-Candidate facts and one row per reviewer invocation are appended only after a
-clean committed candidate exists.
+Final product candidate:
+
+- Commit: `049c3ce63434cc18e25c5882c7f823ad6b1f7100`.
+- Tree: `772879e34ff3f5e7335e5c92df430556204f3d21`.
+- Base: `191f618a2824186ec099381bb491bd16b4b44452`.
+- Changed paths from base: the five pre-registered paths above, all added.
+- Canonical gates: validator PASS; full pytest `324 passed, 7 skipped`;
+  targeted B1 pytest `33 passed, 1 skipped`; Bash syntax PASS; ShellCheck
+  PASS; diff check PASS.
+- Final verdicts: QA `PHASE DONE`; code review `APPROVE`; security review
+  `APPROVE`; final regression QA `PHASE DONE`.
+
+Tokens are `unknown / unsupported_provider` for every invocation. Elapsed time
+was not exposed by the reviewer runtime. Dispatch bytes count only the compact
+prompt intentionally supplied to that invocation.
+
+| Ordinal | Role | Candidate/tree transition | Scope / restart | Cause, trigger, or finding IDs | Verdict | Dispatch bytes | Invalidation | Avoidable under narrow rule |
+|---|---|---|---|---|---|---:|---|---|
+| 1 | QA | `b340b21/3e99d6f` -> `6807e9a/c50a32c` | full / none | initial B1 QA; `QA-1` cross-channel diagnostic | `RETURN TO BUILDER` | 2492 | semantic source/test fix | no: initial QA |
+| 2 | QA | `6807e9a/c50a32c` -> same | findings / 1 | `QA-1` | `PHASE DONE` | 1079 | later semantic code-review fixes | no: findings re-review |
+| 3 | code | `6807e9a/c50a32c` -> `6f3ee62/2db4f12` | full / none | `CODE-1` through `CODE-5` | `RETURN TO BUILDER` | 2163 | semantic source/test fixes | no: initial code review |
+| 4 | code | `6f3ee62/2db4f12` -> same | findings / 3 | `CODE-1` remained open; `CODE-2..5` resolved | `RETURN TO BUILDER` | 1394 | authority finding remained open | no: findings re-review |
+| 5 | code | `6f3ee62/2db4f12` -> `e89b89a/3376a05` | findings advisory / 4 | minimum trusted-composition design for `CODE-1` | `REVISE` | 857 | semantic authority refactor | no: open-finding consultation |
+| 6 | code | `e89b89a/3376a05` -> same | findings / 4 | `CODE-1` | `APPROVE` | 1494 | later semantic security fixes | no: findings re-review |
+| 7 | security | `e89b89a/3376a05` -> `049c3ce/772879e` | full / none | path/input trigger; `SEC-1`, `SEC-2` | `RETURN TO BUILDER` | 2721 | semantic policy/source/test/schema fixes | no: initial security review |
+| 8 | security | `049c3ce/772879e` -> same | findings / 7 | `SEC-1`, `SEC-2` | `APPROVE` | 1726 | none | no: findings re-review |
+| 9 | QA | `049c3ce/772879e` -> same | full final regression / none | mandatory final regression; no open findings | `PHASE DONE` | 1779 | none | no: final regression QA is mandatory |
+
+Observed so far: 9 invocations, 4 full, 4 findings-scoped, 1 findings
+advisory, 15,705 dispatch bytes, and 0 avoidable invocations. Every restart
+was initial, findings-driven, or mandatory; no verdict was reused.
+
+Scorecard record: `benchmarks/scorecard.jsonl` line 32, schema v2, complexity
+4, estimated manual effort 12 hours, actual wall time 57 minutes, tokens
+`null`, attribution `unknown / unsupported_provider`.
 
 ## Red-before-green receipt
 
