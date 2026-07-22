@@ -4,6 +4,30 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-23 — A pinned reviewer with no executor refused rather than fabricating a verdict
+
+- **What happened**: the pinned `qa-agent` dispatch for B2's final regression QA (candidate `bd4e844`) had only Read/Grep/Glob available — no bash/executor in that subagent context. It explicitly reported the tooling gap and refused to certify `PHASE DONE`, rather than inventing gate counts. A substitute general-purpose agent with real `mcp__workspace__bash` access was dispatched with the same charter and actually ran all five gates plus the edge-case attack.
+- **Root cause**: the reviewer charter assumes an executor is always available inside the subagent's runtime; that assumption does not hold in every harness/session configuration.
+- **Rule**: when a pinned reviewer reports "no executor available," treat that as a correct refusal, not a defect to route around silently — do not pressure it into a verdict. Dispatch a substitute agent with the same charter and real execution tools, and log both the interrupted dispatch and the substitute dispatch as separate rows in the invocation ledger (never delete the failed one).
+
+---
+
+### 2026-07-23 — A dispatch packet's byte budget should scale with finding count, not sit at a fixed constant
+
+- **What happened**: the B2 findings-scoped security re-review packet for S1–S3 came in at 3,401 bytes, exceeding the ≤2.5 KB target pre-registered in the B2 observation ledger.
+- **Root cause**: each finding (S1/S2/S3) needed enough fix-and-test-pin context for the reviewer to verify it independently without re-reading the whole diff; three findings bundled into one packet compounded past the flat threshold.
+- **Rule**: budget a findings-scoped packet as roughly (finding count × ~800 bytes), not a single fixed constant. If the real packet still exceeds budget, declare the overage in the invocation ledger (as done here) rather than trimming context to the point where the reviewer verifies shallowly.
+
+---
+
+### 2026-07-23 — `git checkout -f` on a Cowork mount needs file-delete permission granted first, then a post-checkout stray-file check
+
+- **What happened**: `git checkout feature/telemetry-v3` failed partway through with a wall of `unable to unlink ... Operation not permitted` errors, because the Cowork sandbox mount blocks unlink by default. Recovery required calling `allow_cowork_file_delete`, re-running `checkout -f`, then manually removing 9 leftover files that were tracked on `master` but not on the target branch.
+- **Root cause**: the Cowork mount denies unlink by default; `git checkout` is not atomic when blocked partway through, so the working tree ends up with a mix of both branches' files.
+- **Rule**: before any `git checkout`/`clean` on a Cowork mount, call `allow_cowork_file_delete` first. After the checkout, always run `git status --short --branch` and diff it against `git ls-tree <target> -r --name-only` to confirm no stray files from the previous branch remain.
+
+---
+
 ### 2026-07-21 — A Definition-of-Done item was marked CLOSED four commits before its receipt existed
 
 - **What happened**: step 11 marked §13.1 item 13 ("full release train … and tag complete") **CLOSED** in commit `e0f52f4`, citing "the `v2.0.0` annotated tag" as its receipt. The tag was not created until `a7aa0ad`, four commits later. The same commit also left two unfilled placeholders in `evidence.md` ("see below … once complete", "commit recorded once cut"), and the first handoff — committed *into the tree the tag was then placed on* — asserted that the tag "has not been cut yet". An owner-requested audit caught all of it before the tag was pushed.
