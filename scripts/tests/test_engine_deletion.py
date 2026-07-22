@@ -23,7 +23,7 @@ SCRIPTS = pathlib.Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
-from registry import Catalog, canonical_relative_path  # noqa: E402
+from registry import canonical_relative_path  # noqa: E402
 from render import expected_outputs  # noqa: E402
 from test_engine_manifest import FORBIDDEN, PHASES  # noqa: E402
 from test_registry_catalog import load_ok, registry_fixture, write_json  # noqa: E402

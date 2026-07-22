@@ -1,4 +1,3 @@
-import copy
 import json
 from pathlib import Path
 import shutil
@@ -9,7 +8,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))
 
-from registry import Catalog, Diagnostic, canonical_relative_path
+from registry import Catalog, canonical_relative_path
 
 
 def write_json(path: Path, value: object) -> None:
