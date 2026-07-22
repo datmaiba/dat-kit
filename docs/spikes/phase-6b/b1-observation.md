@@ -94,14 +94,34 @@ prompt intentionally supplied to that invocation.
 | 7 | security | `e89b89a/3376a05` -> `049c3ce/772879e` | full / none | path/input trigger; `SEC-1`, `SEC-2` | `RETURN TO BUILDER` | 2721 | semantic policy/source/test/schema fixes | no: initial security review |
 | 8 | security | `049c3ce/772879e` -> same | findings / 7 | `SEC-1`, `SEC-2` | `APPROVE` | 1726 | none | no: findings re-review |
 | 9 | QA | `049c3ce/772879e` -> same | full final regression / none | mandatory final regression; no open findings | `PHASE DONE` | 1779 | none | no: final regression QA is mandatory |
+| 10 | QA | `624119e/4367730` -> same | full closure regression / none | mandatory closure-tree proof; no open findings | `PHASE DONE` | 1640 | none | no: final regression QA is mandatory |
 
-Observed so far: 9 invocations, 4 full, 4 findings-scoped, 1 findings
-advisory, 15,705 dispatch bytes, and 0 avoidable invocations. Every restart
-was initial, findings-driven, or mandatory; no verdict was reused.
+Observed: 10 invocations, 5 full, 4 findings-scoped, 1 findings advisory,
+17,345 dispatch bytes, and 0 avoidable invocations. Every restart was initial,
+findings-driven, or mandatory; no verdict was reused.
 
 Scorecard record: `benchmarks/scorecard.jsonl` line 32, schema v2, complexity
 4, estimated manual effort 12 hours, actual wall time 57 minutes, tokens
 `null`, attribution `unknown / unsupported_provider`.
+
+## Closure receipt and classification
+
+- Closure commit: `624119ee2f90a7ce37c67700a0637a46e22008bd`.
+- Closure tree: `436773041efae09d7999db79aee05b3b8792ffe1`.
+- Candidate-to-closure paths: only `benchmarks/scorecard.jsonl` and this
+  task-local ledger/report.
+- Closure validator: PASS.
+- Closure regression: validator PASS; full pytest `324 passed, 7 skipped`;
+  targeted B1 pytest `33 passed, 1 skipped`; Bash syntax PASS; ShellCheck
+  PASS; diff check PASS. Outcomes were unchanged from the product candidate.
+- QA classification: `mechanically pure closure-only`. All four pre-registered
+  conditions passed and no reviewer finding was open.
+- Counterfactual result: 0 avoidable invocations. The closure regression QA is
+  mandatory, and no passing code or security verdict was rerun across the
+  closure-only transition.
+
+This follow-up document edit is the receipt for the already-reviewed closure
+commit above; it is not presented as part of that reviewed tree.
 
 ## Red-before-green receipt
 
