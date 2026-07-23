@@ -1121,6 +1121,55 @@ def _unmatched_handoffs(task_events: Sequence[Mapping[str, Any]]) -> dict[str, M
     return unmatched
 
 
+def build_resume_linkage(
+    events: Sequence[Mapping[str, Any]], task_id: str
+) -> dict[str, Any]:
+    """Derive the linkage-correct ``task_resumed`` inputs for ``task_id``.
+
+    Reads an already-validated event stream and returns
+    ``{"task_id", "payload", "parent_task_id", "delegation_id"}``. ``payload``
+    is the closed ``task_resumed`` object (``handoff_ref``,
+    ``resumed_from_handoff`` literal ``True``, ``resumed_from_event_id``) whose
+    source is the most recent still-unmatched ``handoff_created`` for the task;
+    the lineage pair is the task's own. The caller preserves the original task
+    ID and parent/delegation linkage by reusing the returned values verbatim::
+
+        link = build_resume_linkage(events, task_id)
+        event = _new_event(
+            link["task_id"], "task_resumed", link["payload"],
+            parent_task_id=link["parent_task_id"],
+            delegation_id=link["delegation_id"],
+        )
+
+    Pure: it reads only, emits nothing, writes nothing, mutates no input, and
+    activates no producer (the ``task-handoff`` producer stays ``planned``).
+    Raises ``TelemetryError`` with a fixed, non-echoing message when the task
+    has no lifecycle events, has already finished, or has no unmatched handoff
+    to resume.
+    """
+    task_events = _task_originals(events, task_id)
+    if not task_events:
+        _error("resume target has no lifecycle events")
+    if task_events[-1]["event_type"] == "task_finished":
+        _error("cannot resume a finished task")
+    unmatched = _unmatched_handoffs(task_events)
+    if not unmatched:
+        _error("no unmatched handoff to resume")
+    source_id = next(reversed(unmatched))
+    source = unmatched[source_id]
+    lineage = task_events[0]["lineage"]
+    return {
+        "task_id": task_id,
+        "payload": {
+            "handoff_ref": source["payload"]["handoff_ref"],
+            "resumed_from_handoff": True,
+            "resumed_from_event_id": source_id,
+        },
+        "parent_task_id": lineage["parent_task_id"],
+        "delegation_id": lineage["delegation_id"],
+    }
+
+
 def _expected_coverage(
     events: Sequence[Mapping[str, Any]],
     task_id: str,
