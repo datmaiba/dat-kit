@@ -864,11 +864,11 @@ def _canonical_root(root: Path | str) -> Path:
     return resolved
 
 
-def _verify_parent(root: Path, parent: Path, *, create: bool) -> None:
+def _verify_parent(root: Path, parent: Path, *, create: bool, path: str = str(EVENT_PATH)) -> None:
     try:
         relative = parent.relative_to(root)
     except ValueError:
-        _error("event path escapes the repository root", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+        _error("event path escapes the repository root", code="TELEMETRY_HISTORY_CORRUPT", path=path)
     current = root
     for part in relative.parts:
         current = current / part
@@ -876,40 +876,40 @@ def _verify_parent(root: Path, parent: Path, *, create: bool) -> None:
             info = current.lstat()
         except FileNotFoundError:
             if not create:
-                _error("event parent path is missing", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+                _error("event parent path is missing", code="TELEMETRY_HISTORY_CORRUPT", path=path)
             try:
                 current.mkdir(mode=0o700)
             except OSError:
-                _error("event parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
+                _error("event parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
             info = current.lstat()
         except OSError:
-            _error("event parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
+            _error("event parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
         if _is_linklike(info) or not stat.S_ISDIR(info.st_mode):
-            _error("event parent path is link-like or non-directory", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+            _error("event parent path is link-like or non-directory", code="TELEMETRY_HISTORY_CORRUPT", path=path)
         try:
             if not current.resolve(strict=True).is_relative_to(root):
-                _error("event parent path escapes the repository root", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+                _error("event parent path escapes the repository root", code="TELEMETRY_HISTORY_CORRUPT", path=path)
         except OSError:
-            _error("event parent containment is ambiguous", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+            _error("event parent containment is ambiguous", code="TELEMETRY_HISTORY_CORRUPT", path=path)
 
 
-def _verify_target_before_open(target: Path) -> None:
+def _verify_target_before_open(target: Path, *, path: str = str(EVENT_PATH)) -> None:
     try:
         info = target.lstat()
     except FileNotFoundError:
         return
     except OSError:
-        _error("event target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
+        _error("event target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
     if _is_linklike(info) or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-        _error("event target must be one unlinked regular file", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+        _error("event target must be one unlinked regular file", code="TELEMETRY_HISTORY_CORRUPT", path=path)
 
 
-def _handle_identity(fd: int, target: Path) -> tuple[int, int]:
+def _handle_identity(fd: int, target: Path, *, path: str = str(EVENT_PATH)) -> tuple[int, int]:
     try:
         handle = os.fstat(fd)
         path_info = target.lstat()
     except OSError:
-        _error("event target identity is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=str(EVENT_PATH))
+        _error("event target identity is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
     if (
         _is_linklike(path_info)
         or not stat.S_ISREG(handle.st_mode)
@@ -918,7 +918,7 @@ def _handle_identity(fd: int, target: Path) -> tuple[int, int]:
         or path_info.st_nlink != 1
         or not os.path.samestat(handle, path_info)
     ):
-        _error("event target identity changed", code="TELEMETRY_HISTORY_CORRUPT", path=str(EVENT_PATH))
+        _error("event target identity changed", code="TELEMETRY_HISTORY_CORRUPT", path=path)
     return handle.st_dev, handle.st_ino
 
 
@@ -1304,6 +1304,247 @@ def validate_lifecycle_events(repository_root: Path | str) -> list[dict[str, Any
     return events
 
 
+# --- Defect projection (T3.10.2) -------------------------------------------
+#
+# The diagnosing-bugs producer's durable projection. A ``defect_recorded``
+# event is projected to the committed, append-only ``benchmarks/defects.jsonl``
+# as the closed 13-field record defined by telemetry-v3 T3.10.2. This is the
+# defect-specific projection only; the general benchmark export/aggregation is a
+# separate B4 concern. Building the projection does NOT activate the producer:
+# ``producer.id`` on the export receipt is the channel-injected ``dat-kit-cli``,
+# and ``telemetry/producers.json`` is untouched.
+
+DEFECT_PROJECTION_PATH = Path("benchmarks/defects.jsonl")
+
+DEFECT_PROJECTION_FIELDS = {
+    "schema_version",
+    "event_id",
+    "task_id",
+    "parent_task_id",
+    "delegation_id",
+    "correction_of",
+    "correction_evidence_ref",
+    "occurred_at",
+    "defect_id",
+    "introduced_task",
+    "approving_reviewers",
+    "gate_that_should_have_caught_it",
+    "evidence_ref",
+}
+
+
+def _defect_projection_record(event: Mapping[str, Any]) -> dict[str, Any]:
+    """Build the closed 13-field T3.10.2 projection from one defect event."""
+
+    payload = event["payload"]
+    lineage = event["lineage"]
+    return {
+        "schema_version": 3,
+        "event_id": event["event_id"],
+        "task_id": event["task_id"],
+        "parent_task_id": lineage["parent_task_id"],
+        "delegation_id": lineage["delegation_id"],
+        "correction_of": lineage["correction_of"],
+        "correction_evidence_ref": lineage["correction_evidence_ref"],
+        "occurred_at": event["occurred_at"],
+        "defect_id": payload["defect_id"],
+        "introduced_task": payload["introduced_task"],
+        "approving_reviewers": list(payload["approving_reviewers"]),
+        "gate_that_should_have_caught_it": payload["gate_that_should_have_caught_it"],
+        "evidence_ref": payload["evidence_ref"],
+    }
+
+
+def _validate_projection_record(record: Any, *, line: int) -> dict[str, Any]:
+    path = str(DEFECT_PROJECTION_PATH)
+    if not isinstance(record, dict) or set(record) != DEFECT_PROJECTION_FIELDS:
+        raise TelemetryError(
+            "TELEMETRY_HISTORY_CORRUPT",
+            "defect projection record must contain exactly its closed fields",
+            path=path,
+            line=line,
+        )
+    try:
+        if isinstance(record["schema_version"], bool) or record["schema_version"] != 3:
+            _error("schema_version must be the integer 3")
+        _require_uuid4(record["event_id"], "event_id")
+        _require_uuid4(record["task_id"], "task_id")
+        _require_uuid4(record["parent_task_id"], "parent_task_id", nullable=True)
+        _require_uuid4(record["delegation_id"], "delegation_id", nullable=True)
+        if (record["parent_task_id"] is None) != (record["delegation_id"] is None):
+            _error("parent_task_id and delegation_id must both be null or both set")
+        _require_uuid4(record["correction_of"], "correction_of", nullable=True)
+        _require_stable_ref(record["correction_evidence_ref"], "correction_evidence_ref", nullable=True)
+        if (record["correction_of"] is None) != (record["correction_evidence_ref"] is None):
+            _error("correction_of and correction_evidence_ref must agree on nullness")
+        _require_timestamp(record["occurred_at"])
+        _require_stable_id(record["defect_id"], "defect_id")
+        _require_uuid4(record["introduced_task"], "introduced_task", nullable=True)
+        _require_sorted_unique(record["approving_reviewers"], "approving_reviewers", _require_stable_id, maximum=64)
+        _require_stable_id(record["gate_that_should_have_caught_it"], "gate_that_should_have_caught_it")
+        _require_stable_ref(record["evidence_ref"], "evidence_ref")
+    except TelemetryError as diagnostic:
+        raise TelemetryError("TELEMETRY_HISTORY_CORRUPT", diagnostic.detail, path=path, line=line) from None
+    return record
+
+
+def _parse_projection_bytes(raw: bytes) -> list[dict[str, Any]]:
+    path = str(DEFECT_PROJECTION_PATH)
+    boundary = raw.rfind(b"\n") + 1
+    if boundary != len(raw):
+        _error("projection stream ends with an interrupted record", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+    records: list[dict[str, Any]] = []
+    seen: dict[str, dict[str, Any]] = {}
+    for index, line in enumerate(raw[:boundary].splitlines(keepends=True), 1):
+        try:
+            value = json.loads(line, object_pairs_hook=_duplicate_object_pairs)
+        except (json.JSONDecodeError, UnicodeError, ValueError, RecursionError):
+            _error("projection record is not one UTF-8 JSON object", code="TELEMETRY_HISTORY_CORRUPT", path=path, line=index)
+        record = _validate_projection_record(value, line=index)
+        event_id = record["event_id"]
+        if event_id in seen:
+            _error("duplicate projection event ID", code="TELEMETRY_HISTORY_CORRUPT", path=path, event_id=event_id, line=index)
+        correction_of = record["correction_of"]
+        if correction_of is not None and correction_of not in seen:
+            _error("projection correction target is not an earlier record", code="TELEMETRY_HISTORY_CORRUPT", path=path, event_id=event_id, line=index)
+        seen[event_id] = record
+        records.append(record)
+    return records
+
+
+def validate_defect_projection(repository_root: Path | str) -> list[dict[str, Any]]:
+    """Read and validate the durable defect projection without mutating it."""
+
+    root = _canonical_root(repository_root)
+    target = root / DEFECT_PROJECTION_PATH
+    path = str(DEFECT_PROJECTION_PATH)
+    try:
+        parent_info = target.parent.lstat()
+    except FileNotFoundError:
+        return []
+    except OSError:
+        _error("projection parent path is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
+    if _is_linklike(parent_info) or not stat.S_ISDIR(parent_info.st_mode):
+        _error("projection parent path is link-like or non-directory", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+    _verify_parent(root, target.parent, create=False, path=path)
+    _verify_target_before_open(target, path=path)
+    try:
+        target.lstat()
+    except FileNotFoundError:
+        return []
+    except OSError:
+        _error("projection target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(target, flags)
+    except OSError:
+        _error("projection target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
+    try:
+        identity = _handle_identity(fd, target, path=path)
+        raw = _read_fd(fd, path=path)
+        if _handle_identity(fd, target, path=path) != identity:
+            _error("projection target identity changed while validating", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+    finally:
+        os.close(fd)
+    return _parse_projection_bytes(raw)
+
+
+def export_defect_projection(
+    repository_root: Path | str,
+    task_id: str,
+    *,
+    target_path: str,
+) -> dict[str, Any]:
+    """Project every ``defect_recorded`` event to the durable defect corpus.
+
+    Append-only and idempotent by ``event_id``: an identical record is a no-op,
+    the same ID with different canonical bytes fails ``TELEMETRY_EXPORT_COLLISION``,
+    and a new event appends exactly one record. The ``benchmark_exported``
+    receipt is emitted into the local stream only AFTER the durable append
+    succeeds; a no-op export emits no receipt. A receipt-append failure after a
+    successful projection append leaves the append-only records intact (T3.10.2
+    partial-failure semantics); a later retry deduplicates by ``event_id``.
+    """
+
+    if target_path != str(DEFECT_PROJECTION_PATH):
+        _error("export target is not the defect projection path")
+    _require_uuid4(task_id, "task_id")
+    root = _canonical_root(repository_root)
+    events = validate_lifecycle_events(root)
+    task_events = _task_originals(events, task_id)
+    if not task_events:
+        _lifecycle_error("export requires an existing started task")
+    parent_task_id = task_events[0]["lineage"]["parent_task_id"]
+    delegation_id = task_events[0]["lineage"]["delegation_id"]
+
+    defects = [event for event in events if event["event_type"] == "defect_recorded"]
+    target = root / DEFECT_PROJECTION_PATH
+    path = str(DEFECT_PROJECTION_PATH)
+    new_ids: list[str] = []
+    prior_hash: str | None = None
+    with _WRITE_LOCK:
+        _verify_parent(root, target.parent, create=True, path=path)
+        _verify_target_before_open(target, path=path)
+        flags = os.O_RDWR | os.O_APPEND | os.O_CREAT
+        flags |= getattr(os, "O_BINARY", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(target, flags, 0o600)
+        except OSError:
+            _error("projection target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
+        try:
+            identity = _handle_identity(fd, target, path=path)
+            raw = _read_fd(fd, path=path)
+            existing = {record["event_id"]: _encode_validated_event(record) for record in _parse_projection_bytes(raw)}
+            prior_hash = hashlib.sha256(raw).hexdigest() if raw else None
+            blob = b""
+            for event in defects:
+                encoded = _encode_validated_event(_defect_projection_record(event))
+                stored = existing.get(event["event_id"])
+                if stored is not None:
+                    if stored != encoded:
+                        _error("defect projection record collides with stored bytes", code="TELEMETRY_EXPORT_COLLISION", path=path, event_id=event["event_id"])
+                    continue
+                blob += encoded
+                existing[event["event_id"]] = encoded
+                new_ids.append(event["event_id"])
+            if not blob:
+                return {"status": "ok", "command": "export", "no_op": True, "exported_event_ids": []}
+            if _handle_identity(fd, target, path=path) != identity:
+                _error("projection target identity changed before append", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+            written = os.write(fd, blob)
+            if written != len(blob):
+                os.fsync(fd)
+                _error("projection append did not write the complete batch", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+            os.fsync(fd)
+            if _handle_identity(fd, target, path=path) != identity:
+                _error("projection target identity changed after append", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+        finally:
+            os.close(fd)
+
+    receipt = _new_event(
+        task_id,
+        "benchmark_exported",
+        {
+            "export_batch_id": str(uuid.uuid4()),
+            "target_path": str(DEFECT_PROJECTION_PATH),
+            "prior_hash": prior_hash,
+            "exported_event_ids": sorted(new_ids),
+        },
+        parent_task_id=parent_task_id,
+        delegation_id=delegation_id,
+    )
+    stored = _append_lifecycle_event(root, events, receipt)
+    return {
+        "status": "ok",
+        "command": "export",
+        "no_op": False,
+        "exported_event_ids": sorted(new_ids),
+        "task_id": stored["task_id"],
+        "event_id": stored["event_id"],
+    }
+
+
 def _cli_policy() -> ProducerPolicy:
     return ProducerPolicy(
         source_classes=("runtime",),
@@ -1430,6 +1671,10 @@ def _parser() -> argparse.ArgumentParser:
     finish.add_argument("--scorecard-ref")
     finish.add_argument("--degraded-reason", choices=tuple(sorted(_EXPLICIT_TERMINAL_REASONS)))
 
+    export = commands.add_parser("export")
+    export.add_argument("--task-id", required=True)
+    export.add_argument("--target", required=True, choices=(str(DEFECT_PROJECTION_PATH),))
+
     commands.add_parser("validate")
     return parser
 
@@ -1439,6 +1684,8 @@ def _execute_command(args: argparse.Namespace) -> dict[str, Any]:
     existing = validate_lifecycle_events(root)
     if args.command == "validate":
         return {"status": "ok", "command": "validate", "event_count": len(existing)}
+    if args.command == "export":
+        return export_defect_projection(root, args.task_id, target_path=args.target)
     if args.command == "start":
         task_id = str(uuid.uuid4())
         event = _new_event(task_id, "task_started", {"workflow": args.workflow})
@@ -1513,7 +1760,7 @@ def main(
     try:
         args = _parser().parse_args(argv)
         environment = os.environ if environ is None else environ
-        if args.command in {"start", "append", "finish"} and environment.get("DAT_KIT_TELEMETRY") == "off":
+        if args.command in {"start", "append", "finish", "export"} and environment.get("DAT_KIT_TELEMETRY") == "off":
             _emit_result({"status": "disabled", "command": args.command})
             return 0
         result = _execute_command(args)

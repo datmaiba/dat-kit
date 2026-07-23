@@ -9,6 +9,7 @@ import json, re, sys, glob, pathlib
 from contract_check import check_repo, validate_scorecard
 from registry import Catalog
 from render import check_outputs, expected_outputs
+from telemetry import TelemetryError, validate_defect_projection
 
 try:
     import yaml
@@ -254,6 +255,13 @@ for jsonl in sorted((ROOT / "benchmarks").glob("*.jsonl")):
     if jsonl.name == "scorecard.jsonl":
         for code, detail in validate_scorecard(parsed_entries):
             findings.append(f"scorecard.jsonl: {code}: {detail}")
+    if jsonl.name == "defects.jsonl":
+        # The durable defect projection is a closed 13-field T3.10.2 record with
+        # append-only correction chains — validate it through its owning runtime.
+        try:
+            validate_defect_projection(ROOT)
+        except TelemetryError as diagnostic:
+            findings.append(f"defects.jsonl: {diagnostic.code}: {diagnostic.detail}")
 
 if findings:
     print(f"❌ {len(findings)} finding(s):")
