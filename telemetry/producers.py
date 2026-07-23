@@ -30,7 +30,14 @@ ROOT_CAUSE_LOCI = (
     "host",
 )
 _KIT_FACING_LOCI = {"skill", "template", "gate"}
-_STABLE_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/#@-]{0,511}\Z")
+_EVIDENCE_REFS = {
+    "root_cause_ref": re.compile(
+        r"evidence:(?:root-cause:[0-9a-f]{64}|scorecard:[0-9a-f]{64}:root-cause)\Z"
+    ),
+    "candidate_ref": re.compile(
+        r"evidence:(?:lesson-candidate:[0-9a-f]{64}|scorecard:[0-9a-f]{64}:lesson-candidate)\Z"
+    ),
+}
 _PRODUCER_REVISION = "build-loop-harvest/1"
 _UNKNOWN_REVISION = {"value": None, "unavailable_reason": "not_emitted"}
 _POLICY = runtime.ProducerPolicy(
@@ -93,11 +100,7 @@ def load_producer_registry(path: Path | str | None = None) -> dict[str, Any]:
 
 
 def _require_evidence_ref(value: Any, name: str) -> str:
-    if (
-        not isinstance(value, str)
-        or _STABLE_REF.fullmatch(value) is None
-        or not value.startswith("evidence:")
-    ):
+    if not isinstance(value, str) or _EVIDENCE_REFS[name].fullmatch(value) is None:
         raise ValueError(f"{name} must be a producer-owned evidence:* stable reference")
     return value
 

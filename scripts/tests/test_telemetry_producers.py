@@ -25,6 +25,8 @@ def _load_producers():
 
 
 producers = _load_producers()
+ROOT_CAUSE_REF = f"evidence:root-cause:{'a' * 64}"
+CANDIDATE_REF = f"evidence:lesson-candidate:{'b' * 64}"
 
 
 def _scorecard_record():
@@ -51,8 +53,8 @@ def _emit(root, *, locus="gate"):
     return producers.emit_build_loop_harvest(
         root,
         root_cause_locus=locus,
-        root_cause_ref="evidence:root-cause:test",
-        candidate_ref="evidence:lesson-candidate:test",
+        root_cause_ref=ROOT_CAUSE_REF,
+        candidate_ref=CANDIDATE_REF,
     )
 
 
@@ -70,8 +72,8 @@ def test_harvest_emits_one_partial_build_loop_lifecycle(tmp_path):
     assert {event["task_id"] for event in events} == {result["task_id"]}
     assert events[1]["payload"] == {
         "kit_facing": True,
-        "root_cause_ref": "evidence:root-cause:test",
-        "candidate_ref": "evidence:lesson-candidate:test",
+        "root_cause_ref": ROOT_CAUSE_REF,
+        "candidate_ref": CANDIDATE_REF,
     }
     assert events[-1]["coverage"] == {
         "status": "partial",
@@ -104,15 +106,17 @@ def test_kit_facing_is_derived_from_the_closed_locus(tmp_path, locus, expected):
     [
         ("root_cause_ref", "human readable root cause"),
         ("root_cause_ref", "prose-title"),
+        ("root_cause_ref", "evidence:the-root-cause-was-a-race-condition"),
         ("candidate_ref", "candidate prose"),
         ("candidate_ref", "artifact:but-not-producer-evidence"),
+        ("candidate_ref", "evidence:the-candidate-was-a-new-regression-test"),
     ],
 )
 def test_references_must_be_producer_owned_stable_evidence(tmp_path, field, value):
     arguments = {
         "root_cause_locus": "gate",
-        "root_cause_ref": "evidence:root-cause:test",
-        "candidate_ref": "evidence:lesson-candidate:test",
+        "root_cause_ref": ROOT_CAUSE_REF,
+        "candidate_ref": CANDIDATE_REF,
     }
     arguments[field] = value
 
