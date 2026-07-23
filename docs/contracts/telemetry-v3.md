@@ -592,7 +592,7 @@ producer responsibilities are:
 
 | PLAN item | Producer responsibility | Required evidence before `active` |
 |---|---|---|
-| build-loop HARVEST | emit `lesson_candidate_recorded` with `kit_facing=true` only when root cause is in a dat-kit skill, template, or gate | a real HARVEST task plus validated event |
+| build-loop HARVEST | emit `lesson_candidate_recorded` with `kit_facing=true` only when root cause is in a dat-kit skill, template, or gate | a real HARVEST task plus validated event, emitted only through the trusted context and resolver prerequisites below |
 | diagnosing-bugs | emit `defect_recorded` and export its projection to `benchmarks/defects.jsonl` | a real post-mortem with the required defect tuple |
 | knowledge-work fact-check | emit a machine-readable `fact_check_recorded` footer while preserving the human verdict | a real knowledge-work task with human-vs-agent-vs-automation source distinguished |
 | task/handoff schema | emit `task_resumed.resumed_from_handoff=true`, preserve the original task ID across handoff, and preserve parent/delegation linkage | a real resumed or delegated task |
@@ -602,6 +602,29 @@ Every producer begins `planned`. It becomes `active` only when its runtime,
 artifact/schema revision, validation, and a real producer receipt exist.
 Contract prose, a schema fixture, or a synthetic event alone cannot activate a
 producer.
+
+The build-loop HARVEST responsibility remains required but is
+`planned/deferred`. It cannot satisfy Phase 6 completion and must not emit live
+events until both of these prerequisites have separate approval:
+
+1. a Host Adapter trust contract propagates the LOAD-minted task identity
+   through a trusted context that the caller cannot select; and
+2. a producer-owned resolver verifies receipt existence and exact binding to
+   the task, root cause, lesson candidate, producer revision, and activation
+   receipt.
+
+The generic scorecard CLI is not a trusted LOAD/HARVEST context. It must not
+accept a task UUID, root-cause reference, lesson-candidate reference, or locus
+as authority to attach evidence, emit a HARVEST event, finish a task, or
+activate a producer. UUIDs are correlation data, and stable-reference grammar
+or namespace shape does not authenticate producer ownership.
+
+This deferment approves no capability transport, receipt store, schema field,
+event type, resolver implementation, Host Adapter implementation, or activation
+mechanism. Fixtures, prose, scorecard records, namespace-shaped hashes, task
+UUIDs, and synthetic events cannot activate the producer. A future live
+implementation requires a new governed proposal with its own observation,
+budget, threat model, cross-host contract, and security review.
 
 The per-reviewer view groups `review_result` rounds by the payload's explicit
 `reviewer_id` and `reviewer_class`, then joins linked
@@ -629,6 +652,11 @@ contract hash. Implementations then owe schema/storage, lifecycle CLI,
 task-ID propagation, five named producers, privacy/retention/disable behavior,
 import/export, reports, recovery, and compatibility tests without weakening
 this contract.
+
+The build-loop HARVEST producer remains `planned/deferred` at this release
+boundary and does not satisfy the five-producer completion obligation. Runtime
+cleanup may remove unsafe caller-authorized seams, but live emission remains
+blocked until the two T3.12 prerequisites receive separate approval.
 
 dat-kit 2.1 release closure additionally requires one real software-dev task
 and one real knowledge-work task with human, agent, and automation verdict

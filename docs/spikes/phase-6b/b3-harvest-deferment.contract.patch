@@ -1,0 +1,37 @@
+diff --git a/docs/contracts/telemetry-v3.md b/docs/contracts/telemetry-v3.md
+index 50e60ff..f970526 100644
+--- a/docs/contracts/telemetry-v3.md
++++ b/docs/contracts/telemetry-v3.md
+@@ -595 +595 @@ producer responsibilities are:
+-| build-loop HARVEST | emit `lesson_candidate_recorded` with `kit_facing=true` only when root cause is in a dat-kit skill, template, or gate | a real HARVEST task plus validated event |
++| build-loop HARVEST | emit `lesson_candidate_recorded` with `kit_facing=true` only when root cause is in a dat-kit skill, template, or gate | a real HARVEST task plus validated event, emitted only through the trusted context and resolver prerequisites below |
+@@ -605,0 +606,23 @@ producer.
++The build-loop HARVEST responsibility remains required but is
++`planned/deferred`. It cannot satisfy Phase 6 completion and must not emit live
++events until both of these prerequisites have separate approval:
++
++1. a Host Adapter trust contract propagates the LOAD-minted task identity
++   through a trusted context that the caller cannot select; and
++2. a producer-owned resolver verifies receipt existence and exact binding to
++   the task, root cause, lesson candidate, producer revision, and activation
++   receipt.
++
++The generic scorecard CLI is not a trusted LOAD/HARVEST context. It must not
++accept a task UUID, root-cause reference, lesson-candidate reference, or locus
++as authority to attach evidence, emit a HARVEST event, finish a task, or
++activate a producer. UUIDs are correlation data, and stable-reference grammar
++or namespace shape does not authenticate producer ownership.
++
++This deferment approves no capability transport, receipt store, schema field,
++event type, resolver implementation, Host Adapter implementation, or activation
++mechanism. Fixtures, prose, scorecard records, namespace-shaped hashes, task
++UUIDs, and synthetic events cannot activate the producer. A future live
++implementation requires a new governed proposal with its own observation,
++budget, threat model, cross-host contract, and security review.
++
+@@ -632,0 +656,5 @@ this contract.
++The build-loop HARVEST producer remains `planned/deferred` at this release
++boundary and does not satisfy the five-producer completion obligation. Runtime
++cleanup may remove unsafe caller-authorized seams, but live emission remains
++blocked until the two T3.12 prerequisites receive separate approval.
++
