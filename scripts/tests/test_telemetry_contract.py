@@ -298,3 +298,24 @@ def test_five_producer_rows_and_report_keys_are_structurally_owned() -> None:
         "Every producer begins `planned`", "becomes `active`", "`reviewer_id`",
     ):
         assert requirement in producer_section
+
+
+def test_build_loop_harvest_is_effectively_deferred_pending_trusted_context() -> None:
+    text = contract_text()
+    producer_section = section(
+        text,
+        "## T3.12 Required producers and status truthfulness",
+        "## T3.13 Conformance and release boundary",
+    )
+
+    for requirement in (
+        "The build-loop HARVEST responsibility remains required but is\n`planned/deferred`.",
+        "It cannot satisfy Phase 6 completion",
+        "a Host Adapter trust contract propagates the LOAD-minted task identity",
+        "a producer-owned resolver verifies receipt existence and exact binding",
+        "The generic scorecard CLI is not a trusted LOAD/HARVEST context.",
+        "UUIDs are correlation data",
+        "This deferment approves no capability transport",
+        "A future live\nimplementation requires a new governed proposal",
+    ):
+        assert requirement in producer_section

@@ -235,6 +235,49 @@ def test_codex_cli_appends_compatible_unknown_attribution(tmp_path):
         "status": "unknown",
         "reason": "unsupported_provider",
     }
+    assert not (tmp_path / "telemetry" / "events.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    ("flag", "value"),
+    [
+        ("--telemetry-task-id", "00000000-0000-4000-8000-000000000000"),
+        ("--root-cause-locus", "gate"),
+        ("--root-cause-ref", "evidence:root-cause:" + "a" * 64),
+        ("--lesson-candidate-ref", "evidence:lesson-candidate:" + "b" * 64),
+    ],
+)
+def test_cli_rejects_removed_telemetry_authority_flags_without_mutation(
+    tmp_path,
+    flag,
+    value,
+):
+    candidate = tmp_path / "record.json"
+    candidate.write_text(json.dumps(record()), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "scorecard.py"),
+            "--provider",
+            "codex",
+            "--project",
+            str(tmp_path),
+            "--append-record",
+            str(candidate),
+            flag,
+            value,
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+    assert result.returncode == 2
+    assert "unrecognized arguments" in result.stderr
+    assert not (tmp_path / "benchmarks" / "scorecard.jsonl").exists()
+    assert not (tmp_path / "telemetry" / "events.jsonl").exists()
 
 
 def test_existing_v117_reader_ignores_new_attribution_field(capsys):
