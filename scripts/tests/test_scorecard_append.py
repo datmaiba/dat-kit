@@ -15,6 +15,12 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 import scorecard
+RETIRED_AUTHORITY_FLAGS = (
+    "--telemetry-task-id",
+    "--root-cause-locus",
+    "--root-cause-ref",
+    "--lesson-candidate-ref",
+)
 
 
 def record(ts="2026-07-17T10:30:00+07:00", task="new task"):
@@ -243,23 +249,26 @@ def test_codex_cli_appends_compatible_unknown_attribution(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("flag", "value"),
+    "arguments",
     [
-        ("--telemetry-task-id", "00000000-0000-4000-8000-000000000000"),
-        ("--root-cause-locus", "gate"),
-        ("--root-cause-ref", "evidence:root-cause:" + "a" * 64),
-        ("--lesson-candidate-ref", "evidence:lesson-candidate:" + "b" * 64),
+        [flag, "secret-canary-value"]
+        for flag in RETIRED_AUTHORITY_FLAGS
+    ]
+    + [
+        [f"{flag}=secret-canary-value"]
+        for flag in RETIRED_AUTHORITY_FLAGS
     ],
 )
 def test_cli_rejects_removed_telemetry_authority_flags_without_mutation(
     tmp_path,
-    flag,
-    value,
+    arguments,
 ):
-    result = run_scorecard_cli(tmp_path, flag, value)
+    result = run_scorecard_cli(tmp_path, *arguments)
 
     assert result.returncode == 2
-    assert "unrecognized arguments" in result.stderr
+    assert "invalid arguments" in result.stderr
+    assert "secret-canary-value" not in result.stdout
+    assert "secret-canary-value" not in result.stderr
     assert not (tmp_path / "benchmarks" / "scorecard.jsonl").exists()
     assert not (tmp_path / "telemetry" / "events.jsonl").exists()
 

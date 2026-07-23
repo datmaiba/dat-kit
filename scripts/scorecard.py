@@ -36,6 +36,12 @@ TOKEN_KEYS = (
 )
 
 
+class _RedactingArgumentParser(argparse.ArgumentParser):
+    def error(self, _message):
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: invalid arguments\n")
+
+
 def _configure_stdio():
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -452,7 +458,7 @@ def _read_candidate(value):
 
 def main(argv=None):
     _configure_stdio()
-    parser = argparse.ArgumentParser()
+    parser = _RedactingArgumentParser()
     parser.add_argument(
         "--provider",
         choices=("claude", "codex"),
