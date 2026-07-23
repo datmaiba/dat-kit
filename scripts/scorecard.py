@@ -16,6 +16,8 @@ Usage (from the project you want to report on):
 
 import argparse
 import copy
+import hashlib
+import importlib.util
 import json
 import os
 import pathlib
@@ -34,6 +36,16 @@ TOKEN_KEYS = (
     "cache_creation_input_tokens",
     "cache_read_input_tokens",
 )
+ROOT_CAUSE_LOCI = (
+    "skill",
+    "template",
+    "gate",
+    "agent-charter",
+    "ci",
+    "git",
+    "host",
+)
+_HARVEST_PRODUCERS = None
 
 
 def _configure_stdio():
@@ -381,6 +393,65 @@ def append_scorecard_record(path, entry, *, sessions=(), provider="claude"):
     return record
 
 
+def _harvest_producers():
+    global _HARVEST_PRODUCERS
+    if _HARVEST_PRODUCERS is None:
+        project_root = pathlib.Path(__file__).resolve().parents[1]
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        source = project_root / "telemetry" / "producers.py"
+        spec = importlib.util.spec_from_file_location("dat_kit_harvest_producers", source)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("telemetry producer module is unavailable")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _HARVEST_PRODUCERS = module
+    return _HARVEST_PRODUCERS
+
+
+def append_scorecard_with_harvest(
+    path,
+    entry,
+    *,
+    sessions=(),
+    provider="claude",
+    root_cause_locus="host",
+    root_cause_ref=None,
+    candidate_ref=None,
+    environ=None,
+):
+    """Append a scorecard record, then run non-blocking HARVEST telemetry."""
+
+    path = pathlib.Path(os.path.abspath(path))
+    record = append_scorecard_record(
+        path,
+        entry,
+        sessions=sessions,
+        provider=provider,
+    )
+    digest = hashlib.sha256(
+        json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    root_cause_ref = root_cause_ref or f"evidence:scorecard:{digest}:root-cause"
+    candidate_ref = candidate_ref or f"evidence:scorecard:{digest}:lesson-candidate"
+    repository_root = path.parent.parent if path.parent.name == "benchmarks" else path.parent
+    try:
+        result = _harvest_producers().emit_build_loop_harvest(
+            repository_root,
+            root_cause_locus=root_cause_locus,
+            root_cause_ref=root_cause_ref,
+            candidate_ref=candidate_ref,
+            environ=environ,
+        )
+    except Exception as error:
+        result = {
+            "status": "degraded",
+            "reason": "producer_failure",
+            "code": getattr(error, "code", "TELEMETRY_OPERATIONAL_FAILURE"),
+        }
+    return record, result
+
+
 def enrich_for_report(entries, sessions):
     """Return a report-only enriched copy; never persist these values."""
     enriched = copy.deepcopy(entries)
@@ -467,6 +538,9 @@ def main(argv=None):
         metavar="JSON_FILE",
         help="append one schema-v2 record from a file, or '-' for stdin",
     )
+    parser.add_argument("--root-cause-locus", choices=ROOT_CAUSE_LOCI, default="host")
+    parser.add_argument("--root-cause-ref")
+    parser.add_argument("--lesson-candidate-ref")
     args = parser.parse_args(argv)
 
     if args.report_only and args.append_record:
@@ -479,16 +553,20 @@ def main(argv=None):
     if args.append_record:
         try:
             candidate = _read_candidate(args.append_record)
-            record = append_scorecard_record(
+            record, telemetry_result = append_scorecard_with_harvest(
                 scorecard_path,
                 candidate,
                 sessions=sessions,
                 provider=args.provider,
+                root_cause_locus=args.root_cause_locus,
+                root_cause_ref=args.root_cause_ref,
+                candidate_ref=args.lesson_candidate_ref,
             )
         except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as error:
             parser.exit(2, f"scorecard append failed: {error}\n")
         reason = record["token_attribution"]["reason"]
         print(f"appended 1 scorecard record ({reason})\n")
+        print(json.dumps({"telemetry": telemetry_result}, separators=(",", ":")))
 
     entries = load_entries(scorecard_path)
     if args.provider == "claude" and not args.report_only:
