@@ -75,3 +75,17 @@ owner `registry-platform`, Class C, `platform-contract-policy/1`.
 | Existing B0–B2 consumer regression | append `rolled_back`; apply exact inverse patch |
 
 Before an authorized `effective_from_run`, the candidate is not effective.
+
+## Candidate evidence
+
+- Frozen candidate: `83f065e`; final Slice C size: 217/250 added lines.
+- Supporting QA: `9 passed`; baseline and seven invalid authority/evidence
+  variants were rejected; fixture removed before canonical gates.
+- `gate/full-cross-component-regression-83f065e`: validator PASS; pytest
+  `380 passed, 8 skipped`; focused cross-component `103 passed, 4 skipped`;
+  Bash syntax, ShellCheck, and diff-check PASS.
+- `review/knowledge-work-reviewer-83f065e`: APPROVE, no findings.
+- `review/software-dev-reviewer-83f065e`: APPROVE, no findings.
+- `gate/rollback-rehearsal-83f065e`: exact inverse patch restored contract
+  SHA-256 `c9fa5e6bcfc8760cd9a6e78597a8db1ae3a305b870e137335f185a7966b70dde`;
+  validator, pytest `380 passed, 8 skipped`, Bash, ShellCheck, diff-check PASS.
