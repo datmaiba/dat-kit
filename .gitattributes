@@ -6,3 +6,4 @@ registry/** text eol=lf
 templates/** text eol=lf
 skills/**/SKILL.md text eol=lf
 benchmarks/defects.jsonl text eol=lf
+domains/knowledge-work/deliverables/fact-check.template.md text eol=lf

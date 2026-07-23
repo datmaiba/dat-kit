@@ -4,6 +4,24 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-23 — A "no-echo of rejected value" test can pass without exercising the control if the poison sits in the wrong field
+
+- **What happened**: subset #3's first `test_rejected_value_is_not_echoed` planted a secret in `evidence_ref` but forced the rejection on `verdict="not_a_verdict"`. The test passed, but the field carrying the secret was never the field that failed — so it proved the no-echo property only incidentally. Code review (N1) caught it; the fix put the secret in `evidence_ref` and made `evidence_ref` itself the failing field (a space fails STABLE_REF grammar).
+- **Root cause**: a negative-control test asserts on the error message, but the assertion is only meaningful if the value under scrutiny is the value the code decided to reject and stringify. Rejecting on a different field routes around the control.
+- **Rule**: when testing that a rejected value is not echoed, the poisoned value MUST be the field that triggers the rejection; assert the specific rejected token (not just a wrapper label) is absent from the message.
+
+### 2026-07-23 — A parser that byte-bounds an already-materialized string cannot protect against pre-decode memory exhaustion
+
+- **What happened**: `parse_fact_check_footer` measures bytes via `text.encode(...)` on a `str` the caller already fully materialized. Security review noted the byte-bound is real but only re-checks an in-memory string — it cannot defend the step that read/decoded the bytes into that string in the first place.
+- **Root cause**: the DoS boundary lives at the I/O edge (disk/network read → decode), not at the pure function that receives the finished string. A parser re-checking length gives false comfort that "input is bounded."
+- **Rule**: when a pure parser is eventually wired to a real input source (Fork B here), the caller MUST bound bytes read from disk/network BEFORE decoding to `str`. Do not treat the parser's re-check as the byte-bound; document which layer owns the pre-decode limit.
+
+### 2026-07-23 — Validating untrusted input through the trusted write path's exact closed validator collapses injection and info-leak surfaces
+
+- **What happened**: the footer parser reuses `_validate_payload("fact_check_recorded", …)` — the identical closed validator the trusted `append` path uses — and keeps every `_error` detail a constant string. Both code and security review found zero injection/smuggling/leak paths, precisely because no second, looser validation copy exists and no error interpolates the rejected value.
+- **Root cause**: injection and info-leak bugs usually enter through a divergent "parse-side" validator or through error messages that echo the offending input. Eliminating the second validator and the value-in-error removes both classes structurally.
+- **Rule**: parse untrusted input through the SAME closed validator as the trusted write path (never a parallel copy), and keep all rejection diagnostics constant strings. If a shared bounded-JSON preamble is duplicated a third time, extract one helper so the privacy-critical path stays single-sourced.
+
 ### 2026-07-23 — A runtime-written byte-exact durable corpus needs its own `.gitattributes eol=lf` pin, which the render-output check does not cover
 
 - **What happened**: B3 subset #2 added `benchmarks/defects.jsonl`, a committed append-only projection whose exporter compares stored bytes against freshly-encoded bytes to decide idempotency vs `TELEMETRY_EXPORT_COLLISION`. The file was created without an `eol=lf` pin; QA caught it. Left unpinned, a `core.autocrlf=true` Windows checkout would rewrite committed LF to CRLF and make every stored record falsely collide against the LF bytes the exporter re-encodes. The existing 2026-07-20 pin lesson and its proposed mechanical check are scoped to `render.py`'s `expected_outputs()` destinations — but this corpus is written by the telemetry runtime, not rendered, so that check would never have flagged it. → extends the 2026-07-20 `* text=auto` entry below.

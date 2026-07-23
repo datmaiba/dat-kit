@@ -1602,6 +1602,62 @@ def _new_event(
     }
 
 
+# The knowledge-work fact-check deliverable carries a machine-readable footer
+# fenced between these markers. ``parse_fact_check_footer`` extracts and validates
+# it into the closed ``fact_check_recorded`` payload WITHOUT activating the
+# producer: it derives the payload from the human verdict, it does not compute it.
+# (telemetry-v3 T3.12 "preserving the human verdict"; the producer stays planned.)
+FACT_CHECK_FOOTER_BEGIN = "<!-- fact_check_recorded:begin -->"
+FACT_CHECK_FOOTER_END = "<!-- fact_check_recorded:end -->"
+FACT_CHECK_GATE_ID = "gate:fact"
+
+
+def parse_fact_check_footer(text: str) -> dict[str, Any]:
+    """Extract and validate the ``fact_check_recorded`` footer from deliverable text.
+
+    Newline-agnostic (a CRLF checkout parses identically), bounded before parsing,
+    and duplicate-key-rejecting like the CLI append path. The returned payload has
+    passed the same closed ``fact_check_recorded`` validator the append path uses,
+    so ``sourced`` implies zero findings/empty classes and ``return_to_builder``
+    implies a positive count and a non-empty sorted-unique class array. Raises
+    ``TelemetryError`` on any malformed footer and never echoes the rejected value.
+    Pure: it returns the payload only; it emits nothing and activates no producer.
+    """
+    if not isinstance(text, str) or len(text.encode("utf-8", errors="replace")) > MAX_RECORD_BYTES:
+        _error("fact-check footer exceeds the bounded input limit")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    start = normalized.find(FACT_CHECK_FOOTER_BEGIN)
+    if start == -1:
+        _error("fact-check footer begin marker is missing")
+    start += len(FACT_CHECK_FOOTER_BEGIN)
+    end = normalized.find(FACT_CHECK_FOOTER_END, start)
+    if end == -1:
+        _error("fact-check footer end marker is missing")
+    block = normalized[start:end]
+    fence = block.find("```")
+    if fence == -1:
+        _error("fact-check footer has no fenced JSON block")
+    fence = block.find("\n", fence)
+    if fence == -1:
+        _error("fact-check footer fenced block is unterminated")
+    closing = block.find("```", fence)
+    if closing == -1:
+        _error("fact-check footer fenced block is unterminated")
+    raw = block[fence + 1:closing].strip()
+    if len(raw.encode("utf-8", errors="replace")) > MAX_RECORD_BYTES:
+        _error("fact-check footer exceeds the bounded input limit")
+    try:
+        value = json.loads(raw, object_pairs_hook=_duplicate_object_pairs)
+    except (json.JSONDecodeError, UnicodeError, ValueError, RecursionError):
+        _error("fact-check footer JSON is invalid")
+    if not isinstance(value, dict):
+        _error("fact-check footer JSON must be an object")
+    if value.get("gate_id") != FACT_CHECK_GATE_ID:
+        _error("fact-check footer gate_id must be gate:fact")
+    _validate_payload("fact_check_recorded", value)
+    return value
+
+
 def _bounded_payload(raw: str, event_type: str) -> dict[str, Any]:
     if not isinstance(raw, str) or len(raw.encode("utf-8", errors="replace")) > MAX_RECORD_BYTES:
         _error("payload JSON exceeds the bounded input limit")
