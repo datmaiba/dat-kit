@@ -119,3 +119,32 @@ one finding set, scaling by roughly 800 bytes per finding.
 - Red-before-green, targeted green, adversarial self-check, candidate/tree,
   full-gate, reviewer, and closure receipts are appended only after each fact
   exists; this pre-registration does not claim future evidence.
+
+## Option-A deferment supersession and subset #1 closure
+
+The live-emission acceptance criteria above describe the superseded candidate
+that triggered the authority replan. They are retained as historical evidence,
+not as the approved implementation state.
+
+Platform-owner decision `decision-0acfe665bc066c31dd5e-0001` made
+`proposal-0acfe665bc066c31dd5e` effective from
+`run-2026-07-23-phase6b-b3-deferment-83f065e`. Under that contract:
+
+- build-loop HARVEST remains required but `planned/deferred`;
+- the generic scorecard CLI is not trusted producer authority;
+- live emission remains blocked pending separately approved Host Adapter trust
+  and producer-owned receipt resolution;
+- no capability, resolver, receipt store, schema, append internal, or producer
+  activation was added;
+- all five producer registry entries remain `planned` with null event IDs.
+
+Slice B removed the superseded live helper and caller-selected task/reference/
+locus options. Final candidate `671c9fe` is 117 additions and 547 deletions
+against `b091a3e`, net negative by 430 lines. Independent QA returned
+`PHASE DONE`, code review returned `APPROVE`, security review returned
+`APPROVE`, and unconditional final QA returned `PHASE DONE` with pytest
+`373 passed, 8 skipped` plus targeted B3 `41 passed, 2 skipped`. Detailed
+candidate, red-green, gate, and invocation receipts are in
+`b3-deferment-runtime-cleanup-observation.md`.
+
+B3 subset #1 closes as deferred, not active. B3 subset #2 has not started.
