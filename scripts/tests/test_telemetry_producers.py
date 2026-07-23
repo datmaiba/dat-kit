@@ -49,17 +49,27 @@ def _scorecard_record():
     }
 
 
-def _emit(root, *, locus="gate"):
+def _start(root, capsys):
+    assert telemetry_runtime.main(
+        ["--repository-root", str(root), "start", "--workflow", "build-loop"],
+        environ={},
+    ) == 0
+    return json.loads(capsys.readouterr().out)["task_id"]
+
+
+def _emit(root, capsys, *, locus="gate"):
+    task_id = _start(root, capsys)
     return producers.emit_build_loop_harvest(
         root,
+        task_id=task_id,
         root_cause_locus=locus,
         root_cause_ref=ROOT_CAUSE_REF,
         candidate_ref=CANDIDATE_REF,
     )
 
 
-def test_harvest_emits_one_partial_build_loop_lifecycle(tmp_path):
-    result = _emit(tmp_path)
+def test_harvest_reuses_one_load_minted_partial_build_loop_lifecycle(tmp_path, capsys):
+    result = _emit(tmp_path, capsys)
     events = telemetry_runtime.validate_lifecycle_events(tmp_path)
 
     assert result["status"] == "ok"
@@ -95,8 +105,8 @@ def test_harvest_emits_one_partial_build_loop_lifecycle(tmp_path):
         ("host", False),
     ],
 )
-def test_kit_facing_is_derived_from_the_closed_locus(tmp_path, locus, expected):
-    _emit(tmp_path, locus=locus)
+def test_kit_facing_is_derived_from_the_closed_locus(tmp_path, capsys, locus, expected):
+    _emit(tmp_path, capsys, locus=locus)
     events = telemetry_runtime.validate_lifecycle_events(tmp_path)
     assert events[1]["payload"]["kit_facing"] is expected
 
@@ -112,8 +122,12 @@ def test_kit_facing_is_derived_from_the_closed_locus(tmp_path, locus, expected):
         ("candidate_ref", "evidence:the-candidate-was-a-new-regression-test"),
     ],
 )
-def test_references_must_be_producer_owned_stable_evidence(tmp_path, field, value):
+def test_references_must_be_producer_owned_stable_evidence(tmp_path, capsys, field, value):
+    task_id = _start(tmp_path, capsys)
+    path = tmp_path / telemetry_runtime.EVENT_PATH
+    before = path.read_bytes()
     arguments = {
+        "task_id": task_id,
         "root_cause_locus": "gate",
         "root_cause_ref": ROOT_CAUSE_REF,
         "candidate_ref": CANDIDATE_REF,
@@ -123,7 +137,44 @@ def test_references_must_be_producer_owned_stable_evidence(tmp_path, field, valu
     with pytest.raises(ValueError, match=field):
         producers.emit_build_loop_harvest(tmp_path, **arguments)
 
+    assert path.read_bytes() == before
+
+
+def test_scorecard_without_real_candidate_emits_nothing(tmp_path):
+    path = tmp_path / "benchmarks" / "scorecard.jsonl"
+
+    record, telemetry_result = scorecard.append_scorecard_with_harvest(
+        path,
+        _scorecard_record(),
+        provider="codex",
+    )
+
+    assert record["task"] == "B3 producer test"
+    assert telemetry_result == {"status": "not_applicable", "event_count": 0}
     assert not (tmp_path / telemetry_runtime.EVENT_PATH).exists()
+
+
+def test_scorecard_seam_reuses_existing_task_and_real_receipts(tmp_path, capsys):
+    task_id = _start(tmp_path, capsys)
+    path = tmp_path / "benchmarks" / "scorecard.jsonl"
+
+    _record, telemetry_result = scorecard.append_scorecard_with_harvest(
+        path,
+        _scorecard_record(),
+        provider="codex",
+        task_id=task_id,
+        root_cause_locus="gate",
+        root_cause_ref=ROOT_CAUSE_REF,
+        candidate_ref=CANDIDATE_REF,
+    )
+
+    events = telemetry_runtime.validate_lifecycle_events(tmp_path)
+    assert telemetry_result["task_id"] == task_id
+    assert [event["event_type"] for event in events] == [
+        "task_started",
+        "lesson_candidate_recorded",
+        "task_finished",
+    ]
 
 
 def test_scorecard_append_succeeds_without_event_file_when_disabled(tmp_path):
@@ -132,7 +183,10 @@ def test_scorecard_append_succeeds_without_event_file_when_disabled(tmp_path):
         path,
         _scorecard_record(),
         provider="codex",
+        task_id=str(uuid.uuid4()),
         root_cause_locus="gate",
+        root_cause_ref=ROOT_CAUSE_REF,
+        candidate_ref=CANDIDATE_REF,
         environ={"DAT_KIT_TELEMETRY": "off"},
     )
 
@@ -150,7 +204,10 @@ def test_scorecard_append_survives_unavailable_telemetry_target(tmp_path):
         path,
         _scorecard_record(),
         provider="codex",
+        task_id=str(uuid.uuid4()),
         root_cause_locus="gate",
+        root_cause_ref=ROOT_CAUSE_REF,
+        candidate_ref=CANDIDATE_REF,
     )
 
     assert record["task"] == "B3 producer test"
@@ -176,3 +233,20 @@ def test_status_registry_rejects_active_without_receipt_event_id():
 
     with pytest.raises(ValueError, match="event_id"):
         producers.validate_producer_registry(registry)
+
+
+def test_status_registry_rejects_uuid_not_bound_to_validated_producer_receipt(
+    tmp_path,
+    capsys,
+):
+    task_id = _start(tmp_path, capsys)
+    start = telemetry_runtime.validate_lifecycle_events(tmp_path)[0]
+    assert start["task_id"] == task_id
+    registry = producers.load_producer_registry()
+    registry["producers"]["build-loop-harvest"] = {
+        "status": "active",
+        "event_id": start["event_id"],
+    }
+
+    with pytest.raises(ValueError, match="validated receipt"):
+        producers.validate_producer_registry(registry, tmp_path)

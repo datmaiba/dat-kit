@@ -16,7 +16,6 @@ Usage (from the project you want to report on):
 
 import argparse
 import copy
-import hashlib
 import importlib.util
 import json
 import os
@@ -415,7 +414,8 @@ def append_scorecard_with_harvest(
     *,
     sessions=(),
     provider="claude",
-    root_cause_locus="host",
+    task_id=None,
+    root_cause_locus=None,
     root_cause_ref=None,
     candidate_ref=None,
     environ=None,
@@ -429,15 +429,20 @@ def append_scorecard_with_harvest(
         sessions=sessions,
         provider=provider,
     )
-    digest = hashlib.sha256(
-        json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-    ).hexdigest()
-    root_cause_ref = root_cause_ref or f"evidence:scorecard:{digest}:root-cause"
-    candidate_ref = candidate_ref or f"evidence:scorecard:{digest}:lesson-candidate"
+    telemetry_inputs = (task_id, root_cause_locus, root_cause_ref, candidate_ref)
+    if not any(value is not None for value in telemetry_inputs):
+        return record, {"status": "not_applicable", "event_count": 0}
+    if not all(value is not None for value in telemetry_inputs):
+        return record, {
+            "status": "degraded",
+            "reason": "producer_failure",
+            "code": "TELEMETRY_PRODUCER_INPUT_INCOMPLETE",
+        }
     repository_root = path.parent.parent if path.parent.name == "benchmarks" else path.parent
     try:
         result = _harvest_producers().emit_build_loop_harvest(
             repository_root,
+            task_id=task_id,
             root_cause_locus=root_cause_locus,
             root_cause_ref=root_cause_ref,
             candidate_ref=candidate_ref,
@@ -538,7 +543,8 @@ def main(argv=None):
         metavar="JSON_FILE",
         help="append one schema-v2 record from a file, or '-' for stdin",
     )
-    parser.add_argument("--root-cause-locus", choices=ROOT_CAUSE_LOCI, default="host")
+    parser.add_argument("--telemetry-task-id")
+    parser.add_argument("--root-cause-locus", choices=ROOT_CAUSE_LOCI)
     parser.add_argument("--root-cause-ref")
     parser.add_argument("--lesson-candidate-ref")
     args = parser.parse_args(argv)
@@ -558,6 +564,7 @@ def main(argv=None):
                 candidate,
                 sessions=sessions,
                 provider=args.provider,
+                task_id=args.telemetry_task_id,
                 root_cause_locus=args.root_cause_locus,
                 root_cause_ref=args.root_cause_ref,
                 candidate_ref=args.lesson_candidate_ref,
