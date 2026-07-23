@@ -18,9 +18,9 @@
 | Path | SHA-256 |
 |---|---|
 | `docs/contracts/evolution.md` | `45e188e19ff7d2398640e4aafbe3c54ed61f7a259be4fb669c1fbbf4c6c7a83a` |
-| `docs/contracts/telemetry-v3.md` | `f02a476cd261ed388f351cdc2e1078b0e697183cead3730f28e1f6bc05142656` |
+| `docs/contracts/telemetry-v3.md` | `c9fa5e6bcfc8760cd9a6e78597a8db1ae3a305b870e137335f185a7966b70dde` |
 | `registry/evolution.json` | `0c61f25588005f72c2c921cb488854063bf2d3b8d1eed990da0cbb6529ae132d` |
-| `handoffs/HANDOFF-2026-07-23-phase6b-b3-subset1-execution-context.md` | `9792d1667da3e0949a2a17c71cc560ef16f7907af84df4e3a9229fe5db57143e` |
+| `handoffs/HANDOFF-2026-07-23-phase6b-b3-subset1-execution-context.md` | `5e1df39f7359959c45697b7d114419ef4cc24e3d8b485903d67bef8c7b02a256` |
 | `handoffs/HANDOFF-2026-07-23-phase6b-b3-subset1-security-authority-replan.md` | `34525336dbc54d4e76467688164706dea0d8a5c413af86646c9ba1bc1b231072` |
 | `plans/PLAN-phase6b-b3-harvest-authority-prerequisite.md` | `bc422c3922b2c8ca14a31ef26588589b2392b47b51afb2bf3003b7cbdae37156` |
 
@@ -31,10 +31,12 @@ owner `registry-platform`, Class C, `platform-contract-policy/1`.
 
 - Patch: `docs/spikes/phase-6b/b3-harvest-deferment.contract.patch`.
 - Patch SHA-256: `d8b0151221abe7715734cceda5ed632d3ab5049afc4a83bdeb0cd3b1fd2e1e46`.
-- Post-apply contract SHA-256: `86a820b43631ca4f9a812cf3380ae6e63f4f55e84d71cb858f2625ed35fc16c1`.
+- Post-apply contract SHA-256: `ccd0892f58f96f14d763a4b7fb39017cfa23d77dcf6326fef6f8474a6937bff2`.
 - Policy hash: `868a6ba79241dc15907d7bb72b41a24516c8c6d8eaa14dc5e8308c472242d902`.
-- Proposal: `proposal-5649ad3da39297d781c5`.
+- Proposal: `proposal-0acfe665bc066c31dd5e`.
 - The exact patch passes reverse-apply checking with `--unidiff-zero`.
+- Temporary QA rejected the predecessor's CRLF working-tree hashes; this
+  proposal binds canonical LF-normalized Git blobs.
 ## Ground-truth answers
 
 1. T3.12 still requires HARVEST; deferment cannot satisfy Phase 6 completion.
