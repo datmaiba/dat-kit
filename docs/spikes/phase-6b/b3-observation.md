@@ -147,4 +147,54 @@ against `b091a3e`, net negative by 430 lines. Independent QA returned
 candidate, red-green, gate, and invocation receipts are in
 `b3-deferment-runtime-cleanup-observation.md`.
 
-B3 subset #1 closes as deferred, not active. B3 subset #2 has not started.
+B3 subset #1 closes as deferred, not active.
+
+## B3 subset #2 — diagnosing-bugs defect projection
+
+Pre-registration (immutable scope): implement the defect-specific
+`defect_recorded -> benchmarks/defects.jsonl` projection required by
+telemetry-v3 T3.10.2, and only that. Intended paths: `scripts/telemetry.py`
+(projection writer, `export` subcommand, consuming validator), `scripts/tests/
+test_telemetry_defect_projection.py`, `scripts/tests/test_telemetry_cli.py`
+(if extended), `scripts/validate.py` (wire the consuming validator),
+`benchmarks/defects.jsonl` (new committed durable artifact), `.gitattributes`
+(the byte-compared projection needs its own `eol=lf` pin per the 2026-07-20
+lesson — added on the QA finding),
+`docs/spikes/phase-6b/b3-observation.md` (this ledger). Applicable reviewer
+roles: plan, qa, software-dev (code), security. Scope decisions D-S2-1
+(defect-specific projection only; general export stays B4) and D-S2-2 (runtime
+only; producer stays `planned`, no synthetic/retroactive receipt, activation
+block untouched) were approved by the user on 2026-07-23.
+
+Decisions in effect:
+
+- the durable projection is the closed 13-field T3.10.2 record; the projection
+  has no other fields;
+- export is append-only and idempotent by `event_id` (identical is a no-op,
+  same id with different canonical bytes fails `TELEMETRY_EXPORT_COLLISION`);
+- the `benchmark_exported` receipt is emitted into the local stream only after
+  the durable append succeeds; a no-op export emits no receipt;
+- the receipt's `producer.id` is the channel-injected `dat-kit-cli`; the
+  `diagnosing-bugs` producer registry entry stays `planned` with a null event
+  ID and no activation authority is added.
+
+Verified gates on the working tree (pre-review): `python scripts/validate.py`
+green; `pytest scripts/tests` `393 passed, 3 skipped`; `bash -n scripts/init.sh`
+pass; `shellcheck scripts/init.sh` pass (0.8.0); `git diff --check` pass; ruff
+clean on the touched sources; mypy is report-only and not run locally (pinned
+version unavailable in this environment). Red-before-green proven: dropping
+`evidence_ref` from the projection writer turned the 13-field shape test red,
+and reverting restored green. Independent QA, code, and security reviews are
+recorded after this pre-registration.
+
+Reviewer receipts: plan-reviewer RETURN (13-field blocker + receipt-envelope)
+then resolved; code-reviewer APPROVE; security-reviewer APPROVE (one Windows
+path-separator LOW fixed by deriving the contract `target_path` from a canonical
+POSIX literal). QA edge-case attack passed statically on all nine surfaces; the
+five gates were executed by the builder (validate PASS, pytest 394 passed/3
+skipped, bash -n PASS, shellcheck 0.8.0 PASS, diff-check PASS, ruff PASS) and
+the demo was walked end-to-end. The `diagnosing-bugs` producer remains
+`planned` with a null event ID; no activation authority was added.
+
+B3 subset #2 runtime is built, reviewed, and self-verified. Producer activation
+remains deferred to a future candidate with a real post-mortem defect.

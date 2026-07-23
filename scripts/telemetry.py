@@ -1315,6 +1315,11 @@ def validate_lifecycle_events(repository_root: Path | str) -> list[dict[str, Any
 # and ``telemetry/producers.json`` is untouched.
 
 DEFECT_PROJECTION_PATH = Path("benchmarks/defects.jsonl")
+# Contract-facing path literal. The receipt's ``target_path`` and the CLI
+# ``--target`` value are matched against the forward-slash enum in the
+# ``benchmark_exported`` validator, so they must use this POSIX string, never
+# ``str(Path(...))`` which yields backslashes on Windows and self-rejects.
+DEFECT_PROJECTION_TARGET = "benchmarks/defects.jsonl"
 
 DEFECT_PROJECTION_FIELDS = {
     "schema_version",
@@ -1466,7 +1471,7 @@ def export_defect_projection(
     partial-failure semantics); a later retry deduplicates by ``event_id``.
     """
 
-    if target_path != str(DEFECT_PROJECTION_PATH):
+    if target_path != DEFECT_PROJECTION_TARGET:
         _error("export target is not the defect projection path")
     _require_uuid4(task_id, "task_id")
     root = _canonical_root(repository_root)
@@ -1527,7 +1532,7 @@ def export_defect_projection(
         "benchmark_exported",
         {
             "export_batch_id": str(uuid.uuid4()),
-            "target_path": str(DEFECT_PROJECTION_PATH),
+            "target_path": DEFECT_PROJECTION_TARGET,
             "prior_hash": prior_hash,
             "exported_event_ids": sorted(new_ids),
         },
@@ -1673,7 +1678,7 @@ def _parser() -> argparse.ArgumentParser:
 
     export = commands.add_parser("export")
     export.add_argument("--task-id", required=True)
-    export.add_argument("--target", required=True, choices=(str(DEFECT_PROJECTION_PATH),))
+    export.add_argument("--target", required=True, choices=(DEFECT_PROJECTION_TARGET,))
 
     commands.add_parser("validate")
     return parser

@@ -4,6 +4,22 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-23 — A runtime-written byte-exact durable corpus needs its own `.gitattributes eol=lf` pin, which the render-output check does not cover
+
+- **What happened**: B3 subset #2 added `benchmarks/defects.jsonl`, a committed append-only projection whose exporter compares stored bytes against freshly-encoded bytes to decide idempotency vs `TELEMETRY_EXPORT_COLLISION`. The file was created without an `eol=lf` pin; QA caught it. Left unpinned, a `core.autocrlf=true` Windows checkout would rewrite committed LF to CRLF and make every stored record falsely collide against the LF bytes the exporter re-encodes. The existing 2026-07-20 pin lesson and its proposed mechanical check are scoped to `render.py`'s `expected_outputs()` destinations — but this corpus is written by the telemetry runtime, not rendered, so that check would never have flagged it. → extends the 2026-07-20 `* text=auto` entry below.
+- **Root cause**: "byte-exactness needs a checkout-time pin" was internalized only for *rendered* projections. A durable file whose bytes are compared for equality is equally byte-sensitive regardless of who writes it; the pin rule is about byte-comparison, not about the render pipeline.
+- **Rule**: any committed file whose bytes are compared for equality anywhere — render output OR a runtime-written append-only corpus — needs its own explicit `.gitattributes eol=lf` pin in the same commit that introduces it. A mechanical coverage check should assert the pin for every such destination, sourced from both `expected_outputs()` AND the runtime's durable-corpus path constants, not `expected_outputs()` alone.
+
+---
+
+### 2026-07-23 — A contract path value built with `str(Path(...))` passes on Linux and self-rejects on Windows
+
+- **What happened**: the defect-projection export receipt set its `target_path` to `str(DEFECT_PROJECTION_PATH)` where `DEFECT_PROJECTION_PATH = Path("benchmarks/defects.jsonl")`. The `benchmark_exported` validator requires the forward-slash literal `benchmarks/defects.jsonl`. On Linux `str(Path(...))` yields forward slashes so every test passed; on Windows it yields `benchmarks\defects.jsonl`, so the receipt would fail its own validator and the export would self-reject — on the user's actual platform. Security review flagged it; fixed by introducing a canonical POSIX literal constant used for the receipt payload, the CLI `--target` choices, and the runtime guard, keeping the `Path` only for filesystem joins.
+- **Root cause**: a value that is part of a byte/enum contract was derived from an OS-dependent rendering (`str(Path)`), and the whole test suite ran on one OS, so the separator drift was invisible.
+- **Rule**: derive contract-facing path literals (enum members, serialized fields, IDs) from one canonical POSIX string constant, never `str(Path(...))`. Reserve `Path`/`PurePosixPath` for filesystem operations. When tests run on a single OS, treat any `str(Path)` that reaches a serialized or compared value as a latent cross-platform bug until proven otherwise.
+
+---
+
 ### 2026-07-23 — A `pull_request`-triggered CI run tests GitHub's ephemeral merge ref, not the branch — and a diverged branch can make that ref silently wrong
 
 - **What happened**: PR #4's CI reported 2 persistent `NameError: name 'Diagnostic' is not defined` failures in `test_registry_catalog.py` that never reproduced locally (Linux or Windows, matching Python/pytest/pluggy versions) and were unaffected by fixing two unrelated real CI bugs (missing `fetch-depth: 0`, a Windows env-var-length crash in a B2 test). A `workflow_dispatch` run on the raw branch tip (no merge with `master`) collected 354 test items and passed clean; the `pull_request`-triggered run collected 367 and failed. Fetching the actual merge ref GitHub computed (`git fetch origin refs/pull/4/merge`) and reading `test_registry_catalog.py` from it showed the smoking gun: the import line read `from registry import Catalog, canonical_relative_path` — missing `Diagnostic` — while the function bodies below (added on the feature branch) still referenced `Diagnostic` as a bare name. `master` had never touched that import line; GitHub's implicit test-merge dropped the symbol instead of raising a conflict.
@@ -80,7 +96,7 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 - **What happened**: the first real push of `feature/open-platform-v2` failed the Windows Actions job with `PROJECTION_BYTE_MISMATCH` on `skills/build-loop/SKILL.md` and `skills/knowledge-work/SKILL.md`. `.gitattributes` pinned `registry/**`, `templates/**`, `*.py` and `*.sh` to `eol=lf` but not the generated skill projections, so a `core.autocrlf=true` checkout (the GitHub-hosted Windows default) normalized their committed LF bytes to CRLF while `render.py` always emits LF — `validate.py`'s byte-compare failed on Windows only. Fixed in `ba77045` by adding `skills/**/SKILL.md text eol=lf`.
 - **Root cause**: byte-exactness was enforced at compare time but never protected at checkout time; `* text=auto` is a heuristic that actively rewrites line endings, so it is the opposite of a guarantee for a file whose bytes are the contract.
-- **Rule**: every destination in `render.py`'s `expected_outputs()` needs its own explicit `.gitattributes` `eol=lf` pin — adding a new projection means adding its pin in the same commit. A repo check asserting that every `expected_outputs()` path is covered by such a pin is the mechanical form of this rule and should be added before the next projection lands.
+- **Rule**: every destination in `render.py`'s `expected_outputs()` needs its own explicit `.gitattributes` `eol=lf` pin — adding a new projection means adding its pin in the same commit. A repo check asserting that every `expected_outputs()` path is covered by such a pin is the mechanical form of this rule and should be added before the next projection lands. → extended by the 2026-07-23 entry above: runtime-written byte-exact corpora (not just `expected_outputs()`) need the same pin, so the mechanical check must cover both sources.
 
 ---
 

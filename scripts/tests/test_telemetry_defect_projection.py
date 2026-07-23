@@ -28,7 +28,15 @@ import telemetry
 
 
 PROJECTION = telemetry.DEFECT_PROJECTION_PATH
-TARGET = str(PROJECTION)
+TARGET = telemetry.DEFECT_PROJECTION_TARGET
+
+
+def test_contract_target_is_posix_literal_not_os_path():
+    # The receipt target_path and CLI --target are matched against the contract's
+    # forward-slash enum; str(Path(...)) would use backslashes on Windows and
+    # self-reject the benchmark_exported receipt.
+    assert telemetry.DEFECT_PROJECTION_TARGET == "benchmarks/defects.jsonl"
+    assert "\\" not in telemetry.DEFECT_PROJECTION_TARGET
 
 EXPECTED_FIELDS = {
     "schema_version", "event_id", "task_id", "parent_task_id", "delegation_id",
