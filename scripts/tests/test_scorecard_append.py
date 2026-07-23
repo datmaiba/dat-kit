@@ -51,6 +51,28 @@ def session(name="session-123456", first="2026-07-17T10:00:00+07:00", last="2026
     )
 
 
+def run_scorecard_cli(tmp_path, *extra_args):
+    candidate = tmp_path / "record.json"
+    candidate.write_text(json.dumps(record()), encoding="utf-8")
+    return subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "scorecard.py"),
+            "--provider",
+            "codex",
+            "--project",
+            str(tmp_path),
+            "--append-record",
+            str(candidate),
+            *extra_args,
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+
 def test_exact_attribution_appends_only_new_record(tmp_path):
     path = tmp_path / "benchmarks" / "scorecard.jsonl"
     path.parent.mkdir()
@@ -208,25 +230,7 @@ def test_report_enrichment_is_in_memory_only(tmp_path):
 
 
 def test_codex_cli_appends_compatible_unknown_attribution(tmp_path):
-    candidate = tmp_path / "record.json"
-    candidate.write_text(json.dumps(record()), encoding="utf-8")
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts" / "scorecard.py"),
-            "--provider",
-            "codex",
-            "--project",
-            str(tmp_path),
-            "--append-record",
-            str(candidate),
-        ],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        check=False,
-    )
+    result = run_scorecard_cli(tmp_path)
 
     assert result.returncode == 0, result.stderr
     stored = json.loads((tmp_path / "benchmarks" / "scorecard.jsonl").read_text(encoding="utf-8"))
@@ -252,27 +256,7 @@ def test_cli_rejects_removed_telemetry_authority_flags_without_mutation(
     flag,
     value,
 ):
-    candidate = tmp_path / "record.json"
-    candidate.write_text(json.dumps(record()), encoding="utf-8")
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts" / "scorecard.py"),
-            "--provider",
-            "codex",
-            "--project",
-            str(tmp_path),
-            "--append-record",
-            str(candidate),
-            flag,
-            value,
-        ],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        check=False,
-    )
+    result = run_scorecard_cli(tmp_path, flag, value)
 
     assert result.returncode == 2
     assert "unrecognized arguments" in result.stderr
