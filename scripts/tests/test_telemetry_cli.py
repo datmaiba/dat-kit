@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 import sys
@@ -443,3 +444,137 @@ def test_validate_reports_dangling_linklike_parent_as_corrupt_not_empty(tmp_path
 def test_validate_reports_truly_absent_parent_as_empty(tmp_path, capsys):
     code, result = invoke(capsys, tmp_path, "validate")
     assert (code, result["status"], result["event_count"]) == (0, "ok", 0)
+
+
+# --- `resume` emit CLI -------------------------------------------------------
+#
+# The `resume` subcommand wraps the pure helper `build_resume_linkage` so an
+# operator cannot hand-mis-build the `task_resumed` payload or drop lineage. The
+# producer stays `planned` (the generic CLI is not a trusted LOAD/HARVEST
+# context). The happy/delegated/disabled tests are red-anchored at the CLI; the
+# error-path tests assert the exact `TelemetryError.detail` at the
+# `_execute_command` seam, because `main` emits only the error `code` and the
+# helper's `_error` shares `TELEMETRY_EVENT_INVALID` with the parser's
+# unknown-subcommand rejection (so a code/exit assertion would pass vacuously).
+
+
+def _resume_ns(root: Path, task_id: str) -> argparse.Namespace:
+    return argparse.Namespace(
+        command="resume", repository_root=str(root), task_id=task_id
+    )
+
+
+def test_resume_emits_linkage_correct_event_and_finishes_full(tmp_path, capsys):
+    task_id = start(capsys, tmp_path, "build-loop")
+    append(capsys, tmp_path, task_id, "gate_result", {
+        "gate_id": "gate:pytest", "outcome": "pass", "first_pass": True,
+        "verdict_source": "automation", "evidence_ref": None,
+    })
+    append(capsys, tmp_path, task_id, "review_result", {
+        "reviewer_id": "reviewer:code", "reviewer_class": "software-dev", "round": 1,
+        "verdict": "approve", "verdict_source": "agent", "finding_count": 0,
+        "evidence_ref": None,
+    })
+    _, handoff = append(capsys, tmp_path, task_id, "handoff_created", {
+        "handoff_ref": "handoffs/task.md", "reason": "deliberate_pause",
+    })
+
+    code, result = invoke(capsys, tmp_path, "resume", "--task-id", task_id)
+    assert (code, result["status"], result["command"]) == (0, "ok", "resume")
+    assert result["task_id"] == task_id
+
+    resumed = records(tmp_path)[-1]
+    assert resumed["event_type"] == "task_resumed"
+    assert resumed["event_id"] == result["event_id"]
+    assert resumed["payload"] == {
+        "handoff_ref": "handoffs/task.md",
+        "resumed_from_handoff": True,
+        "resumed_from_event_id": handoff["event_id"],
+    }
+
+    invoke(capsys, tmp_path, "finish", "--task-id", task_id)
+    assert records(tmp_path)[-1]["coverage"] == {
+        "status": "full", "missing_event_types": [],
+        "missing_requirement_refs": [], "reason": None,
+    }
+
+
+def test_resume_preserves_delegated_child_lineage(tmp_path, capsys):
+    parent = start(capsys, tmp_path)
+    child = str(uuid.uuid4())
+    delegation = str(uuid.uuid4())
+    append(capsys, tmp_path, parent, "delegation_started", {
+        "delegation_id": delegation, "child_task_id": child,
+        "delegated_role": "role:builder", "brief_ref": "handoffs/brief.md",
+    })
+    lineage = ("--parent-task-id", parent, "--delegation-id", delegation)
+    append(capsys, tmp_path, child, "task_started", {"workflow": "other"}, *lineage)
+    append(capsys, tmp_path, child, "handoff_created", {
+        "handoff_ref": "handoffs/child.md", "reason": "deliberate_pause",
+    }, *lineage)
+
+    code, result = invoke(capsys, tmp_path, "resume", "--task-id", child)
+    assert (code, result["status"]) == (0, "ok")
+    resumed = records(tmp_path)[-1]
+    assert resumed["event_type"] == "task_resumed" and resumed["task_id"] == child
+    assert resumed["lineage"]["parent_task_id"] == parent
+    assert resumed["lineage"]["delegation_id"] == delegation
+
+
+def test_resume_is_disabled_by_kill_switch_without_mutation(tmp_path, capsys):
+    code, result = invoke(capsys, tmp_path, "resume", "--task-id", str(uuid.uuid4()),
+                          env={"DAT_KIT_TELEMETRY": "off"})
+    assert (code, result["status"], result["command"]) == (0, "disabled", "resume")
+    assert not (tmp_path / telemetry.EVENT_PATH).exists()
+
+
+def test_resume_seam_no_unmatched_handoff_raises_exact_detail(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    path = tmp_path / telemetry.EVENT_PATH
+    before = path.read_bytes()
+    with pytest.raises(telemetry.TelemetryError) as caught:
+        telemetry._execute_command(_resume_ns(tmp_path, task_id))
+    assert caught.value.detail == "no unmatched handoff to resume"
+    assert path.read_bytes() == before
+
+
+def test_resume_seam_finished_task_raises_exact_detail(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    _, handoff = append(capsys, tmp_path, task_id, "handoff_created", {
+        "handoff_ref": "handoffs/task.md", "reason": "deliberate_pause",
+    })
+    append(capsys, tmp_path, task_id, "task_resumed", {
+        "handoff_ref": "handoffs/task.md", "resumed_from_handoff": True,
+        "resumed_from_event_id": handoff["event_id"],
+    })
+    invoke(capsys, tmp_path, "finish", "--task-id", task_id)
+    path = tmp_path / telemetry.EVENT_PATH
+    before = path.read_bytes()
+    with pytest.raises(telemetry.TelemetryError) as caught:
+        telemetry._execute_command(_resume_ns(tmp_path, task_id))
+    assert caught.value.detail == "cannot resume a finished task"
+    assert path.read_bytes() == before
+
+
+def test_resume_seam_unknown_task_raises_exact_detail(tmp_path, capsys):
+    start(capsys, tmp_path)  # a seeded, unrelated task keeps the corpus non-empty
+    with pytest.raises(telemetry.TelemetryError) as caught:
+        telemetry._execute_command(_resume_ns(tmp_path, str(uuid.uuid4())))
+    assert caught.value.detail == "resume target has no lifecycle events"
+
+
+def test_resume_seam_non_uuid_task_id_is_rejected_without_echo(tmp_path, capsys):
+    start(capsys, tmp_path)
+    with pytest.raises(telemetry.TelemetryError) as caught:
+        telemetry._execute_command(_resume_ns(tmp_path, "NOT-A-UUID"))
+    assert caught.value.detail == "task_id must be a canonical lowercase UUIDv4"
+    assert "NOT-A-UUID" not in caught.value.detail
+
+
+def test_resume_does_not_create_producer_state(tmp_path, capsys):
+    task_id = start(capsys, tmp_path)
+    append(capsys, tmp_path, task_id, "handoff_created", {
+        "handoff_ref": "handoffs/task.md", "reason": "deliberate_pause",
+    })
+    invoke(capsys, tmp_path, "resume", "--task-id", task_id)
+    assert not (tmp_path / "telemetry" / "producers.json").exists()

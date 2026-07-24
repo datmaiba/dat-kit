@@ -1773,6 +1773,9 @@ def _parser() -> argparse.ArgumentParser:
     append.add_argument("--parent-task-id")
     append.add_argument("--delegation-id")
 
+    resume = commands.add_parser("resume")
+    resume.add_argument("--task-id", required=True)
+
     finish = commands.add_parser("finish")
     identity = finish.add_mutually_exclusive_group(required=True)
     identity.add_argument("--task-id")
@@ -1818,6 +1821,17 @@ def _execute_command(args: argparse.Namespace) -> dict[str, Any]:
             payload,
             parent_task_id=args.parent_task_id,
             delegation_id=args.delegation_id,
+        )
+        stored = _append_lifecycle_event(root, existing, event)
+    elif args.command == "resume":
+        _require_uuid4(args.task_id, "task_id")
+        linkage = build_resume_linkage(existing, args.task_id)
+        event = _new_event(
+            linkage["task_id"],
+            "task_resumed",
+            linkage["payload"],
+            parent_task_id=linkage["parent_task_id"],
+            delegation_id=linkage["delegation_id"],
         )
         stored = _append_lifecycle_event(root, existing, event)
     else:
@@ -1870,13 +1884,13 @@ def main(
     try:
         args = _parser().parse_args(argv)
         environment = os.environ if environ is None else environ
-        if args.command in {"start", "append", "finish", "export"} and environment.get("DAT_KIT_TELEMETRY") == "off":
+        if args.command in {"start", "append", "resume", "finish", "export"} and environment.get("DAT_KIT_TELEMETRY") == "off":
             _emit_result({"status": "disabled", "command": args.command})
             return 0
         result = _execute_command(args)
     except TelemetryError as diagnostic:
         command = getattr(locals().get("args"), "command", "unknown")
-        if diagnostic.code == "TELEMETRY_OPERATIONAL_FAILURE" and command in {"start", "append", "finish"}:
+        if diagnostic.code == "TELEMETRY_OPERATIONAL_FAILURE" and command in {"start", "append", "resume", "finish"}:
             _emit_result({
                 "status": "degraded",
                 "command": command,
@@ -1887,7 +1901,7 @@ def main(
         return 2
     except OSError:
         command = getattr(locals().get("args"), "command", "unknown")
-        if command in {"start", "append", "finish"}:
+        if command in {"start", "append", "resume", "finish"}:
             _emit_result({
                 "status": "degraded",
                 "command": command,
