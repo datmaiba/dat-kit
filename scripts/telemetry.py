@@ -1526,6 +1526,12 @@ DEFECT_PROJECTION_PATH = Path("benchmarks/defects.jsonl")
 # ``str(Path(...))`` which yields backslashes on Windows and self-rejects.
 DEFECT_PROJECTION_TARGET = "benchmarks/defects.jsonl"
 
+GENERAL_EXPORT_PATH = Path("benchmarks/telemetry-v3.jsonl")
+# Contract-facing POSIX literal for the receipt ``target_path`` and CLI
+# ``--target`` value, matched against the ``benchmark_exported`` enum; never
+# ``str(Path(...))`` (backslashes on Windows self-reject the receipt).
+GENERAL_EXPORT_TARGET = "benchmarks/telemetry-v3.jsonl"
+
 DEFECT_PROJECTION_FIELDS = {
     "schema_version",
     "event_id",
@@ -1755,6 +1761,122 @@ def export_defect_projection(
     }
 
 
+def _export_eligible(events: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Events eligible for the committed general export (telemetry-v3 T3.10.2).
+
+    ``local_private`` events are excluded from every committed export (T3.9); a
+    ``benchmark_exported`` receipt is never export-eligible (T3.10.2), so an export
+    cannot create an endless tail of receipts about receipts. Every other event —
+    ``project``/``public``, any type, corrections included — is copied whole.
+    """
+    return [
+        event
+        for event in events
+        if event["privacy_class"] != "local_private"
+        and event["event_type"] != "benchmark_exported"
+    ]
+
+
+def export_event_corpus(
+    repository_root: Path | str,
+    task_id: str,
+    *,
+    target_path: str,
+) -> dict[str, Any]:
+    """Copy every eligible validated event whole to the general benchmark corpus (T3.10.2).
+
+    Mirrors ``export_defect_projection``'s append-only, idempotent-by-``event_id``,
+    receipt-after-append semantics, but writes the COMPLETE validated event rather
+    than the defect projection, and filters eligibility through ``_export_eligible``.
+    The existing target is read with ``_split_history`` (schema, ID-uniqueness, and
+    correction-shape only) and never ``validate_lifecycle_events``: the eligible
+    subset is not a complete lifecycle corpus (no receipts, filtered ``local_private``),
+    so a lifecycle validator would falsely reject it. That read is safe because
+    privacy monotonicity (a correction may never loosen privacy) guarantees an
+    eligible correction can never target an excluded ``local_private`` original.
+    The ``benchmark_exported`` receipt is emitted only after the durable append
+    succeeds and activates no producer (receipt ``producer.id`` stays the CLI's).
+    """
+    if target_path != GENERAL_EXPORT_TARGET:
+        _error("export target is not the general export path")
+    _require_uuid4(task_id, "task_id")
+    root = _canonical_root(repository_root)
+    events = validate_lifecycle_events(root)
+    task_events = _task_originals(events, task_id)
+    if not task_events:
+        _lifecycle_error("export requires an existing started task")
+    parent_task_id = task_events[0]["lineage"]["parent_task_id"]
+    delegation_id = task_events[0]["lineage"]["delegation_id"]
+
+    eligible = _export_eligible(events)
+    target = root / GENERAL_EXPORT_PATH
+    path = str(GENERAL_EXPORT_PATH)
+    new_ids: list[str] = []
+    prior_hash: str | None = None
+    with _WRITE_LOCK:
+        _verify_parent(root, target.parent, create=True, path=path)
+        _verify_target_before_open(target, path=path)
+        flags = os.O_RDWR | os.O_APPEND | os.O_CREAT
+        flags |= getattr(os, "O_BINARY", 0)
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(target, flags, 0o600)
+        except OSError:
+            _error("export target is operationally unavailable", code="TELEMETRY_OPERATIONAL_FAILURE", path=path)
+        try:
+            identity = _handle_identity(fd, target, path=path)
+            raw = _read_fd(fd, path=path)
+            existing_events, _boundary = _split_history(raw, path=path)
+            existing = {record["event_id"]: _encode_validated_event(record) for record in existing_events}
+            prior_hash = hashlib.sha256(raw).hexdigest() if raw else None
+            blob = b""
+            for event in eligible:
+                encoded = _encode_validated_event(event)
+                stored = existing.get(event["event_id"])
+                if stored is not None:
+                    if stored != encoded:
+                        _error("exported event collides with stored bytes", code="TELEMETRY_EXPORT_COLLISION", path=path, event_id=event["event_id"])
+                    continue
+                blob += encoded
+                existing[event["event_id"]] = encoded
+                new_ids.append(event["event_id"])
+            if not blob:
+                return {"status": "ok", "command": "export", "no_op": True, "exported_event_ids": []}
+            if _handle_identity(fd, target, path=path) != identity:
+                _error("export target identity changed before append", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+            written = os.write(fd, blob)
+            if written != len(blob):
+                os.fsync(fd)
+                _error("export append did not write the complete batch", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+            os.fsync(fd)
+            if _handle_identity(fd, target, path=path) != identity:
+                _error("export target identity changed after append", code="TELEMETRY_HISTORY_CORRUPT", path=path)
+        finally:
+            os.close(fd)
+
+    receipt = _new_event(
+        task_id,
+        "benchmark_exported",
+        {
+            "export_batch_id": str(uuid.uuid4()),
+            "target_path": GENERAL_EXPORT_TARGET,
+            "prior_hash": prior_hash,
+            "exported_event_ids": sorted(new_ids),
+        },
+        parent_task_id=parent_task_id,
+        delegation_id=delegation_id,
+    )
+    stored = _append_lifecycle_event(root, events, receipt)
+    return {
+        "status": "ok",
+        "command": "export",
+        "no_op": False,
+        "exported_event_ids": sorted(new_ids),
+        "task_id": stored["task_id"],
+        "event_id": stored["event_id"],
+    }
+
+
 def _cli_policy() -> ProducerPolicy:
     return ProducerPolicy(
         source_classes=("runtime",),
@@ -1942,7 +2064,7 @@ def _parser() -> argparse.ArgumentParser:
 
     export = commands.add_parser("export")
     export.add_argument("--task-id", required=True)
-    export.add_argument("--target", required=True, choices=(DEFECT_PROJECTION_TARGET,))
+    export.add_argument("--target", required=True, choices=(DEFECT_PROJECTION_TARGET, GENERAL_EXPORT_TARGET))
 
     commands.add_parser("validate")
     return parser
@@ -1954,6 +2076,8 @@ def _execute_command(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "validate":
         return {"status": "ok", "command": "validate", "event_count": len(existing)}
     if args.command == "export":
+        if args.target == GENERAL_EXPORT_TARGET:
+            return export_event_corpus(root, args.task_id, target_path=args.target)
         return export_defect_projection(root, args.task_id, target_path=args.target)
     if args.command == "start":
         task_id = str(uuid.uuid4())

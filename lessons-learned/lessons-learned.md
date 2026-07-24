@@ -4,6 +4,18 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-24 — An export receipt is a lifecycle event, so it cannot be owned by a task that has already finished
+
+- **What happened**: B4's general-export tests seeded a task with `start → defect → finish`, then called `export --task-id <that task>`. The export appended its `benchmark_exported` receipt to the finished task and failed with `TELEMETRY_LIFECYCLE_INVALID` — an original event cannot follow `task_finished`. The shipped `export_defect_projection` tests never hit this because they export a still-open task (no `finish`). Fixed by owning the receipt with a separate still-open exporter task while the finished task's events are still exported corpus-wide.
+- **Root cause**: the export receipt is itself a lifecycle event for its `task_id`, so the owning task must still be open at export time; "which task owns the receipt" is not free — a terminal task rejects further appends.
+- **Rule**: when an operation emits a lifecycle event as a side effect (export receipt, and similar), attribute it to a task that is still open at emit time; if the data being acted on belongs to a finished task, use a distinct open task for the receipt. Test both an open-task export and a finished-data + open-exporter export so the constraint is pinned.
+
+### 2026-07-24 — Two export functions now share a ~90-line I/O-safety block; a third target would triple it
+
+- **What happened**: B4's `export_event_corpus` is a near-verbatim mirror of `export_defect_projection` — the open/identity-recheck/collision/write/fsync/receipt block is identical, differing only in the target constant, the encode source (full event vs 13-field projection), and the existing-target parser (`_split_history` vs `_parse_projection_bytes`). Code review APPROVED it as a deliberate, proven mirror but flagged the duplication.
+- **Root cause**: the durable append-with-safety protocol is a real shared concept that has not been factored out; each new export target re-clones it, which is safe now but multiplies the surface that must stay in lock-step (identity rechecks, `O_NOFOLLOW`, collision-before-append).
+- **Rule**: before adding a THIRD durable export target, extract a parameterized `_append_export_batch(target, encode_fn, parse_fn, records)` so the byte-exact safety semantics live once. Deferred here deliberately (D-2 forbade touching the shipped defect export), but the next export target should carry the refactor, not a third copy.
+
 ### 2026-07-24 — A "no dropped X" rule can be satisfied for the co-present case while silently dropping the solely-absent case
 
 - **What happened**: subset #5's per-reviewer view had to "include unknown/unlinked defects rather than dropping them" (telemetry-v3 T3.12). The first implementation routed a defect into `unlinked_defects` only when `approving_reviewers` was *empty*, and routed each unknown approver id into `unknown_reviewers`. A defect whose approvers were ALL unknown (non-empty list, no matching `review_result`) therefore reached neither list — its `defect_id` vanished from every output. The mixed case (one known + one unknown approver) passed only incidentally, because the known co-approver retained the defect. Code review caught it; the fix tracks a per-defect `matched_known` flag so a defect that links to no known reviewer — empty OR all-unknown — always lands in `unlinked_defects`, while the mixed case stays linked.
