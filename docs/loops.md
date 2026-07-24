@@ -4,7 +4,7 @@ dat-kit organizes work along **two orthogonal axes**. This doc explains the mode
 
 ## The two axes
 
-**Domain axis — *what kind of work.*** Declared by a Domain Pack under `domains/<domain-id>/` — the six-slot contract: `workflow.md`, `ground-truth.md`, `gates.md`, `reviewers.md`, `deliverables/`, `loop-profile.md` (`docs/contracts/domain-pack.md`). Each pack is bound by a registry descriptor whose generated trigger loads it. Today: `software-dev` (trigger `build-loop`) and `knowledge-work` (trigger `knowledge-work`).
+**Domain axis — *what kind of work.*** Declared by a Domain Pack under `domains/<domain-id>/` — the six-slot contract: `workflow.md`, `ground-truth.md`, `gates.md`, `reviewers.md`, `deliverables/`, `loop-profile.md` (`docs/contracts/domain-pack.md`). Each pack is bound by a registry descriptor whose generated trigger loads it. Today: `software-dev` (trigger `code-loop`) and `knowledge-work` (trigger `knowledge-work`).
 
 **Loop axis — *how a run is triggered and ended.*** These are Anthropic's four loop types:
 

@@ -1,8 +1,9 @@
 """software-dev Domain Pack cutover checks (Phase 4c).
 
-Before/after behavioral pins for the six build-loop paths (normal, autopilot,
+Before/after behavioral pins for the six code-loop paths (normal, autopilot,
 delegated, security, recovery, harvest): the policy that lived in the
-pre-cutover skills/build-loop/SKILL.md must survive on the composed surface —
+pre-cutover skills/build-loop/SKILL.md (renamed to code-loop in v8) must survive
+on the composed surface —
 engine/work-loop/ENGINE.md for loop mechanics, domains/software-dev/* for
 software policy — and the rendered thin trigger must actually resolve the
 files it names. Also pins plan §16 rules 1–4 in reviewers.md (the ownership
@@ -21,7 +22,7 @@ from registry import Catalog  # noqa: E402
 
 PACK = ROOT / "domains" / "software-dev"
 ENGINE = (ROOT / "engine/work-loop/ENGINE.md").read_text(encoding="utf-8")
-TRIGGER = (ROOT / "skills/build-loop/SKILL.md").read_text(encoding="utf-8")
+TRIGGER = (ROOT / "skills/code-loop/SKILL.md").read_text(encoding="utf-8")
 
 
 def slot(name: str) -> str:
@@ -60,7 +61,7 @@ def test_trigger_is_generated_and_resolves_every_named_file():
 def test_loop_profile_migrated_wholesale_and_old_location_is_gone():
     assert not (ROOT / "skills/build-loop/loop-profile.md").exists()
     profile = slot("loop-profile.md")
-    assert "**Goal.** No build-loop task safely unlocks Time or Proactive yet" in profile
+    assert "**Goal.** No code-loop task safely unlocks Time or Proactive yet" in profile
     assert "| Build a phase from spec (`build phase N`) | **Goal** |" in profile
 
 

@@ -1,3 +1,4 @@
+{"id":"trg-codeloop-01","prompt":"run the code loop for phase 2","expect_skill":"code-loop","match":"run the code loop"}
 {"id":"trg-buildloop-01","prompt":"run the build loop for phase 2","expect_skill":"build-loop","match":"run the build loop"}
 {"id":"trg-diag-01","prompt":"help me find the root cause of this flaky test","expect_skill":"diagnosing-bugs","match":"find the root cause"}
 {"id":"trg-arch-01","prompt":"find refactoring opportunities in this module","expect_skill":"improve-codebase-architecture","match":"find refactoring opportunities"}

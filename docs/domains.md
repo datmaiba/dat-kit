@@ -4,7 +4,7 @@ The domains dat-kit currently supports. A **Domain Pack** teaches the working lo
 
 | Domain | Pack location | Loop ceiling | Notes |
 |---|---|---|---|
-| **software-dev** | `domains/software-dev/` (six slots; generated trigger at `skills/build-loop/SKILL.md`) | Goal | The flagship. The `build-loop` trigger loads this pack + the work-loop engine; its reviewer chain (`qa-agent` → `code-reviewer` → `security-reviewer`) is the gate. |
+| **software-dev** | `domains/software-dev/` (six slots; generated trigger at `skills/code-loop/SKILL.md`) | Goal | The flagship. The `code-loop` trigger (alias: `build-loop`) loads this pack + the work-loop engine; its reviewer chain (`qa-agent` → `code-reviewer` → `security-reviewer`) is the gate. |
 | **knowledge-work** | `domains/knowledge-work/` (six slots; generated trigger at `skills/knowledge-work/SKILL.md`) | Goal (human-run) | First non-dev pack: research, writing, analysis. Load-bearing gate G2 (source–claim fidelity) is human-run, so no automation. |
 
 ## How a domain plugs in

@@ -1,25 +1,19 @@
 ---
 name: build-loop
 description: >-
-  The self-questioning build loop for spec-driven software projects. Invoke on any request like "build phase N", "run the build loop", "continue the project", "preflight", "autopilot", or "delegated build", or any feature work in a repo that has a spec/ directory. Loads the work-loop engine plus the software-dev Domain Pack (six slots: workflow, ground truth, gates, reviewers, deliverables, loop profile) and resumes an interrupted build from the newest handoffs/ file.
+  Compatibility alias — the build-loop trigger was renamed to code-loop. Invoke on "run the build loop" or any legacy build-loop phrasing; this stub routes to the code-loop skill, which loads the work-loop engine and the software-dev Domain Pack (six slots: workflow, ground truth, gates, reviewers, deliverables, loop profile). Kept for at least one minor for muscle memory and existing plugin references.
 ---
-<!-- GENERATED FROM REGISTRY — DO NOT EDIT; source_revision=domains/1 -->
+<!-- Hand-authored compatibility alias. NOT a registry projection — do not add the generated marker. -->
 
-# build-loop
+# build-loop (compatibility alias)
 
-Resolve domain `software-dev` through the Registry Catalog.
-Load engine `work-loop/1` and pack `domains/software-dev`.
-Load the six semantic slots in this exact order:
+`build-loop` was renamed to `code-loop`. This stub exists only so the old name
+keeps working for at least one minor release.
 
-1. `domains/software-dev/workflow.md`
-1. `domains/software-dev/ground-truth.md`
-1. `domains/software-dev/gates.md`
-1. `domains/software-dev/reviewers.md`
-1. `domains/software-dev/deliverables/`
-1. `domains/software-dev/loop-profile.md`
+Do exactly what `code-loop` does: resolve domain `software-dev` through the
+Registry Catalog, load engine `work-loop/1` and pack `domains/software-dev`, and
+run that pack's own deliverable, gate, and reviewer routing. Load the pack's six
+semantic slots in its declared order. This alias carries no independent policy of
+its own.
 
-Registered aliases: `build phase`, `run build loop`.
-Fail closed with `DOMAIN_SLOT_MISSING` or `DOMAIN_ENGINE_REVISION_MISMATCH`
-before execution when the Catalog, engine, or any slot is unavailable.
-Use only the loaded pack's deliverable, gate, and reviewer routing; this
-trigger contains no independent domain policy.
+Canonical trigger: `skills/code-loop/SKILL.md`.

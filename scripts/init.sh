@@ -175,4 +175,4 @@ echo "Done: $CREATED created, $SKIPPED skipped (existing files are never overwri
 echo "Next steps:"
 echo "  1. Fill spec/ in order: 00-vision → 01-features → 02-architecture → 03-db-schema → 04-build-phases"
 echo "  2. Review AGENTS.md and docs/agent-working-rules.md (profile: $PROFILE) — adjust gate commands to your compose services"
-echo "  3. Start building: open Claude Code or Codex and run the dat-kit build-loop (preflight first for autopilot)"
+echo "  3. Start building: open Claude Code or Codex and run the dat-kit code-loop (preflight first for autopilot)"

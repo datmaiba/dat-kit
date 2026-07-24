@@ -1,6 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: Surface architectural friction in a codebase and propose deepening refactors — turning shallow modules into deep ones for testability and AI-navigability. Invoke when the user wants to improve architecture, find refactoring opportunities, consolidate tightly-coupled modules, reduce a "ball of mud", or make code easier to test and for an agent to navigate. Also the handoff target when diagnosing-bugs finds a bug that can't be locked down because no clean test seam exists. Explores with a subagent, presents ranked candidates using a fixed depth/seam vocabulary, then grills the chosen one into a concrete design — recording new terms in CONTEXT.md and rejected directions in spec/08-decisions.md. Not for greenfield design (use project-init) or feature work (use build-loop).
+description: Surface architectural friction in a codebase and propose deepening refactors — turning shallow modules into deep ones for testability and AI-navigability. Invoke when the user wants to improve architecture, find refactoring opportunities, consolidate tightly-coupled modules, reduce a "ball of mud", or make code easier to test and for an agent to navigate. Also the handoff target when diagnosing-bugs finds a bug that can't be locked down because no clean test seam exists. Explores with a subagent, presents ranked candidates using a fixed depth/seam vocabulary, then grills the chosen one into a concrete design — recording new terms in CONTEXT.md and rejected directions in spec/08-decisions.md. Not for greenfield design (use project-init) or feature work (use code-loop).
 ---
 
 # improve-codebase-architecture — make shallow modules deep
@@ -85,7 +85,7 @@ seam, which tests survive. Side effects happen inline as decisions crystallise:
 ### 4. Hand off to build
 
 The output of this skill is a *design*, not a diff. Once a candidate is grilled
-into a concrete plan, hand it to **build-loop** to implement behind its plan gate
+into a concrete plan, hand it to **code-loop** to implement behind its plan gate
 and reviewer agents — the builder never grades its own refactor. For a large
 multi-module deepening, write a **handoff** first so the refactor survives a fresh
 session.

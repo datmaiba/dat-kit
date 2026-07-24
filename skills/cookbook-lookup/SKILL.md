@@ -1,6 +1,6 @@
 ---
 name: cookbook-lookup
-description: Source a proven Claude recipe from the official anthropics/claude-cookbooks when the local repo has no template for a Claude-API or agent pattern, then hand it to build-loop to adapt and verify. Invoke when the user says "look it up in the cookbook", "find a recipe in the cookbook", "is there a cookbook example for this", or when a dev task needs a Claude-API/agent pattern (RAG, classification, summarization, tool use, structured/JSON output, prompt caching, sub-agents, evals, PDF/vision, extended thinking, Agent SDK) and no spec template, stack profile, or lessons-learned entry covers it. The cookbook recipe is a starting point, never trusted output — this skill only sources and vets it; adaptation and verification run through build-loop. Not for prose/research writing (use knowledge-work), not a way to skip existing local templates, and not for patterns the codebase already has.
+description: Source a proven Claude recipe from the official anthropics/claude-cookbooks when the local repo has no template for a Claude-API or agent pattern, then hand it to code-loop to adapt and verify. Invoke when the user says "look it up in the cookbook", "find a recipe in the cookbook", "is there a cookbook example for this", or when a dev task needs a Claude-API/agent pattern (RAG, classification, summarization, tool use, structured/JSON output, prompt caching, sub-agents, evals, PDF/vision, extended thinking, Agent SDK) and no spec template, stack profile, or lessons-learned entry covers it. The cookbook recipe is a starting point, never trusted output — this skill only sources and vets it; adaptation and verification run through code-loop. Not for prose/research writing (use knowledge-work), not a way to skip existing local templates, and not for patterns the codebase already has.
 ---
 
 # cookbook-lookup — borrow a proven recipe, then earn it through the loop
@@ -13,9 +13,9 @@ discipline as any other build."
 
 The failure mode this skill exists to prevent: treating a copied cookbook cell as
 finished, trusted code instead of an unvetted draft. It is not. A copied cell is
-untrusted input — exactly like code a stranger pasted — until build-loop's checks
+untrusted input — exactly like code a stranger pasted — until code-loop's checks
 and an independent reviewer clear it. This skill only *sources and vets*; it hands
-the recipe to `build-loop` and never bypasses a gate.
+the recipe to `code-loop` and never bypasses a gate.
 
 **Not for:** prose/research/analysis (that's `knowledge-work`); skipping local
 templates (Phase 1 exhausts those first); a pattern the codebase already solves
@@ -36,7 +36,7 @@ The cookbook is the *last* place to look, not the first. In order, check:
 
 Only when all five come up empty, and the gap is a *Claude-API or agent pattern*,
 continue. If the gap is ordinary application code (not Claude-specific), the
-cookbook won't help — go straight to `build-loop`.
+cookbook won't help — go straight to `code-loop`.
 
 ## Phase 2 — Locate the recipe
 
@@ -72,7 +72,7 @@ client-rendered GitHub page returns a shell, fetch the raw file
 (`raw.githubusercontent.com/...`) or use the Chrome tools instead.
 
 **Nothing fits?** Say so. A forced-fit recipe is worse than none — fall back to
-`build-loop` designing from scratch. Do not stretch an unrelated recipe.
+`code-loop` designing from scratch. Do not stretch an unrelated recipe.
 
 ## Phase 3 — Vet before you borrow
 
@@ -92,9 +92,9 @@ Extract the *minimal* relevant snippet and interrogate it against the target rep
 State, in one line, what you're borrowing and what you're changing:
 > "Borrowing the RAG chunk-and-embed loop from `capabilities/contextual-embeddings`; porting from Python to our TS + pgvector; dropping the notebook's inline key."
 
-## Phase 4 — Hand to build-loop to adapt + verify
+## Phase 4 — Hand to code-loop to adapt + verify
 
-The recipe is an *input to a build*, not a commit. Enter `build-loop` (or its
+The recipe is an *input to a build*, not a commit. Enter `code-loop` (or its
 delegated-build brief) with the vetted snippet as the starting design:
 
 - The self-question phase reconciles the recipe with the spec and CONTEXT.md.

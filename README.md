@@ -33,18 +33,18 @@ Live host smokes (fresh-session trigger invocation + pack read) are maintainer-r
 
 | Component | What it does |
 |---|---|
-| `skills/build-loop` | Generated trigger for the **software-dev** pack + engine. Self-questioning build loop: context load → self-question against spec → plan → approval gate → build → verified checks → independent review → lessons harvest. Supports one-shot PREFLIGHT + autopilot + delegated builds. |
+| `skills/code-loop` | Generated trigger for the **software-dev** pack + engine. Self-questioning code loop: context load → self-question against spec → plan → approval gate → build → verified checks → independent review → lessons harvest. Supports one-shot PREFLIGHT + autopilot + delegated builds. |
 | `skills/knowledge-work` | Generated trigger for the **knowledge-work** pack — research, writing, analysis. Primary-source grounding, citation/fidelity/reliability/currency/coverage/consistency gates, independent fact-check. Capped at the Goal loop (its load-bearing gate needs a human to close). |
 | `skills/domain-builder` | Interview a real practitioner and encode *their* discipline as a six-slot Domain Pack, registered through the registry. Enforces gate-validity (real worked cases + a "gamed by X" line + sign-off) and caps interview-authored domains at Turn/Goal. |
 | `skills/project-init` | Scaffold a new project (or adopt an existing one): canonical `AGENTS.md`, pointer-only runtime adapters, spec skeleton `00→08`, shared agent docs, `CONTEXT.md` glossary, stack profile. Brownfield is preflight-gated and fail-closed. |
-| `skills/handoff` | Compact a session into a resumable handoff document in `handoffs/` — survives across sessions and machines; build-loop recovery reads it first; doubles as the delegated-build builder brief. |
+| `skills/handoff` | Compact a session into a resumable handoff document in `handoffs/` — survives across sessions and machines; code-loop recovery reads it first; doubles as the delegated-build builder brief. |
 | `skills/scorecard` | Benchmark every task: fixed 1-5 complexity rubric, estimated manual hours (labeled), real wall time and gates — appended to `benchmarks/scorecard.jsonl` without rewriting history. |
-| `skills/diagnosing-bugs` | Disciplined diagnosis loop for hard bugs and perf regressions — feedback-loop-first, ranked falsifiable hypotheses, fix behind a regression test. The backward counterpart to build-loop. |
-| `skills/improve-codebase-architecture` | Find "deepening" refactors (shallow → deep modules) for testability and AI-navigability, then hand the design to build-loop. |
-| `skills/git-worktrees` | Isolated workspace before a feature or build-loop plan: native worktree tools preferred, git fallback, clean-baseline check. |
+| `skills/diagnosing-bugs` | Disciplined diagnosis loop for hard bugs and perf regressions — feedback-loop-first, ranked falsifiable hypotheses, fix behind a regression test. The backward counterpart to code-loop. |
+| `skills/improve-codebase-architecture` | Find "deepening" refactors (shallow → deep modules) for testability and AI-navigability, then hand the design to code-loop. |
+| `skills/git-worktrees` | Isolated workspace before a feature or code-loop plan: native worktree tools preferred, git fallback, clean-baseline check. |
 | `skills/fable-mode` / `skills/fable-pro` | Careful-working discipline with three effort levels — for repos *without* the dat-kit scaffold; `fable-pro` adapts it to any profession. |
 | `skills/guardian-builder` | Generate a project-specific "guardian" skill: guardrails, naming rules, plan gate, lessons integration for any repo. |
-| `skills/cookbook-lookup` | Source a vetted recipe from [anthropics/claude-cookbooks](https://github.com/anthropics/claude-cookbooks) (MIT) when no local template covers a Claude-API/agent pattern; hand it to build-loop to adapt and verify. |
+| `skills/cookbook-lookup` | Source a vetted recipe from [anthropics/claude-cookbooks](https://github.com/anthropics/claude-cookbooks) (MIT) when no local template covers a Claude-API/agent pattern; hand it to code-loop to adapt and verify. |
 | `skills/terse-mode` | Output-compression toggle (`lite`/`full`) — compresses prose only, never evidence, gate results, error strings, approval stops, or reviewer verdicts. |
 | `agents/` | Independent reviewers: `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — the builder never grades its own work. |
 | `docs/` | `loops.md` (Domain × Loop model + capability ladder), `domains.md` (domain registry), `model-selection.md` (subagent tier routing + consult escalation), `contracts/` (normative registry/pack/adapter/contract formats). |
@@ -75,7 +75,7 @@ See [`adapters/codex/ADAPTER.md`](adapters/codex/ADAPTER.md) for host-specific s
 
 ```
 /dat-kit:project-init my-app        # scaffold: AGENTS.md (dat-kit 2.0) + pointer adapters + docs/agent-* + spec/ + stack profile
-/dat-kit:build-loop phase 0         # run the loop: self-question → plan → (approve) → build → verify
+/dat-kit:code-loop phase 0         # run the loop: self-question → plan → (approve) → build → verify
 ```
 
 For an existing repository, `bash scripts/init.sh --here` first runs a read-only Python contract preflight. Competing policy, legacy files, unsafe links, and incompatible partial installs fail before mutation with a named diagnostic. A `dat-kit 1.16.0` project fails closed with `CONTRACT_MIGRATION_REQUIRED`; generate the deterministic, read-only plan first:

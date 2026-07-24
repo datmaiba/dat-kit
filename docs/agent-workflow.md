@@ -38,7 +38,7 @@ untouched until a separately approved R2/R3.
 
 ## Review
 
-Use the build-loop review order: plan audit, implementation, QA, code review,
+Use the code-loop review order: plan audit, implementation, QA, code review,
 security review when paths, permissions, public input, or external writes are
 touched, then regression QA. If independent agents are unavailable, perform a
 clearly disclosed fresh-eyes pass against the same charters.

@@ -79,7 +79,7 @@ jobs:
 
   # --- R1 addition: External Verification Receipt Gate (plan v2, phase R1) ---
   # This job produces machine-readable evidence and reports/summary.json so
-  # the QA step of the build loop can be satisfied by *reading* this job's
+  # the QA step of the code loop can be satisfied by *reading* this job's
   # result for the candidate commit SHA, instead of re-executing pytest /
   # validate.py inside an agent's context window. See docs/agent-workflow.md
   # "QA evidence intake" (added alongside this job) for the read-side of the

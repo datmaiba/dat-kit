@@ -4,7 +4,7 @@ Choose a model by **the cost of being wrong**, not by how tedious the work looks
 
 ## Host compatibility
 
-The routing policy is shared, but `agents/*.md` frontmatter and the model aliases below are Claude Code configuration. In Codex, use the same role charters with fresh subagents and let the active Codex model/configuration choose the tier; dat-kit does not claim an unverified Codex model-routing schema. The build-loop's reviewer fallback remains mandatory in both hosts.
+The routing policy is shared, but `agents/*.md` frontmatter and the model aliases below are Claude Code configuration. In Codex, use the same role charters with fresh subagents and let the active Codex model/configuration choose the tier; dat-kit does not claim an unverified Codex model-routing schema. The code-loop's reviewer fallback remains mandatory in both hosts.
 
 ## What dat-kit can actually set
 
@@ -13,7 +13,7 @@ An agent's `model:` frontmatter field (see `agents/*.md`) accepts the tier alias
 | Tier alias | Use for |
 |---|---|
 | `haiku` | Scouting, file-finding, read-and-list, mechanical bulk edits (rename across files, reformat) — independent, low-risk, high-volume steps. |
-| `sonnet` | Implementation inside a clearly bounded file set, following an established pattern — most `build-loop` phase work. |
+| `sonnet` | Implementation inside a clearly bounded file set, following an established pattern — most `code-loop` phase work. |
 | `opus` | Judge/verify roles: adversarial QA, code review, security audit, the final go/no-go on a phase. Also implementation that requires real architectural judgment, not just pattern-following. |
 | `fable` | The top tier. Don't pin it in a reusable agent file — availability varies by plan and it's the most expensive; when one dispatch genuinely needs judgment beyond `opus`, raise that dispatch with the per-invocation `model` parameter instead. |
 | `inherit` (default when unset) | Anything without a clear reason to diverge — the subagent runs at whatever tier the main session is on. Only override when a tier mismatch is a known, named risk. |
@@ -28,7 +28,7 @@ An agent's `model:` frontmatter field (see `agents/*.md`) accepts the tier alias
 ## Where this applies in dat-kit
 
 - **`agents/plan-reviewer.md`, `agents/qa-agent.md`, `agents/code-reviewer.md`, `agents/security-reviewer.md`** — all judge/verify/audit roles per the table above, so they set `model: opus`. Known trade-off: frontmatter pins, it doesn't set a floor — a main session on a higher tier (e.g. Fable) runs these reviewers *below* itself. That's accepted for predictable cost and availability; for a review that genuinely warrants the session's tier, raise that one dispatch with the per-invocation `model` parameter.
-- **`build-loop`'s delegated-build mode** — the orchestrator dispatches a fresh builder subagent per task. Apply the same table when choosing that dispatch's model: a task that's pure scaffolding from a clear brief can run `sonnet`; a task requiring real design judgment can run `opus`. The two-stage review (spec compliance, then `code-reviewer`) still runs regardless of which tier built the code — it is what catches a wrong tier choice.
+- **`code-loop`'s delegated-build mode** — the orchestrator dispatches a fresh builder subagent per task. Apply the same table when choosing that dispatch's model: a task that's pure scaffolding from a clear brief can run `sonnet`; a task requiring real design judgment can run `opus`. The two-stage review (spec compliance, then `code-reviewer`) still runs regardless of which tier built the code — it is what catches a wrong tier choice.
 - If the user is running the main session below the tier a step actually needs (e.g. auditing security on Sonnet), say so and suggest they raise it with `/model` — don't silently degrade the audit, and don't silently second-guess their choice either.
 
 ## Escalation — the consult dispatch

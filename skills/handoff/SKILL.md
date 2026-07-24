@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Compact the current working session into a handoff document saved in the repo, so a fresh session (or a delegated builder subagent) can continue the work with zero re-discovery. Invoke when the user says "handoff", "write a handoff", "hand this off", when a build-loop session approaches the context ceiling mid-phase, or before deliberately stopping work that another session must resume. The document is written to handoffs/ in the project and is what build-loop's interrupted-session recovery reads first. Unlike /compact, the handoff survives across sessions, machines, and agents because it lives in the repo.
+description: Compact the current working session into a handoff document saved in the repo, so a fresh session (or a delegated builder subagent) can continue the work with zero re-discovery. Invoke when the user says "handoff", "write a handoff", "hand this off", when a code-loop session approaches the context ceiling mid-phase, or before deliberately stopping work that another session must resume. The document is written to handoffs/ in the project and is what code-loop's interrupted-session recovery reads first. Unlike /compact, the handoff survives across sessions, machines, and agents because it lives in the repo.
 ---
 
 # handoff — compact a session into a resumable document
@@ -13,7 +13,7 @@ could someone with only this file + the repo pick up in under 5 minutes?
 ## When to write one
 
 - The user asks for a handoff.
-- A build-loop phase is running long and the context ceiling is near: finish
+- A code-loop phase is running long and the context ceiling is near: finish
   the current commit-sized chunk, write the handoff, tell the user to restart.
 - Work is deliberately paused mid-phase (end of day, blocked on the user).
 
@@ -40,7 +40,7 @@ What this work item is, and the phase/spec section it belongs to.
 Agent runtime and model, if known (for example: `codex / GPT-5`).
 
 ## Workflow
-Working discipline used (for example: `build-loop`, `standalone`, or the Domain Pack name).
+Working discipline used (for example: `code-loop`, `standalone`, or the Domain Pack name).
 
 ## Canonical contract
 Exact revision from root `AGENTS.md` (or `none` when the project has no dat-kit contract).

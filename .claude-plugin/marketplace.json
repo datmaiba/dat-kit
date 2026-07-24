@@ -9,7 +9,7 @@
       "name": "dat-kit",
       "source": "./",
       "displayName": "dat-kit",
-      "description": "Spec-driven development toolkit: Fable-style discipline, self-questioning build loop with subagent review, stack-profile scaffolding, lessons-learned system. Extensible to non-dev work via Domain Packs.",
+      "description": "Spec-driven development toolkit: Fable-style discipline, self-questioning code loop with subagent review, stack-profile scaffolding, lessons-learned system. Extensible to non-dev work via Domain Packs.",
       "version": "2.0.0",
       "author": {
         "name": "Dat Mai Ba"

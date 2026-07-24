@@ -1,11 +1,11 @@
 ---
 name: diagnosing-bugs
-description: A disciplined diagnosis loop for hard bugs and performance regressions — the counterpart to build-loop's forward motion. Invoke when the user says "diagnose", "debug this", "why is this broken/slow", "find the root cause", or reports something throwing, failing, flaky, or regressed. Enforces feedback-loop-first debugging - build a tight red/green signal BEFORE theorising, reproduce and minimise, generate ranked falsifiable hypotheses, instrument one variable at a time, fix behind a regression test, then post-mortem into lessons-learned. Use standalone or when a build-loop phase surfaces a defect its checks can't localise. Not for trivial one-line typos with an obvious cause.
+description: A disciplined diagnosis loop for hard bugs and performance regressions — the counterpart to code-loop's forward motion. Invoke when the user says "diagnose", "debug this", "why is this broken/slow", "find the root cause", or reports something throwing, failing, flaky, or regressed. Enforces feedback-loop-first debugging - build a tight red/green signal BEFORE theorising, reproduce and minimise, generate ranked falsifiable hypotheses, instrument one variable at a time, fix behind a regression test, then post-mortem into lessons-learned. Use standalone or when a code-loop phase surfaces a defect its checks can't localise. Not for trivial one-line typos with an obvious cause.
 ---
 
 # diagnosing-bugs — find the root cause, not a plausible story
 
-build-loop moves forward from a spec. This skill moves *backward* from a symptom
+code-loop moves forward from a spec. This skill moves *backward* from a symptom
 to its cause, with the same discipline: **evidence over claims**. The failure
 mode this skill exists to prevent is reading code to build a theory before you
 can even reproduce the bug. Don't.
@@ -116,7 +116,7 @@ Before declaring done:
 - [ ] The winning hypothesis is stated in the commit / PR message.
 
 Then ask: **what would have prevented this bug?** Append the answer as a
-lessons-learned entry (the same file build-loop harvests into) so a future session
+lessons-learned entry (the same file code-loop harvests into) so a future session
 reads it first. If the answer is architectural — no good test seam, tangled
 callers, hidden coupling — hand the specifics to the `improve-codebase-architecture`
 skill. Make that recommendation *after* the fix lands: you know more now than when

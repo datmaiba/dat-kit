@@ -2,7 +2,7 @@
 name: domain-builder
 description: >-
   Interview a real practitioner and encode THEIR working discipline as a dat-kit
-  Domain Pack — the way build-loop encodes software-dev. Invoke when the user says
+  Domain Pack — the way code-loop encodes software-dev. Invoke when the user says
   "add a domain", "create a domain pack", "make dat-kit work for <profession>",
   "encode my workflow", "build a work-type", or wants dat-kit to support a field
   beyond coding (accounting, law, design, research, ops, teaching, etc.). Authors

@@ -10,8 +10,8 @@ description: >-
   line to the project's benchmarks/scorecard.jsonl through the append-only
   scripts/scorecard.py helper. Exact Claude session totals are attached only
   when one session maps to one task; ambiguous or unsupported attribution stays
-  null with a reason code. The build-loop skill calls this automatically at the
-  end of every phase; use it standalone for one-off tasks outside the build loop.
+  null with a reason code. The code-loop skill calls this automatically at the
+  end of every phase; use it standalone for one-off tasks outside the code loop.
 ---
 
 # scorecard — score a completed task
@@ -48,7 +48,7 @@ Half-points are allowed (e.g. 3.5) when genuinely between levels.
 - `model` — which model did the work, if known.
 - `schema_version` — always `2` for new records.
 - `agent_runtime` — `claude-code`, `codex`, `cursor`, or `other`; use the enum from `scripts/contract_check.py`.
-- `workflow` — `build-loop`, `standalone`, or a named Domain Pack; identifies the working discipline used.
+- `workflow` — `code-loop`, `standalone`, or a named Domain Pack; identifies the working discipline used.
 - `canonical_contract_revision` — exact root `AGENTS.md` revision; use `none` only when no dat-kit contract exists.
 - `git_state` — `branch`, `head`, and `dirty`; Git values may be `null` only outside a Git repository.
 
@@ -82,7 +82,7 @@ helper records `tokens: null` with `reason: unsupported_provider`.
 Example line:
 
 ```json
-{"schema_version":2,"ts":"2026-07-12T15:04:00+07:00","date":"2026-07-12","task":"blog phase 1 — data layer","complexity":4,"notes":"migrations + repos + DTOs across api/, seeders","est_manual_hours":6,"actual_wall_minutes":42,"gates":"pest 18/18 ✓, pint ✓","tokens":null,"model":"sonnet-5","agent_runtime":"codex","workflow":"build-loop","canonical_contract_revision":"dat-kit 1.16.0","git_state":{"branch":"main","head":"abc123","dirty":false}}
+{"schema_version":2,"ts":"2026-07-12T15:04:00+07:00","date":"2026-07-12","task":"blog phase 1 — data layer","complexity":4,"notes":"migrations + repos + DTOs across api/, seeders","est_manual_hours":6,"actual_wall_minutes":42,"gates":"pest 18/18 ✓, pint ✓","tokens":null,"model":"sonnet-5","agent_runtime":"codex","workflow":"code-loop","canonical_contract_revision":"dat-kit 1.16.0","git_state":{"branch":"main","head":"abc123","dirty":false}}
 ```
 
 ## What NOT to do

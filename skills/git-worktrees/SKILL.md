@@ -1,6 +1,6 @@
 ---
 name: git-worktrees
-description: Set up an isolated git workspace before feature work or executing a build-loop plan, so changes never touch the branch you're standing on. Invoke when the user wants to work on a feature in isolation, run multiple branches or agents in parallel, try something risky without disturbing the current checkout, or says "worktree", "isolate this", "new branch in its own folder". Detects existing isolation first, prefers the harness's native worktree tool, falls back to `git worktree` only when none exists, verifies the worktree dir is gitignored, runs project setup, and confirms a clean test baseline before work starts. Not needed when you're already in a linked worktree or the user explicitly wants to work in place.
+description: Set up an isolated git workspace before feature work or executing a code-loop plan, so changes never touch the branch you're standing on. Invoke when the user wants to work on a feature in isolation, run multiple branches or agents in parallel, try something risky without disturbing the current checkout, or says "worktree", "isolate this", "new branch in its own folder". Detects existing isolation first, prefers the harness's native worktree tool, falls back to `git worktree` only when none exists, verifies the worktree dir is gitignored, runs project setup, and confirms a clean test baseline before work starts. Not needed when you're already in a linked worktree or the user explicitly wants to work in place.
 ---
 
 # git-worktrees — an isolated workspace before you touch anything
@@ -80,7 +80,7 @@ Worktree ready at <full-path>, branch <name>
 Baseline green (<N> tests, 0 failures)
 ```
 
-Now hand off to build-loop (or start the feature). At the end, use build-loop's
+Now hand off to code-loop (or start the feature). At the end, use code-loop's
 `finishing` flow or merge/PR the branch, then remove the worktree:
 `git worktree remove <path>`.
 

@@ -1,7 +1,7 @@
 {
   "name": "dat-kit",
   "version": "2.0.0",
-  "description": "A spec-driven development toolkit for Claude Code and Codex: Fable-style working discipline, a self-questioning build loop with independent review, project scaffolding, and lessons learned.",
+  "description": "A spec-driven development toolkit for Claude Code and Codex: Fable-style working discipline, a self-questioning code loop with independent review, project scaffolding, and lessons learned.",
   "author": {
     "name": "Dat Mai Ba",
     "url": "https://github.com/datmaiba"
@@ -13,7 +13,7 @@
     "spec-driven-development",
     "skills",
     "methodology",
-    "build-loop",
+    "code-loop",
     "scaffolding",
     "lessons-learned"
   ],
@@ -28,7 +28,7 @@
     "websiteURL": "https://github.com/datmaiba/dat-kit",
     "defaultPrompt": [
       "Use dat-kit to scaffold this project.",
-      "Use the dat-kit build loop for this feature."
+      "Use the dat-kit code loop for this feature."
     ]
   }
 }

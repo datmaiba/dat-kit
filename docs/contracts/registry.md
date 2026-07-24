@@ -272,7 +272,7 @@ or stale output fails byte-exact checking.
 The domain-trigger destination is `skills/<trigger.name>/SKILL.md` after
 `trigger.name` passes the stable-ID/path rules. `domain_id` is lookup identity,
 not an output directory: `software-dev` therefore renders to
-`skills/build-loop/SKILL.md`. Two descriptors resolving to one destination are
+`skills/code-loop/SKILL.md`. Two descriptors resolving to one destination are
 `PROJECTION_DESTINATION_COLLISION` and publish no projection.
 
 The manifest begins with exactly one provenance line:

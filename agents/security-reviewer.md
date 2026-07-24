@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Independent security review of a build-loop phase's diff. Runs AFTER code-reviewer approves, whenever the phase touches security-relevant surfaces (auth, user input, uploads, public endpoints). Read-only analysis; uses git only to scope the diff.
+description: Independent security review of a code-loop phase's diff. Runs AFTER code-reviewer approves, whenever the phase touches security-relevant surfaces (auth, user input, uploads, public endpoints). Read-only analysis; uses git only to scope the diff.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---

@@ -1,6 +1,6 @@
 ---
 name: plan-reviewer
-description: Reviews a build-loop phase plan against the project's spec BEFORE it is presented to the user (or executed in autopilot). Use after drafting any plan and before the approval gate. Read-only.
+description: Reviews a code-loop phase plan against the project's spec BEFORE it is presented to the user (or executed in autopilot). Use after drafting any plan and before the approval gate. Read-only.
 tools: Read, Grep, Glob
 model: opus
 ---

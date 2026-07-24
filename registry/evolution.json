@@ -237,6 +237,7 @@
       "component_id": "software-dev-domain",
       "path_globs": [
         "domains/software-dev/**",
+        "skills/code-loop/**",
         "skills/build-loop/**"
       ],
       "owner": "software-dev",

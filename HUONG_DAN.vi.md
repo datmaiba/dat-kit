@@ -41,7 +41,7 @@ Chi tiết theo host (setup, giới hạn, migration): xem [`adapters/codex/ADAP
 | Thành phần | Công dụng |
 |---|---|
 | `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): `AGENTS.md` canonical `dat-kit 2.0` + pointer adapters, skeleton `spec/00→08`, shared agent docs, lessons-learned + `CONTEXT.md` |
-| `/dat-kit:build-loop` | Trigger sinh từ registry, load pack `software-dev` + engine. Vòng lặp build: load context → tự chất vấn theo spec → plan → **chờ duyệt** → build → chạy gates → review độc lập → đúc kết bài học. Autopilot: PREFLIGHT gom mọi câu hỏi thành 1 lần duyệt duy nhất. Delegated-build: session chính làm orchestrator, mỗi task 1 builder subagent mới + review 2 bước |
+| `/dat-kit:code-loop` | Trigger sinh từ registry, load pack `software-dev` + engine. Vòng lặp build: load context → tự chất vấn theo spec → plan → **chờ duyệt** → build → chạy gates → review độc lập → đúc kết bài học. Autopilot: PREFLIGHT gom mọi câu hỏi thành 1 lần duyệt duy nhất. Delegated-build: session chính làm orchestrator, mỗi task 1 builder subagent mới + review 2 bước |
 | `/dat-kit:knowledge-work` | Trigger cho pack `knowledge-work` — research, viết, phân tích: bám nguồn primary, gate citation/fidelity, fact-check độc lập. Trần Goal loop (gate chủ lực cần người đóng) |
 | `/dat-kit:domain-builder` | Phỏng vấn người hành nghề thật và mã hoá kỷ luật của HỌ thành Domain Pack 6 slot, đăng ký qua registry. Bắt buộc gate-validity; trần Turn/Goal cho domain phỏng vấn |
 | `/dat-kit:handoff` | Nén session đang dở thành file bàn giao trong `handoffs/` — session mới (hoặc máy khác) đọc là tiếp tục được ngay |
@@ -59,7 +59,7 @@ Chi tiết theo host (setup, giới hạn, migration): xem [`adapters/codex/ADAP
 ```
 /dat-kit:project-init          → trả lời tên/mô tả/stack → có skeleton
 (điền spec/ theo thứ tự 00 → 04, quan trọng nhất là non-goals và build phases)
-/dat-kit:build-loop phase 0    → hoặc: "run build-loop autopilot from phase 0"
+/dat-kit:code-loop phase 0    → hoặc: "run code-loop autopilot from phase 0"
 ```
 
 **Repo sẵn có:** `bash scripts/init.sh --here` (preflight read-only, không bao giờ ghi đè file đang có), rồi `/dat-kit:guardian-builder` để sinh rules riêng từ convention thật của repo.

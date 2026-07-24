@@ -1,8 +1,8 @@
-# build-loop — loop profile (advisory)
+# code-loop — loop profile (advisory)
 
-> Advisory only. This documents which of dat-kit's four loops each build-loop task fits, and why. It drives nothing at runtime; the operative surface is the work-loop engine composed with this pack (loaded by the generated `build-loop` trigger). See `docs/loops.md` for the model.
+> Advisory only. This documents which of dat-kit's four loops each code-loop task fits, and why. It drives nothing at runtime; the operative surface is the work-loop engine composed with this pack (loaded by the generated `code-loop` trigger). See `docs/loops.md` for the model.
 >
-> Domain: **software-dev.** build-loop *is* this domain's working loop. Its gate is the independent-reviewer chain (`qa-agent` → PHASE DONE, `code-reviewer` → APPROVE, `security-reviewer` when relevant) — a measurable, validated, but **human-/reviewer-anchored** gate, which is why this domain tops out at **Goal**.
+> Domain: **software-dev.** code-loop *is* this domain's working loop. Its gate is the independent-reviewer chain (`qa-agent` → PHASE DONE, `code-reviewer` → APPROVE, `security-reviewer` when relevant) — a measurable, validated, but **human-/reviewer-anchored** gate, which is why this domain tops out at **Goal**.
 
 ## Per-task loops
 
@@ -17,9 +17,9 @@
 
 ## Loop ceiling for software-dev
 
-**Goal.** No build-loop task safely unlocks Time or Proactive yet:
+**Goal.** No code-loop task safely unlocks Time or Proactive yet:
 
 - The gate is real and measurable (tests/lint/build green + reviewer verdicts), but "APPROVE" is a reviewer judgement, not a fully mechanical signal.
-- A candidate *automatable* gate exists — running `scripts/validate.py` / the test suite on a schedule (a Time-based repo health check) — but that is repo maintenance, not feature building, and belongs to the deferred `runners/` work, not build-loop.
+- A candidate *automatable* gate exists — running `scripts/validate.py` / the test suite on a schedule (a Time-based repo health check) — but that is repo maintenance, not feature building, and belongs to the deferred `runners/` work, not code-loop.
 
 Building code is inherently user-initiated and judgement-gated. Keeping software-dev at Goal is the correct outcome of the capability ladder, not a limitation to fix.

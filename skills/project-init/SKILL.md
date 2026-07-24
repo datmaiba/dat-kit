@@ -8,7 +8,7 @@ description: >-
   structure in an existing repo ("adopt dat-kit here", "add a spec structure to this
   project"). Greenfield creates a fresh directory; brownfield (--here) only adds
   missing files and never overwrites. After scaffolding, guide the user to fill the
-  spec and hand off to the build-loop skill.
+  spec and hand off to the code-loop skill.
 ---
 
 # project-init — scaffold a spec-driven project
@@ -84,7 +84,7 @@ instead of the Claude-only environment-variable path mentioned above. The root
 `AGENTS.md` is the project entrypoint for every host; `CLAUDE.md`,
 `.claude/CLAUDE.md`, and `.cursorrules` remain pointer-only compatibility files.
 
-dat-kit is a methodology, not a package manager — it never installs anything for the user. But two optional, independent, local-first tools pair well with the build loop, and a fresh repo is the natural moment to point them out. **Detect, then suggest the exact command — never run a privileged install yourself.**
+dat-kit is a methodology, not a package manager — it never installs anything for the user. But two optional, independent, local-first tools pair well with the code loop, and a fresh repo is the natural moment to point them out. **Detect, then suggest the exact command — never run a privileged install yourself.**
 
 - **CodeGraph** (semantic code index → far fewer tool calls when exploring a repo). Two checks:
   - `command -v codegraph` missing → suggest it once with the one-time, per-machine install command (`npm install -g @colbymchenry/codegraph`; note a user npm prefix or `sudo` may be needed if the global dir isn't writable), then stop.
@@ -113,7 +113,7 @@ dat-kit is a methodology, not a package manager — it never installs anything f
   reports a security risk level, surface the exact level to the user and record
   it in the handoff or upgrade log rather than burying it in terminal output.
 - **caveman** (output compression → ~65% fewer *output* tokens, MIT). Optional. Orthogonal to dat-kit: dat-kit governs how the agent *works*, caveman governs how it *talks*. If the user wants the full ecosystem (multi-level incl. `wenyan`, `/caveman-commit`, `/caveman-review`, lifetime-savings badge), mention the installer once (`curl -fsSL https://raw.githubusercontent.com/JuliusBrussee/caveman/main/install.sh | bash`) and stop. **First point them at dat-kit's own `terse-mode` skill** — zero dependency, no second SessionStart hook, no statusline contention, and it already carves out evidence/gates/approval stops. Only suggest caveman if they want more than terse-mode gives. Whichever they pick, run one, not both.
-- **cavemem** (cross-agent memory, sibling of caveman). Optional and also orthogonal; mention only if the user raises cross-session memory. **Do NOT suggest `cavekit`** — it is a competing spec-driven build loop that overlaps dat-kit's own build-loop; pulling it in creates two rival disciplines in one repo.
+- **cavemem** (cross-agent memory, sibling of caveman). Optional and also orthogonal; mention only if the user raises cross-session memory. **Do NOT suggest `cavekit`** — it is a competing spec-driven build loop that overlaps dat-kit's own code-loop; pulling it in creates two rival disciplines in one repo.
 
 Rules: suggest each tool at most once per repo; if the user declines, or the tool is already set up, say nothing further. Never run `npm` / `pip` / `sudo` on the user's behalf — print the command and let them decide. These are independent projects with their own release cycles; dat-kit only points at them, it does not wrap or version them.
 
@@ -123,5 +123,5 @@ In every supported runtime, `AGENTS.md` is the entrypoint: it routes the agent
 to the canonical shared project contract and the rest of the generated project
 context.
 
-Tell the user: run the **build-loop** skill for phase 0 (or "autopilot from phase 0" — PREFLIGHT will batch every open decision into one questionnaire, recorded in `spec/08-decisions.md`). The scaffold is done when an agent opened in the project reads `AGENTS.md` and can recite the rules on "verify rules".
+Tell the user: run the **code-loop** skill for phase 0 (or "autopilot from phase 0" — PREFLIGHT will batch every open decision into one questionnaire, recorded in `spec/08-decisions.md`). The scaffold is done when an agent opened in the project reads `AGENTS.md` and can recite the rules on "verify rules".
 
