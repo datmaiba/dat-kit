@@ -257,13 +257,18 @@ states are inspect-only until an approved migration can classify every target.
 
 ## R7. Projection Module
 
-v2.0 has exactly two projections owned by `scripts/render.py`:
+v2.0 has these projections owned by `scripts/render.py`:
 
-1. `domain-trigger <domain-id>` from a domain descriptor; and
+1. `domain-trigger <domain-id>` from a domain descriptor;
 2. `scaffold-manifest` at `templates/common/.dat-kit-files.tsv` from the
-   Catalog FilePlan surface.
+   Catalog FilePlan surface; and
+3. the optional `task_loop` router at `skills/task-loop/SKILL.md` — one
+   generated trigger listing every non-excluded `active` pack, present only
+   when the `task_loop` envelope is registered (domain-pack contract DP2.1,
+   DP5). It carries no domain policy and routes through the selected pack's own
+   descriptor and slots.
 
-`all` renders both kinds; `--check` compares expected bytes and never rewrites.
+`all` renders every kind; `--check` compares expected bytes and never rewrites.
 Output is UTF-8, LF, terminal-newline, deterministic for the same Catalog, and
 contains `GENERATED FROM REGISTRY — DO NOT EDIT` plus source revision. Paths,
 IDs, aliases, and references validate before rendering. Missing, hand-edited,
@@ -368,6 +373,8 @@ enforces the subset mechanically in both directions.
 | `REGISTRY_DOMAIN_LIFECYCLE_INVALID` | Domain lifecycle outside the closed enum. |
 | `REGISTRY_TRIGGER_INVALID` | Trigger name/alias fails lexical rules. |
 | `REGISTRY_TRIGGER_ALIAS_COLLISION` | Normalized trigger aliases collide. |
+| `REGISTRY_TASK_LOOP_EXCLUSION_UNKNOWN` | `task_loop.excluded_domain_ids` names an unregistered domain. |
+| `REGISTRY_TASK_LOOP_EXCLUSION_DUPLICATE` | `task_loop.excluded_domain_ids` repeats a domain ID. |
 | `DOMAIN_SLOT_MISSING` | Active pack lacks one of the six slots. |
 | `REGISTRY_ADAPTER_ID_INVALID` / `REGISTRY_ADAPTER_ID_DUPLICATE` | Adapter ID fails stable-ID rule / collides. |
 | `REGISTRY_ADAPTER_LIFECYCLE_INVALID` | Adapter lifecycle outside enum, or below its artifacts' minimum. |

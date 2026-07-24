@@ -56,6 +56,24 @@ evals may change them to `active`.
 names obey Registry R3 stable-ID/path rules, and destinations are globally
 unique.
 
+### DP2.1 Router envelope (`task_loop`)
+
+`registry/domains.json` may carry one optional `task_loop` envelope member — the
+generic non-software router. It is a sibling of `domains`, not a descriptor and
+not a seventh slot:
+
+| Field | Owner and rule |
+|---|---|
+| `task_loop.trigger` | Router-owned `name`, `description`, and `aliases`; obeys the same stable-ID/path rules and destination uniqueness as a descriptor trigger; no policy body. |
+| `task_loop.excluded_domain_ids` | Declared list of `active` domain IDs the router must not list (e.g. `software-dev`, whose front door is `code-loop`). Each ID must resolve to a registered domain. |
+
+The envelope is optional: a domains child without it is valid and produces no
+router projection. Exclusion is declared here, never hardcoded in the trigger,
+so every non-excluded `active` pack — including a future domain-builder pack —
+appears in the router with no engine, renderer, shell, or validator edit (DP6).
+The router raises no pack's loop ceiling and routes execution only through the
+selected pack's own descriptor and six slots.
+
 ## DP3. Slot requirements
 
 ### DP3.1 Workflow
@@ -123,16 +141,29 @@ Host Adapters translate host behavior only; they cannot alter domain semantics.
 
 ## DP5. Generated trigger
 
-The descriptor owns trigger name, description, and aliases. The Projection
-Module owns one standardized thin body which resolves the descriptor, checks
-engine revision, loads DP1 slots, loads an allowed project profile, and emits a
-named diagnostic on failure. It contains no independent domain policy.
+The Projection Module owns two thin-body projection types, both policy-free:
+
+1. **Per-descriptor domain trigger.** The descriptor owns trigger name,
+   description, and aliases. The standardized body resolves the descriptor,
+   checks engine revision, loads DP1 slots, loads an allowed project profile,
+   and emits a named diagnostic on failure.
+2. **`task_loop` router (DP2.1).** One optional generated body that lists every
+   non-excluded `active` pack and routes the selected `<domain-id>` through the
+   Catalog to that pack's declared engine and six slots. Its name, description,
+   and aliases come from the `task_loop` envelope; it lists packs by
+   `domain_id`, trigger name, and `pack_location`, renders explicit empty-state
+   guidance when no eligible pack exists, and is absent entirely when the
+   envelope is unregistered.
+
+Neither body contains independent domain policy. Every embedded registry string
+passes the same single-line content guard so registry data cannot smuggle a
+frontmatter key or instruction line into a trigger.
 
 Aliases are sorted and collision-checked before UTF-8/LF rendering. The child
 registry's `registry_revision` is embedded as provenance. `--check`
-is byte-exact. A changed descriptor or trigger requires render/eval, plugin
-reinstall or update, and a fresh host session; an open/cached session is not
-evidence.
+is byte-exact for both projection types. A changed descriptor, router envelope,
+or trigger requires render/eval, plugin reinstall or update, and a fresh host
+session; an open/cached session is not evidence.
 
 ## DP6. Lifecycle, extension, and retirement
 

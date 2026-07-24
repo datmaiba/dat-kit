@@ -250,15 +250,18 @@ class _Builder:
     def add(self, code: str, path: str, message: str) -> None:
         self.diagnostics.append(Diagnostic(code, path, message))
 
-    def closed(self, value: Any, keys: set[str], path: str) -> bool:
+    def closed(self, value: Any, keys: set[str], path: str, optional: frozenset[str] = frozenset()) -> bool:
+        # `optional` keys are permitted but not required: absent ones raise no
+        # REQUIRED_FIELD_MISSING and present ones raise no UNKNOWN_FIELD. With
+        # the default empty set this is exactly the old closed-equality check.
         if not isinstance(value, dict):
             self.add("REGISTRY_TYPE_INVALID", path, "must be an object")
             return False
-        for key in sorted(set(value) - keys):
+        for key in sorted(set(value) - keys - optional):
             self.add("REGISTRY_UNKNOWN_FIELD", f"{path}/{key}", "unknown field")
         for key in sorted(keys - set(value)):
             self.add("REGISTRY_REQUIRED_FIELD_MISSING", f"{path}/{key}", "required field is missing")
-        return set(value) == keys
+        return not (set(value) - keys - optional) and keys <= set(value)
 
     def path(self, value: Any, path: str) -> str | None:
         try:
@@ -562,7 +565,11 @@ class _Builder:
         return True
 
     def _validate_domains(self, value: dict[str, Any], relative: str) -> None:
-        self.closed(value, self.CHILD_KEYS | {"domains"}, relative)
+        # `task_loop` is the optional router envelope (PLAN v8 Phase B): a single
+        # generated trigger listing non-software active packs. It is not a domain
+        # descriptor and not a seventh slot; it is validated in its own block
+        # below so a domains child without it stays valid.
+        self.closed(value, self.CHILD_KEYS | {"domains"}, relative, optional=frozenset({"task_loop"}))
         domains = value.get("domains")
         if not isinstance(domains, list):
             self.add("REGISTRY_TYPE_INVALID", f"{relative}#/domains", "must be an array")
@@ -617,6 +624,62 @@ class _Builder:
                         exists = slot_path.is_file()
                     if not exists:
                         self.add("DOMAIN_SLOT_MISSING", f"{path}/pack_location", f"{pack}/{slot}")
+        self._validate_task_loop(value.get("task_loop"), f"{relative}#/task_loop", ids, aliases, destinations)
+
+    def _validate_task_loop(
+        self,
+        task_loop: Any,
+        path: str,
+        domain_ids: set[str],
+        aliases: dict[str, str],
+        destinations: dict[str, str],
+    ) -> None:
+        # Optional router envelope. Absent is valid (no router projection).
+        if task_loop is None:
+            return
+        if not self.closed(task_loop, {"trigger", "excluded_domain_ids"}, path):
+            return
+        trigger = task_loop["trigger"]
+        if self.closed(trigger, {"name", "description", "aliases"}, f"{path}/trigger"):
+            name = trigger["name"]
+            if not isinstance(name, str) or STABLE_ID.fullmatch(name) is None or "/" in name:
+                self.add("REGISTRY_TRIGGER_INVALID", f"{path}/trigger/name", "must be one stable path segment")
+            else:
+                # The router destination shares the skills/<name>/SKILL.md space
+                # with every domain trigger; a name collision would make two
+                # projections target one path.
+                destination_key = portable_path_key(f"skills/{name}/SKILL.md")
+                if destination_key in destinations:
+                    self.add("PROJECTION_DESTINATION_COLLISION", f"{path}/trigger/name", destinations[destination_key])
+                description = trigger["description"]
+                if not isinstance(description, str) or not description.strip():
+                    self.add("REGISTRY_TRIGGER_INVALID", f"{path}/trigger/description", "must be a non-empty string")
+                trigger_aliases = trigger["aliases"]
+                if not isinstance(trigger_aliases, list):
+                    self.add("REGISTRY_TYPE_INVALID", f"{path}/trigger/aliases", "must be an array")
+                    trigger_aliases = []
+                for alias in [name, *trigger_aliases]:
+                    if not isinstance(alias, str) or not alias.strip():
+                        self.add("REGISTRY_TRIGGER_INVALID", f"{path}/trigger/aliases", "alias must be non-empty")
+                        continue
+                    key = alias.strip().casefold()
+                    if key in aliases:
+                        self.add("REGISTRY_TRIGGER_ALIAS_COLLISION", f"{path}/trigger/aliases", aliases[key])
+                    aliases[key] = "task-loop"
+        excluded = task_loop["excluded_domain_ids"]
+        if not isinstance(excluded, list):
+            self.add("REGISTRY_TYPE_INVALID", f"{path}/excluded_domain_ids", "must be an array")
+            return
+        seen: set[str] = set()
+        for index, domain_id in enumerate(excluded):
+            item_path = f"{path}/excluded_domain_ids/{index}"
+            if not isinstance(domain_id, str) or STABLE_ID.fullmatch(domain_id) is None:
+                self.add("REGISTRY_DOMAIN_ID_INVALID", item_path, "invalid stable ID")
+            elif domain_id not in domain_ids:
+                self.add("REGISTRY_TASK_LOOP_EXCLUSION_UNKNOWN", item_path, domain_id)
+            elif domain_id in seen:
+                self.add("REGISTRY_TASK_LOOP_EXCLUSION_DUPLICATE", item_path, domain_id)
+            seen.add(domain_id)
 
     def _validate_adapters(self, value: dict[str, Any], relative: str) -> None:
         self.closed(value, self.CHILD_KEYS | {"adapters"}, relative)
@@ -830,6 +893,20 @@ class Catalog:
 
     def adapters(self) -> tuple[dict[str, Any], ...]:
         return tuple(copy.deepcopy(sorted(self._children["adapters"]["adapters"], key=lambda item: item["adapter_id"])))
+
+    def task_loop_trigger(self) -> dict[str, Any] | None:
+        """The router envelope's trigger metadata, or None when unregistered."""
+        task_loop = self._children["domains"].get("task_loop")
+        if not isinstance(task_loop, dict) or not isinstance(task_loop.get("trigger"), dict):
+            return None
+        return copy.deepcopy(task_loop["trigger"])
+
+    def task_loop_excluded_domains(self) -> frozenset[str]:
+        task_loop = self._children["domains"].get("task_loop")
+        if not isinstance(task_loop, dict):
+            return frozenset()
+        excluded = task_loop.get("excluded_domain_ids")
+        return frozenset(excluded) if isinstance(excluded, list) else frozenset()
 
     def evolution_policy(self) -> dict[str, Any]:
         return copy.deepcopy(self._children["evolution"])

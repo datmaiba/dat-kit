@@ -268,6 +268,7 @@
         "skills/improve-codebase-architecture/**",
         "skills/project-init/**",
         "skills/scorecard/**",
+        "skills/task-loop/**",
         "skills/terse-mode/**"
       ],
       "owner": "maintainers",

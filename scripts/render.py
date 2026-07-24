@@ -91,11 +91,90 @@ def render_domain_trigger(catalog: Catalog, descriptor: dict[str, object]) -> by
         "",
         *(f"1. `{pack}/{slot}`" for slot in SLOT_ORDER),
         "",
-        f"Registered aliases: {', '.join(f'`{alias}`' for alias in aliases)}.",
+        f"Registered aliases: {', '.join(f'`{alias}`' for alias in sorted(aliases))}.",
         "Fail closed with `DOMAIN_SLOT_MISSING` or `DOMAIN_ENGINE_REVISION_MISMATCH`",
         "before execution when the Catalog, engine, or any slot is unavailable.",
         "Use only the loaded pack's deliverable, gate, and reviewer routing; this",
         "trigger contains no independent domain policy.",
+        "",
+    ]
+    return "\n".join(lines).encode("utf-8")
+
+
+def _ensure_single_line(context: str, label: str, value: object) -> None:
+    # Same content guard as render_domain_trigger's body fields: any embedded
+    # registry string could otherwise smuggle a frontmatter key or instruction
+    # line into the generated trigger (4f security INFO, closed at 5a).
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or any(ch in value for ch in UNSAFE_FIELD_CHARS)
+    ):
+        raise ValueError(
+            f"task-loop router {context} {label} must be a non-empty single line"
+            " without tabs, newlines, or Unicode line breaks"
+        )
+
+
+def render_task_loop_router(catalog: Catalog) -> bytes:
+    trigger = catalog.task_loop_trigger()
+    if not isinstance(trigger, dict):  # not assert: must survive python -O
+        raise ValueError("no task_loop router envelope to render")
+    name = trigger.get("name")
+    description = trigger.get("description")
+    aliases = trigger.get("aliases")
+    if not isinstance(aliases, list):
+        raise ValueError("task-loop router aliases must be a list")
+    _ensure_single_line("trigger", "name", name)
+    _ensure_single_line("trigger", "description", description)
+    for alias in aliases:
+        _ensure_single_line("trigger", "alias", alias)
+    excluded = catalog.task_loop_excluded_domains()
+    menu: list[str] = []
+    for descriptor in catalog.domains():
+        if descriptor["lifecycle"] != "active" or descriptor["domain_id"] in excluded:
+            continue
+        domain_id = descriptor["domain_id"]
+        trigger_name = descriptor["trigger"]["name"]
+        pack = descriptor["pack_location"]
+        for label, field in (("domain_id", domain_id), ("trigger name", trigger_name), ("pack_location", pack)):
+            _ensure_single_line(domain_id, label, field)
+        menu.append(f"- `{domain_id}` → trigger `{trigger_name}`, pack `{pack}`")
+    if menu:
+        menu_block = [
+            "Registered non-software packs (registry-driven; a new active pack",
+            "appears here with no code change):",
+            "",
+            *menu,
+        ]
+    else:
+        menu_block = [
+            "No non-software Domain Pack is registered yet. Use the domain-builder",
+            "skill to author one and it will appear here automatically.",
+        ]
+    lines = [
+        "---",
+        f"name: {name}",
+        "description: >-",
+        f"  {description}",
+        "---",
+        f"<!-- {GENERATED_MARKER}; source_revision={catalog.domain_registry_revision} -->",
+        "",
+        f"# {name}",
+        "",
+        "Route non-software work through the Registry Catalog. On a bare",
+        f"`{name}`, present the menu below and ask which pack to run. On",
+        f"`{name} <domain-id>`, resolve that descriptor through the Catalog, load",
+        "its declared engine and the pack's six semantic slots in order, then run",
+        "the pack's own deliverable, gate, and reviewer routing.",
+        "",
+        *menu_block,
+        "",
+        f"Registered aliases: {', '.join(f'`{alias}`' for alias in sorted(aliases))}.",
+        "Fail closed with `DOMAIN_SLOT_MISSING` or `DOMAIN_ENGINE_REVISION_MISMATCH`",
+        "before execution when the Catalog, engine, or any slot is unavailable.",
+        "Route only through the selected pack; this trigger contains no independent",
+        "domain policy.",
         "",
     ]
     return "\n".join(lines).encode("utf-8")
@@ -140,6 +219,14 @@ def expected_outputs(catalog: Catalog) -> dict[str, bytes]:
                 (Diagnostic("PROJECTION_DESTINATION_COLLISION", destination, "multiple projections target one path"),)
             )
         outputs[destination] = render_domain_trigger(catalog, descriptor)
+    router = catalog.task_loop_trigger()
+    if router is not None:
+        destination = f"skills/{router['name']}/SKILL.md"
+        if destination in outputs:
+            raise CatalogLoadError(
+                (Diagnostic("PROJECTION_DESTINATION_COLLISION", destination, "task-loop router collides with a domain trigger"),)
+            )
+        outputs[destination] = render_task_loop_router(catalog)
     return dict(sorted(outputs.items()))
 
 

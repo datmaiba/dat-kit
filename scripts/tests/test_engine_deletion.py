@@ -45,6 +45,11 @@ def fixture_without_packs(tmp_path: pathlib.Path) -> pathlib.Path:
         "software-dev",
     ], "deletion test must remove exactly the two cutover packs"
     registry["domains"] = []
+    # The task_loop router envelope denylists a domain ID; deleting every domain
+    # leaves nothing to route and would orphan that reference, so removing the
+    # packs must reconcile the router too (same rule as gate_authority_ref /
+    # evolution_profile_ref resolution). This still only edits domains.json.
+    registry.pop("task_loop", None)
     write_json(domains_path, registry)
     for location in removed:
         # guard parity with registry_fixture's copy path (security review,

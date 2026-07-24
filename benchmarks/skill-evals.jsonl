@@ -16,3 +16,5 @@
 {"id":"trg-cookbook-01","prompt":"is there a cookbook example for RAG we can start from?","expect_skill":"cookbook-lookup","match":"find a recipe in the cookbook"}
 {"id":"trg-terse-01","prompt":"talk terse from now on, drop the filler","expect_skill":"terse-mode","match":"talk terse"}
 {"id":"trg-scorecard-02","prompt":"log this completed task in the scorecard","expect_skill":"scorecard","match":"log this completed task"}
+{"id":"trg-taskloop-01","prompt":"run the task loop for my quarterly report","expect_skill":"task-loop","match":"run the task loop"}
+{"id":"neg-taskloop-01","prompt":"run the code loop for phase 3","expect_skill":null,"match":null}

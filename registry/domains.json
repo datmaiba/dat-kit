@@ -33,5 +33,13 @@
       "loop_ceiling": "Goal",
       "evolution_profile_ref": "software-dev-policy"
     }
-  ]
+  ],
+  "task_loop": {
+    "trigger": {
+      "name": "task-loop",
+      "description": "Route non-software work to the right Domain Pack. Invoke with \"run the task loop\", \"task-loop\", or when the user wants to start non-code work and choose which discipline applies. Lists every registered non-software active pack and routes the chosen one through the work-loop engine and its six slots; a new pack registered via domain-builder appears automatically. Raises no pack's loop ceiling and carries no domain policy of its own.",
+      "aliases": ["task loop", "non-code work"]
+    },
+    "excluded_domain_ids": ["software-dev"]
+  }
 }
