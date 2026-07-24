@@ -4,6 +4,12 @@ AI agents read this file before EVERY task in this repo. New entries go on top, 
 
 ---
 
+### 2026-07-24 — A "no dropped X" rule can be satisfied for the co-present case while silently dropping the solely-absent case
+
+- **What happened**: subset #5's per-reviewer view had to "include unknown/unlinked defects rather than dropping them" (telemetry-v3 T3.12). The first implementation routed a defect into `unlinked_defects` only when `approving_reviewers` was *empty*, and routed each unknown approver id into `unknown_reviewers`. A defect whose approvers were ALL unknown (non-empty list, no matching `review_result`) therefore reached neither list — its `defect_id` vanished from every output. The mixed case (one known + one unknown approver) passed only incidentally, because the known co-approver retained the defect. Code review caught it; the fix tracks a per-defect `matched_known` flag so a defect that links to no known reviewer — empty OR all-unknown — always lands in `unlinked_defects`, while the mixed case stays linked.
+- **Root cause**: the "don't drop it" guard keyed on one surface (empty list) instead of on the actual property it protects (the defect links to no known reviewer). The test suite exercised empty and mixed but not all-unknown, so the gap was invisible.
+- **Rule**: when a rule says "never drop X", implement the sink on the *invariant* ("X has no valid link") not on one *cause* of it (an empty field), and enumerate every distinct cause — empty, all-foreign, and the mixed boundary — as separate tests. Relatedly, when a fix generalizes two code paths through one shared helper, add a test on the path *named in the finding*, not only the sibling path that happens to share the helper.
+
 ### 2026-07-23 — A "no-echo of rejected value" test can pass without exercising the control if the poison sits in the wrong field
 
 - **What happened**: subset #3's first `test_rejected_value_is_not_echoed` planted a secret in `evidence_ref` but forced the rejection on `verdict="not_a_verdict"`. The test passed, but the field carrying the secret was never the field that failed — so it proved the no-echo property only incidentally. Code review (N1) caught it; the fix put the secret in `evidence_ref` and made `evidence_ref` itself the failing field (a space fails STABLE_REF grammar).

@@ -1242,6 +1242,162 @@ def _expected_coverage(
     }
 
 
+def build_per_reviewer_view(
+    events: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Derive the reports-producer per-reviewer view from valid events (T3.12).
+
+    Groups original ``review_result`` rounds by (``reviewer_id``,
+    ``reviewer_class``) and joins ``defect_recorded.approving_reviewers`` on the
+    stable reviewer ID. The view reports association, never causal blame, and
+    never drops a defect: a defect with an empty ``approving_reviewers`` surfaces
+    in ``unlinked_defects``, and any approving ID with no ``review_result`` surfaces
+    in ``unknown_reviewers`` while its known co-approvers are still linked. Producer
+    identity is not reviewer identity; this reads only reviewer-authored fields.
+    Corrections are excluded, so a corrected round is never double-counted. This
+    derivation does not activate the ``reports`` producer.
+    """
+    originals = _originals(events)
+    reviewers: dict[tuple[str, str], dict[str, Any]] = {}
+    for event in originals:
+        if event["event_type"] != "review_result":
+            continue
+        payload = event["payload"]
+        key = (payload["reviewer_id"], payload["reviewer_class"])
+        entry = reviewers.setdefault(
+            key, {"rounds": 0, "verdicts": {}, "linked_defects": set()}
+        )
+        entry["rounds"] += 1
+        verdict = payload["verdict"]
+        entry["verdicts"][verdict] = entry["verdicts"].get(verdict, 0) + 1
+
+    unlinked_defects: set[str] = set()
+    unknown_reviewers: set[str] = set()
+    for event in originals:
+        if event["event_type"] != "defect_recorded":
+            continue
+        payload = event["payload"]
+        matched_known = False
+        for reviewer_id in payload["approving_reviewers"]:
+            linked_here = False
+            for key, entry in reviewers.items():
+                if key[0] == reviewer_id:
+                    entry["linked_defects"].add(payload["defect_id"])
+                    linked_here = True
+            if linked_here:
+                matched_known = True
+            else:
+                unknown_reviewers.add(reviewer_id)
+        # No dropped defect (T3.12): a defect that links to no known reviewer —
+        # whether its approving list is empty or entirely unknown — surfaces here.
+        if not matched_known:
+            unlinked_defects.add(payload["defect_id"])
+
+    reviewer_rows = [
+        {
+            "reviewer_id": reviewer_id,
+            "reviewer_class": reviewer_class,
+            "rounds": entry["rounds"],
+            "verdicts": dict(sorted(entry["verdicts"].items())),
+            "linked_defects": sorted(entry["linked_defects"]),
+        }
+        for (reviewer_id, reviewer_class), entry in sorted(
+            reviewers.items(), key=lambda item: (item[0][1], item[0][0])
+        )
+    ]
+    return {
+        "reviewers": reviewer_rows,
+        "unlinked_defects": sorted(unlinked_defects),
+        "unknown_reviewers": sorted(unknown_reviewers),
+    }
+
+
+def _latest_terminal_coverage_status(
+    terminal: Mapping[str, Any], corrected_by: Mapping[str, Mapping[str, Any]]
+) -> str:
+    """Follow the correction chain from a terminal event to its latest valid tip (T3.5.1).
+
+    Reports use the latest valid terminal coverage, never an earlier snapshot; a
+    ``task_finished`` corrected after the fact carries the authoritative result on
+    the correction, not the original. The stored ``coverage.status`` is read, not
+    recomputed, because the terminal event already carries the terminal result.
+    """
+    current = terminal
+    seen = {current["event_id"]}
+    while current["event_id"] in corrected_by:
+        nxt = corrected_by[current["event_id"]]
+        if nxt["event_id"] in seen:
+            break
+        current = nxt
+        seen.add(current["event_id"])
+    return current["coverage"]["status"]
+
+
+def build_event_coverage_rate_view(
+    events: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Derive the reports-producer event-coverage-rate view from valid events (T3.12).
+
+    For each host (the ``revisions.adapter`` value, per decision 0003), the rate is
+    tasks whose latest valid terminal coverage is ``full`` over all completed tasks
+    observed by finish or scorecard in the window; this subset treats the whole
+    corpus as a single window. Completion-only, partial, and aborted tasks remain
+    in the denominator (they are terminal-observed). A host with zero completed
+    tasks reports a null rate with reason ``no_observed_tasks``, never a fabricated
+    0 or 100 percent. This derivation does not activate the ``reports`` producer.
+    """
+    corrected_by: dict[str, Mapping[str, Any]] = {}
+    for event in events:
+        correction_of = event["lineage"]["correction_of"]
+        if correction_of is not None:
+            corrected_by[correction_of] = event
+
+    tasks: dict[str, dict[str, Any]] = {}
+    for event in _originals(events):
+        event_type = event["event_type"]
+        if event_type not in {"task_finished", "scorecard_imported"}:
+            continue
+        existing = tasks.get(event["task_id"])
+        # An original task_finished is authoritative over a scorecard-only observation.
+        if existing is not None and event_type == "scorecard_imported":
+            continue
+        # Both terminal kinds read their latest valid coverage through the
+        # correction chain, so a corrected observation is never scored stale.
+        status = _latest_terminal_coverage_status(event, corrected_by)
+        tasks[event["task_id"]] = {
+            "host": event["revisions"]["adapter"]["value"],
+            "full": status == "full",
+        }
+
+    hosts = {event["revisions"]["adapter"]["value"] for event in events}
+    rows = []
+    for host in sorted(hosts, key=lambda value: (value is None, value)):
+        completed = [task for task in tasks.values() if task["host"] == host]
+        denominator = len(completed)
+        if denominator == 0:
+            rows.append(
+                {
+                    "host": host,
+                    "numerator": 0,
+                    "denominator": 0,
+                    "rate": None,
+                    "reason": "no_observed_tasks",
+                }
+            )
+            continue
+        numerator = sum(1 for task in completed if task["full"])
+        rows.append(
+            {
+                "host": host,
+                "numerator": numerator,
+                "denominator": denominator,
+                "rate": numerator / denominator,
+                "reason": None,
+            }
+        )
+    return {"hosts": rows}
+
+
 def _validate_task_sequences(events: Sequence[Mapping[str, Any]]) -> None:
     task_ids = []
     for event in _originals(events):
