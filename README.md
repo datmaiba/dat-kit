@@ -4,6 +4,15 @@ A spec-driven working-discipline toolkit for AI coding agents, distilled from re
 
 > Status: **v2.0.0 released** from `feature/open-platform-v2`. The corrected RC2 tag points to `c018a31`, and its Linux and Windows CI jobs passed. See [Roadmap](#roadmap).
 
+## Two doors — code vs non-code
+
+Every run enters through one of two triggers:
+
+- **`code-loop`** — for software. Loads the `software-dev` Domain Pack plus the work-loop engine. Its registry aliases are "build phase" and "run code loop". The old name `build-loop` also still works — as a separate compatibility-alias trigger kept for muscle memory, not as one of these registry aliases.
+- **`task-loop`** — for everything non-code. A registry-driven router that lists every non-software active Domain Pack (today `knowledge-work`) and routes the one you pick through that pack's own six slots. It is a router, not a domain: it raises no loop ceiling and carries no policy of its own. Aliases: "task loop", "non-code work".
+
+A pack authored later with `domain-builder` appears in `task-loop` automatically, with no code change — `software-dev` stays out of it (`excluded_domain_ids`) because `code-loop` is its dedicated door.
+
 ## Architecture
 
 Three layers, connected only through the registry:
@@ -34,6 +43,8 @@ Live host smokes (fresh-session trigger invocation + pack read) are maintainer-r
 | Component | What it does |
 |---|---|
 | `skills/code-loop` | Generated trigger for the **software-dev** pack + engine. Self-questioning code loop: context load → self-question against spec → plan → approval gate → build → verified checks → independent review → lessons harvest. Supports one-shot PREFLIGHT + autopilot + delegated builds. |
+| `skills/build-loop` | Compatibility alias for the renamed `code-loop` trigger — routes legacy "run the build loop" phrasing to `code-loop`. Hand-authored (not a projection); kept at least one minor for muscle memory and existing plugin references. |
+| `skills/task-loop` | Generated registry-driven router for **non-code** work: lists every non-software active Domain Pack (today `knowledge-work`) and routes the chosen one through the work-loop engine + its six slots. A router, not a domain — raises no loop ceiling, carries no policy. Aliases: "task loop", "non-code work". |
 | `skills/knowledge-work` | Generated trigger for the **knowledge-work** pack — research, writing, analysis. Primary-source grounding, citation/fidelity/reliability/currency/coverage/consistency gates, independent fact-check. Capped at the Goal loop (its load-bearing gate needs a human to close). |
 | `skills/domain-builder` | Interview a real practitioner and encode *their* discipline as a six-slot Domain Pack, registered through the registry. Enforces gate-validity (real worked cases + a "gamed by X" line + sign-off) and caps interview-authored domains at Turn/Goal. |
 | `skills/project-init` | Scaffold a new project (or adopt an existing one): canonical `AGENTS.md`, pointer-only runtime adapters, spec skeleton `00→08`, shared agent docs, `CONTEXT.md` glossary, stack profile. Brownfield is preflight-gated and fail-closed. |

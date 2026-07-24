@@ -99,10 +99,17 @@ skill description edit needs its skill-eval updated, reviewers stay sequential.
 ## Phase C scope (PLAN §4 Phase C / §8)
 
 - README: "Hai cửa vào" section up top — `code-loop` (code) / `task-loop` (non-code).
-- `docs/domains.md` + `docs/loops.md`: boundary table; remove leftover "final/permanent"
-  wording (ADR 0001 debt).
-- `HUONG_DAN.vi.md`: Vietnamese guide for both commands + aliases (`build-loop`, `task loop`).
-- Exit: reading a description makes code-vs-non-code obvious; trigger-eval pos/neg pass.
+- `docs/domains.md` + `docs/loops.md`: boundary table; add `task-loop` (currently absent —
+  verified `grep -rl task-loop README.md docs/domains.md docs/loops.md HUONG_DAN.vi.md`
+  returns nothing).
+- Remove leftover "final/permanent" wording: the ADR-0001 debt lives in
+  **`docs/decisions/0001-open-platform.md`** (that is ADR 0001). `docs/spikes/**` also matches
+  "permanent"/"final" but is **historical append-only evidence — do NOT edit it**.
+- `HUONG_DAN.vi.md`: Vietnamese guide for both commands + all aliases — `code-loop`
+  (+ `build-loop`), `task-loop` (+ `task loop`, `non-code work`), `knowledge-work`.
+- Any skill description touched → update its `benchmarks/skill-evals.jsonl` case (always-on floor).
+- Exit: reading a description makes code-vs-non-code obvious; trigger-eval pos/neg pass;
+  `validate.py` + `render.py --check` green (docs edits must not touch generated triggers).
 
 ## Traps
 

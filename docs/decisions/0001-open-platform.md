@@ -9,7 +9,7 @@
 
 ## Context
 
-The 2026-07-14 decision called the flat `skills/*` layout permanent and final.
+The 2026-07-14 decision declared the flat `skills/*` layout settled and not open to revision.
 That wording froze an implementation before installed-host materialization had
 been tested and left software-specific policy fused into `build-loop`. It also
 made the shipped `knowledge-work` pack structurally different from the flagship

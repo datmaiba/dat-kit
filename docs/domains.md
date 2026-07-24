@@ -7,6 +7,10 @@ The domains dat-kit currently supports. A **Domain Pack** teaches the working lo
 | **software-dev** | `domains/software-dev/` (six slots; generated trigger at `skills/code-loop/SKILL.md`) | Goal | The flagship. The `code-loop` trigger (alias: `build-loop`) loads this pack + the work-loop engine; its reviewer chain (`qa-agent` → `code-reviewer` → `security-reviewer`) is the gate. |
 | **knowledge-work** | `domains/knowledge-work/` (six slots; generated trigger at `skills/knowledge-work/SKILL.md`) | Goal (human-run) | First non-dev pack: research, writing, analysis. Load-bearing gate G2 (source–claim fidelity) is human-run, so no automation. |
 
+## Two entry points — code vs non-code
+
+dat-kit has two front doors. **`code-loop`** loads the `software-dev` pack for software work (legacy alias `build-loop`). **`task-loop`** is the non-code entry point: a registry-driven router — *not* a domain and not a six-slot pack — that lists every non-software active pack (today only `knowledge-work`) and routes the chosen one through its own six slots. `task-loop` raises no loop ceiling and carries no domain policy; `software-dev` is excluded from it (`excluded_domain_ids`) because `code-loop` is its dedicated door. A pack authored later with `domain-builder` joins `task-loop` automatically, with no code change. Aliases: `task-loop` → "task loop", "non-code work"; `knowledge-work` → "fact check", "research report".
+
 ## How a domain plugs in
 
 Each pack declares the six slots; the working loop reads them at the relevant phase (ground-truth before acting, gates + reviewers at verify). The loop itself is domain-neutral — the pack supplies the specifics.

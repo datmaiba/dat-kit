@@ -42,15 +42,18 @@ Chi tiết theo host (setup, giới hạn, migration): xem [`adapters/codex/ADAP
 |---|---|
 | `/dat-kit:project-init` | Scaffold project mới (hoặc `--here` cho repo sẵn có): `AGENTS.md` canonical `dat-kit 2.0` + pointer adapters, skeleton `spec/00→08`, shared agent docs, lessons-learned + `CONTEXT.md` |
 | `/dat-kit:code-loop` | Trigger sinh từ registry, load pack `software-dev` + engine. Vòng lặp build: load context → tự chất vấn theo spec → plan → **chờ duyệt** → build → chạy gates → review độc lập → đúc kết bài học. Autopilot: PREFLIGHT gom mọi câu hỏi thành 1 lần duyệt duy nhất. Delegated-build: session chính làm orchestrator, mỗi task 1 builder subagent mới + review 2 bước |
+| `/dat-kit:task-loop` | Cửa vào cho mọi việc **non-code**. Router sinh từ registry: liệt kê mọi non-software active pack (hiện có `knowledge-work`) rồi route pack được chọn qua work-loop engine + 6 slot của nó. Là router, KHÔNG phải domain — không nâng loop ceiling, không mang policy. `software-dev` bị loại (`excluded_domain_ids`) vì đã có cửa riêng `code-loop`; pack mới qua `domain-builder` tự xuất hiện. Alias: "task loop", "non-code work" |
 | `/dat-kit:knowledge-work` | Trigger cho pack `knowledge-work` — research, viết, phân tích: bám nguồn primary, gate citation/fidelity, fact-check độc lập. Trần Goal loop (gate chủ lực cần người đóng) |
 | `/dat-kit:domain-builder` | Phỏng vấn người hành nghề thật và mã hoá kỷ luật của HỌ thành Domain Pack 6 slot, đăng ký qua registry. Bắt buộc gate-validity; trần Turn/Goal cho domain phỏng vấn |
 | `/dat-kit:handoff` | Nén session đang dở thành file bàn giao trong `handoffs/` — session mới (hoặc máy khác) đọc là tiếp tục được ngay |
-| `/dat-kit:scorecard` | Chấm điểm task: rubric 1-5 cố định, ước lượng giờ-tay (dán nhãn estimate), thời gian thật, gates — ghi vào `benchmarks/scorecard.jsonl`. Build-loop tự gọi cuối mỗi phase |
+| `/dat-kit:scorecard` | Chấm điểm task: rubric 1-5 cố định, ước lượng giờ-tay (dán nhãn estimate), thời gian thật, gates — ghi vào `benchmarks/scorecard.jsonl`. Code-loop tự gọi cuối mỗi phase |
 | 4 agents | `plan-reviewer`, `qa-agent`, `code-reviewer`, `security-reviewer` — builder không bao giờ tự chấm bài mình |
 | SessionStart hook | Tự inject kỷ luật làm việc vào đầu mọi session (Claude Code) |
 | `scripts/statusline.py` | Hiện token sau MỖI câu lệnh trên statusline Claude Code. Setup 1 lần: `python3 scripts/statusline.py --install` |
 
 (Các skill khác: `diagnosing-bugs`, `improve-codebase-architecture`, `git-worktrees`, `fable-mode`/`fable-pro`, `guardian-builder`, `cookbook-lookup`, `terse-mode` — xem README.)
+
+**Alias các lệnh:** `code-loop` (tên cũ `build-loop` vẫn chạy như compatibility alias; alias registry: "build phase", "run code loop") · `task-loop` ("task loop", "non-code work") · `knowledge-work` ("fact check", "research report").
 
 ## Dùng hằng ngày
 
